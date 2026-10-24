@@ -295,8 +295,29 @@ class _RegisterScreenState extends State<RegisterScreen>
                                               textInputAction: TextInputAction.next,
                                               validator: (v) {
                                                 if (v == null || v.trim().isEmpty) return 'Email wajib diisi';
-                                                final emailReg = RegExp(r'^[\w.-]+@[\w.-]+\.\w+$');
-                                                if (!emailReg.hasMatch(v.trim())) return 'Format email tidak valid';
+                                                final email = v.trim();
+                                                if (!email.contains('@')) {
+                                                  return 'Email harus menyertakan tanda @ (contoh: nama@gmail.com)';
+                                                }
+                                                final parts = email.split('@');
+                                                if (parts.length != 2 || parts[0].isEmpty) {
+                                                  return 'Format email tidak valid (contoh: nama@gmail.com)';
+                                                }
+                                                final domain = parts[1].trim();
+                                                if (domain.isEmpty) {
+                                                  return 'Masukkan penyedia email setelah @ (contoh: gmail.com, yahoo.com)';
+                                                }
+                                                if (!domain.contains('.')) {
+                                                  return 'Masukkan domain lengkap setelah @ (contoh: gmail.com, yahoo.com)';
+                                                }
+                                                final domainParts = domain.split('.');
+                                                if (domainParts[0].isEmpty || domainParts[1].isEmpty) {
+                                                  return 'Format domain email tidak valid (contoh: gmail.com)';
+                                                }
+                                                final emailReg = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+                                                if (!emailReg.hasMatch(email)) {
+                                                  return 'Format email tidak valid (contoh: nama@gmail.com)';
+                                                }
                                                 return null;
                                               },
                                             ),
@@ -310,11 +331,16 @@ class _RegisterScreenState extends State<RegisterScreen>
                                               icon: Icons.phone_outlined,
                                               keyboardType: TextInputType.phone,
                                               textInputAction: TextInputAction.next,
-                                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                              inputFormatters: [
+                                                FilteringTextInputFormatter.digitsOnly,
+                                                LengthLimitingTextInputFormatter(13),
+                                              ],
                                               validator: (v) {
                                                 if (v == null || v.trim().isEmpty) return 'Nomor HP wajib diisi';
-                                                if (v.trim().length < 10) return 'Nomor HP minimal 10 digit';
-                                                if (!v.startsWith('08')) return 'Nomor HP harus diawali 08';
+                                                final phone = v.trim();
+                                                if (!phone.startsWith('08')) return 'Nomor HP harus diawali 08';
+                                                if (phone.length < 10) return 'Nomor HP minimal 10 digit (saat ini ${phone.length})';
+                                                if (phone.length > 13) return 'Nomor HP maksimal 13 digit';
                                                 return null;
                                               },
                                             ),

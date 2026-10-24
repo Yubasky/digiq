@@ -134,14 +134,14 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
 
-          // Wave illustration at top with responsive height
+          // Wave illustration at top with proportional height
           Positioned(
             top: 0,
             left: 0,
             right: 0,
             child: CustomPaint(
               painter: _WavePainter(),
-              size: Size(size.width, (size.height * 0.40).clamp(310.0, 420.0)),
+              size: Size(size.width, (size.height * 0.42).clamp(300.0, 380.0)),
             ),
           ),
 
@@ -152,43 +152,49 @@ class _LoginScreenState extends State<LoginScreen>
                 position: _slideAnim,
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    return SingleChildScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          minHeight: constraints.maxHeight,
-                        ),
-                        child: IntrinsicHeight(
-                          child: Center(
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 440),
-                              child: Column(
-                                children: [
-                                  // Hero header section
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 20, bottom: 20),
-                                    child: Column(
+                    final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+                    return ScrollConfiguration(
+                      behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+                      child: SingleChildScrollView(
+                        physics: isKeyboardOpen
+                            ? const ClampingScrollPhysics()
+                            : const NeverScrollableScrollPhysics(),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: constraints.maxHeight,
+                          ),
+                          child: IntrinsicHeight(
+                            child: Center(
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 420),
+                                child: Column(
+                                  children: [
+                                    // Top spacing to give logo proper breathing room away from the top edge
+                                    const Spacer(),
+
+                                    // Logo & Subtitle
+                                    Column(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Image.asset(
                                           'assets/img/logo digiq putih.png',
-                                          height: 64,
+                                          height: 48,
                                           fit: BoxFit.contain,
                                           errorBuilder: (_, _, _) => const Text(
                                             'DigiQ',
                                             style: TextStyle(
-                                              fontSize: 28,
+                                              fontSize: 26,
                                               fontWeight: FontWeight.bold,
                                               color: Colors.white,
                                               letterSpacing: 1,
                                             ),
                                           ),
                                         ),
-                                        const SizedBox(height: 8),
+                                        const SizedBox(height: 6),
                                         const Text(
                                           'Produk Digital, Bayar via QRIS',
                                           style: TextStyle(
-                                            fontSize: 13,
+                                            fontSize: 12.5,
                                             color: Colors.white,
                                             fontWeight: FontWeight.w400,
                                             letterSpacing: 0.3,
@@ -196,425 +202,406 @@ class _LoginScreenState extends State<LoginScreen>
                                         ),
                                       ],
                                     ),
-                                  ),
 
-                                  // Form card
-                                  Padding(
-                                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                                    child: Container(
-                                      padding: const EdgeInsets.all(24),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(24),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: AppColors.primary.withValues(alpha: 0.12),
-                                            blurRadius: 32,
-                                            offset: const Offset(0, 12),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Form(
-                                        key: _formKey,
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            const Text(
-                                              'Selamat Datang 👋',
-                                              style: TextStyle(
-                                                fontSize: 22,
-                                                fontWeight: FontWeight.bold,
-                                                color: AppColors.textPrimary,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            const Text(
-                                              'Masuk ke akun DigiQ Anda',
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                color: AppColors.textSecondary,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 22),
+                                    // Breathing room between logo and card
+                                    const Spacer(),
 
-                                            // Identifier field
-                                            const Text(
-                                              'Email / Username',
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w600,
-                                                color: AppColors.textPrimary,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 6),
-                                            TextFormField(
-                                              controller: _identifierController,
-                                              keyboardType: TextInputType.emailAddress,
-                                              textInputAction: TextInputAction.next,
-                                              style: const TextStyle(fontSize: 14),
-                                              decoration: InputDecoration(
-                                                hintText: 'email@kamu.com atau username',
-                                                hintStyle: const TextStyle(
-                                                    color: AppColors.textMuted, fontSize: 13),
-                                                prefixIcon: const Icon(Icons.person_outline_rounded,
-                                                    color: AppColors.textMuted, size: 20),
-                                                isDense: true,
-                                                contentPadding: const EdgeInsets.symmetric(
-                                                    horizontal: 14, vertical: 13),
-                                                border: OutlineInputBorder(
-                                                    borderRadius: BorderRadius.circular(12)),
-                                                enabledBorder: OutlineInputBorder(
-                                                  borderRadius: BorderRadius.circular(12),
-                                                  borderSide:
-                                                      const BorderSide(color: AppColors.cardBorder),
-                                                ),
-                                                focusedBorder: OutlineInputBorder(
-                                                  borderRadius: BorderRadius.circular(12),
-                                                  borderSide: const BorderSide(
-                                                      color: AppColors.primary, width: 2),
-                                                ),
-                                                filled: true,
-                                                fillColor: AppColors.background,
-                                              ),
-                                              validator: (v) {
-                                                if (v == null || v.trim().isEmpty) {
-                                                  return 'Email/username wajib diisi';
-                                                }
-                                                return null;
-                                              },
-                                            ),
-
-                                            const SizedBox(height: 14),
-
-                                            // Password field
-                                            const Text(
-                                              'Password',
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w600,
-                                                color: AppColors.textPrimary,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 6),
-                                            TextFormField(
-                                              controller: _passwordController,
-                                              obscureText: _obscurePassword,
-                                              textInputAction: TextInputAction.done,
-                                              onFieldSubmitted: (_) => _doLogin(),
-                                              style: const TextStyle(fontSize: 14),
-                                              decoration: InputDecoration(
-                                                hintText: 'Masukkan password',
-                                                hintStyle: const TextStyle(
-                                                    color: AppColors.textMuted, fontSize: 13),
-                                                prefixIcon: const Icon(Icons.lock_outline_rounded,
-                                                    color: AppColors.textMuted, size: 20),
-                                                suffixIcon: IconButton(
-                                                  icon: Icon(
-                                                    _obscurePassword
-                                                        ? Icons.visibility_outlined
-                                                        : Icons.visibility_off_outlined,
-                                                    color: AppColors.textMuted,
-                                                    size: 20,
-                                                  ),
-                                                  onPressed: () => setState(
-                                                      () => _obscurePassword = !_obscurePassword),
-                                                ),
-                                                isDense: true,
-                                                contentPadding: const EdgeInsets.symmetric(
-                                                    horizontal: 14, vertical: 13),
-                                                border: OutlineInputBorder(
-                                                    borderRadius: BorderRadius.circular(12)),
-                                                enabledBorder: OutlineInputBorder(
-                                                  borderRadius: BorderRadius.circular(12),
-                                                  borderSide:
-                                                      const BorderSide(color: AppColors.cardBorder),
-                                                ),
-                                                focusedBorder: OutlineInputBorder(
-                                                  borderRadius: BorderRadius.circular(12),
-                                                  borderSide: const BorderSide(
-                                                      color: AppColors.primary, width: 2),
-                                                ),
-                                                filled: true,
-                                                fillColor: AppColors.background,
-                                              ),
-                                              validator: (v) {
-                                                if (v == null || v.isEmpty) {
-                                                  return 'Password wajib diisi';
-                                                }
-                                                return null;
-                                              },
-                                            ),
-
-                                            const SizedBox(height: 12),
-
-                                            // Remember me + forgot password row
-                                            Row(
-                                              children: [
-                                                GestureDetector(
-                                                  onTap: () =>
-                                                      setState(() => _rememberMe = !_rememberMe),
-                                                  child: Row(
-                                                    children: [
-                                                      AnimatedContainer(
-                                                        duration:
-                                                            const Duration(milliseconds: 200),
-                                                        width: 18,
-                                                        height: 18,
-                                                        decoration: BoxDecoration(
-                                                          color: _rememberMe
-                                                              ? AppColors.primary
-                                                              : Colors.white,
-                                                          borderRadius:
-                                                              BorderRadius.circular(5),
-                                                          border: Border.all(
-                                                            color: _rememberMe
-                                                                ? AppColors.primary
-                                                                : AppColors.cardBorder,
-                                                            width: 1.5,
-                                                          ),
-                                                        ),
-                                                        child: _rememberMe
-                                                            ? const Icon(Icons.check,
-                                                                color: Colors.white, size: 11)
-                                                            : null,
-                                                      ),
-                                                      const SizedBox(width: 6),
-                                                      const Text(
-                                                        'Ingat saya',
-                                                        style: TextStyle(
-                                                          fontSize: 12.5,
-                                                          color: AppColors.textSecondary,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                                const Spacer(),
-                                                TextButton(
-                                                  onPressed: () {
-                                                    ScaffoldMessenger.of(context).showSnackBar(
-                                                      SnackBar(
-                                                        content: const Text(
-                                                            'Fitur lupa password akan segera hadir.'),
-                                                        backgroundColor: AppColors.primary,
-                                                        behavior: SnackBarBehavior.floating,
-                                                        shape: RoundedRectangleBorder(
-                                                            borderRadius:
-                                                                BorderRadius.circular(12)),
-                                                        margin: const EdgeInsets.all(16),
-                                                      ),
-                                                    );
-                                                  },
-                                                  style: TextButton.styleFrom(
-                                                    padding: EdgeInsets.zero,
-                                                    minimumSize: Size.zero,
-                                                    tapTargetSize:
-                                                        MaterialTapTargetSize.shrinkWrap,
-                                                  ),
-                                                  child: const Text(
-                                                    'Lupa password?',
-                                                    style: TextStyle(
-                                                      fontSize: 12.5,
-                                                      color: AppColors.primary,
-                                                      fontWeight: FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-
-                                            const SizedBox(height: 24),
-
-                                            // Login button
-                                            SizedBox(
-                                              width: double.infinity,
-                                              height: 52,
-                                              child: ElevatedButton(
-                                                onPressed: _isLoading ? null : _doLogin,
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: AppColors.primary,
-                                                  foregroundColor: Colors.white,
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius: BorderRadius.circular(14),
-                                                  ),
-                                                  elevation: 0,
-                                                ),
-                                                child: _isLoading
-                                                    ? const SizedBox(
-                                                        width: 22,
-                                                        height: 22,
-                                                        child: CircularProgressIndicator(
-                                                          strokeWidth: 2.5,
-                                                          color: Colors.white,
-                                                        ),
-                                                      )
-                                                    : const Text(
-                                                        'Masuk',
-                                                        style: TextStyle(
-                                                          fontSize: 15.5,
-                                                          fontWeight: FontWeight.bold,
-                                                        ),
-                                                      ),
-                                              ),
-                                            ),
-
-                                            const SizedBox(height: 16),
-
-                                            // Divider
-                                            Row(
-                                              children: [
-                                                Expanded(
-                                                    child: Divider(
-                                                        color: AppColors.cardBorder,
-                                                        thickness: 1)),
-                                                Padding(
-                                                  padding: const EdgeInsets.symmetric(
-                                                      horizontal: 12),
-                                                  child: Text(
-                                                    'atau',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      color: AppColors.textMuted,
-                                                    ),
-                                                  ),
-                                                ),
-                                                Expanded(
-                                                    child: Divider(
-                                                        color: AppColors.cardBorder,
-                                                        thickness: 1)),
-                                              ],
-                                            ),
-
-                                            const SizedBox(height: 16),
-
-                                            // Register button
-                                            SizedBox(
-                                              width: double.infinity,
-                                              height: 48,
-                                              child: OutlinedButton.icon(
-                                                onPressed: () {
-                                                  Navigator.of(context).push(
-                                                    PageRouteBuilder(
-                                                      pageBuilder: (_, anim, _) =>
-                                                          const RegisterScreen(),
-                                                      transitionsBuilder:
-                                                          (_, anim, _, child) =>
-                                                              SlideTransition(
-                                                        position: Tween<Offset>(
-                                                          begin: const Offset(1, 0),
-                                                          end: Offset.zero,
-                                                        ).animate(anim),
-                                                        child: child,
-                                                      ),
-                                                      transitionDuration:
-                                                          const Duration(milliseconds: 350),
-                                                    ),
-                                                  );
-                                                },
-                                                icon: const Icon(Icons.person_add_outlined,
-                                                    size: 18),
-                                                label: const Text(
-                                                  'Daftar Akun Baru',
-                                                  style: TextStyle(
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                                style: OutlinedButton.styleFrom(
-                                                  foregroundColor: AppColors.primary,
-                                                  side: const BorderSide(
-                                                      color: AppColors.primary, width: 1.5),
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius: BorderRadius.circular(14),
-                                                  ),
-                                                ),
-                                              ),
+                                    // Form card (elongated for mobile proportions)
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                                      child: Container(
+                                        padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(22),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: AppColors.primary.withValues(alpha: 0.12),
+                                              blurRadius: 28,
+                                              offset: const Offset(0, 10),
                                             ),
                                           ],
                                         ),
-                                      ),
-                                    ),
-                                  ),
-
-                                  // Hint for admin
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 16, vertical: 10),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.primaryLight,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          const Icon(Icons.info_outline_rounded,
-                                              color: AppColors.primaryDark, size: 16),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: RichText(
-                                              text: const TextSpan(
+                                        child: Form(
+                                          key: _formKey,
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              const Text(
+                                                'Selamat Datang 👋',
                                                 style: TextStyle(
-                                                  fontSize: 12,
-                                                  color: AppColors.primaryDark,
+                                                  fontSize: 20,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: AppColors.textPrimary,
                                                 ),
+                                              ),
+                                              const SizedBox(height: 3),
+                                              const Text(
+                                                'Masuk ke akun DigiQ Anda',
+                                                style: TextStyle(
+                                                  fontSize: 12.5,
+                                                  color: AppColors.textSecondary,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 18),
+
+                                              // Identifier field
+                                              const Text(
+                                                'Email / Username',
+                                                style: TextStyle(
+                                                  fontSize: 12.5,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: AppColors.textPrimary,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 6),
+                                              TextFormField(
+                                                controller: _identifierController,
+                                                keyboardType: TextInputType.emailAddress,
+                                                textInputAction: TextInputAction.next,
+                                                style: const TextStyle(fontSize: 13.5),
+                                                decoration: InputDecoration(
+                                                  hintText: 'email@kamu.com atau username',
+                                                  hintStyle: const TextStyle(
+                                                      color: AppColors.textMuted, fontSize: 12.5),
+                                                  prefixIcon: const Icon(Icons.person_outline_rounded,
+                                                      color: AppColors.textMuted, size: 18),
+                                                  isDense: true,
+                                                  contentPadding: const EdgeInsets.symmetric(
+                                                      horizontal: 14, vertical: 12),
+                                                  border: OutlineInputBorder(
+                                                      borderRadius: BorderRadius.circular(10)),
+                                                  enabledBorder: OutlineInputBorder(
+                                                    borderRadius: BorderRadius.circular(10),
+                                                    borderSide:
+                                                        const BorderSide(color: AppColors.cardBorder),
+                                                  ),
+                                                  focusedBorder: OutlineInputBorder(
+                                                    borderRadius: BorderRadius.circular(10),
+                                                    borderSide: const BorderSide(
+                                                        color: AppColors.primary, width: 2),
+                                                  ),
+                                                  filled: true,
+                                                  fillColor: AppColors.background,
+                                                ),
+                                                validator: (v) {
+                                                  if (v == null || v.trim().isEmpty) {
+                                                    return 'Email/username wajib diisi';
+                                                  }
+                                                  return null;
+                                                },
+                                              ),
+
+                                              const SizedBox(height: 14),
+
+                                              // Password field
+                                              const Text(
+                                                'Password',
+                                                style: TextStyle(
+                                                  fontSize: 12.5,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: AppColors.textPrimary,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 6),
+                                              TextFormField(
+                                                controller: _passwordController,
+                                                obscureText: _obscurePassword,
+                                                textInputAction: TextInputAction.done,
+                                                onFieldSubmitted: (_) => _doLogin(),
+                                                style: const TextStyle(fontSize: 13.5),
+                                                decoration: InputDecoration(
+                                                  hintText: 'Masukkan password',
+                                                  hintStyle: const TextStyle(
+                                                      color: AppColors.textMuted, fontSize: 12.5),
+                                                  prefixIcon: const Icon(Icons.lock_outline_rounded,
+                                                      color: AppColors.textMuted, size: 18),
+                                                  suffixIcon: IconButton(
+                                                    icon: Icon(
+                                                      _obscurePassword
+                                                          ? Icons.visibility_outlined
+                                                          : Icons.visibility_off_outlined,
+                                                      color: AppColors.textMuted,
+                                                      size: 18,
+                                                    ),
+                                                    onPressed: () => setState(
+                                                        () => _obscurePassword = !_obscurePassword),
+                                                  ),
+                                                  isDense: true,
+                                                  contentPadding: const EdgeInsets.symmetric(
+                                                      horizontal: 14, vertical: 12),
+                                                  border: OutlineInputBorder(
+                                                      borderRadius: BorderRadius.circular(10)),
+                                                  enabledBorder: OutlineInputBorder(
+                                                    borderRadius: BorderRadius.circular(10),
+                                                    borderSide:
+                                                        const BorderSide(color: AppColors.cardBorder),
+                                                  ),
+                                                  focusedBorder: OutlineInputBorder(
+                                                    borderRadius: BorderRadius.circular(10),
+                                                    borderSide: const BorderSide(
+                                                        color: AppColors.primary, width: 2),
+                                                  ),
+                                                  filled: true,
+                                                  fillColor: AppColors.background,
+                                                ),
+                                                validator: (v) {
+                                                  if (v == null || v.isEmpty) {
+                                                    return 'Password wajib diisi';
+                                                  }
+                                                  return null;
+                                                },
+                                              ),
+
+                                              const SizedBox(height: 10),
+
+                                              // Remember me + forgot password row
+                                              Row(
                                                 children: [
-                                                  TextSpan(text: 'Admin: gunakan '),
-                                                  TextSpan(
-                                                    text: 'admin / admin123',
-                                                    style: TextStyle(
-                                                        fontWeight: FontWeight.bold,
-                                                        fontFamily: 'monospace'),
+                                                  GestureDetector(
+                                                    onTap: () =>
+                                                        setState(() => _rememberMe = !_rememberMe),
+                                                    child: Row(
+                                                      children: [
+                                                        AnimatedContainer(
+                                                          duration:
+                                                              const Duration(milliseconds: 200),
+                                                          width: 16,
+                                                          height: 16,
+                                                          decoration: BoxDecoration(
+                                                            color: _rememberMe
+                                                                ? AppColors.primary
+                                                                : Colors.white,
+                                                            borderRadius:
+                                                                BorderRadius.circular(4),
+                                                            border: Border.all(
+                                                              color: _rememberMe
+                                                                  ? AppColors.primary
+                                                                  : AppColors.cardBorder,
+                                                              width: 1.5,
+                                                            ),
+                                                          ),
+                                                          child: _rememberMe
+                                                              ? const Icon(Icons.check,
+                                                                  color: Colors.white, size: 10)
+                                                              : null,
+                                                        ),
+                                                        const SizedBox(width: 6),
+                                                        const Text(
+                                                          'Ingat saya',
+                                                          style: TextStyle(
+                                                            fontSize: 11.5,
+                                                            color: AppColors.textSecondary,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  const Spacer(),
+                                                  TextButton(
+                                                    onPressed: () {
+                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                        SnackBar(
+                                                          content: const Text(
+                                                              'Fitur lupa password akan segera hadir.'),
+                                                          backgroundColor: AppColors.primary,
+                                                          behavior: SnackBarBehavior.floating,
+                                                          shape: RoundedRectangleBorder(
+                                                              borderRadius:
+                                                                  BorderRadius.circular(12)),
+                                                          margin: const EdgeInsets.all(16),
+                                                        ),
+                                                      );
+                                                    },
+                                                    style: TextButton.styleFrom(
+                                                      padding: EdgeInsets.zero,
+                                                      minimumSize: Size.zero,
+                                                      tapTargetSize:
+                                                          MaterialTapTargetSize.shrinkWrap,
+                                                    ),
+                                                    child: const Text(
+                                                      'Lupa password?',
+                                                      style: TextStyle(
+                                                        fontSize: 11.5,
+                                                        color: AppColors.primary,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
                                                   ),
                                                 ],
                                               ),
-                                            ),
+
+                                              const SizedBox(height: 16),
+
+                                              // Login button
+                                              SizedBox(
+                                                width: double.infinity,
+                                                height: 46,
+                                                child: ElevatedButton(
+                                                  onPressed: _isLoading ? null : _doLogin,
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: AppColors.primary,
+                                                    foregroundColor: Colors.white,
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(12),
+                                                    ),
+                                                    elevation: 0,
+                                                  ),
+                                                  child: _isLoading
+                                                      ? const SizedBox(
+                                                          width: 20,
+                                                          height: 20,
+                                                          child: CircularProgressIndicator(
+                                                            strokeWidth: 2.5,
+                                                            color: Colors.white,
+                                                          ),
+                                                        )
+                                                      : const Text(
+                                                          'Masuk',
+                                                          style: TextStyle(
+                                                            fontSize: 14.5,
+                                                            fontWeight: FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                ),
+                                              ),
+
+                                              const SizedBox(height: 12),
+
+                                              // Divider
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                      child: Divider(
+                                                          color: AppColors.cardBorder,
+                                                          thickness: 1)),
+                                                  Padding(
+                                                    padding: const EdgeInsets.symmetric(
+                                                        horizontal: 10),
+                                                    child: Text(
+                                                      'atau',
+                                                      style: TextStyle(
+                                                        fontSize: 11,
+                                                        color: AppColors.textMuted,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Expanded(
+                                                      child: Divider(
+                                                          color: AppColors.cardBorder,
+                                                          thickness: 1)),
+                                                ],
+                                              ),
+
+                                              const SizedBox(height: 12),
+
+                                              // Register button
+                                              SizedBox(
+                                                width: double.infinity,
+                                                height: 42,
+                                                child: OutlinedButton.icon(
+                                                  onPressed: () {
+                                                    Navigator.of(context).push(
+                                                      PageRouteBuilder(
+                                                        pageBuilder: (_, anim, _) =>
+                                                            const RegisterScreen(),
+                                                        transitionsBuilder:
+                                                            (_, anim, _, child) =>
+                                                                SlideTransition(
+                                                          position: Tween<Offset>(
+                                                            begin: const Offset(1, 0),
+                                                            end: Offset.zero,
+                                                          ).animate(anim),
+                                                          child: child,
+                                                        ),
+                                                        transitionDuration:
+                                                            const Duration(milliseconds: 350),
+                                                      ),
+                                                    );
+                                                  },
+                                                  icon: const Icon(Icons.person_add_outlined,
+                                                      size: 16),
+                                                  label: const Text(
+                                                    'Daftar Akun Baru',
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                  style: OutlinedButton.styleFrom(
+                                                    foregroundColor: AppColors.primary,
+                                                    side: const BorderSide(
+                                                        color: AppColors.primary, width: 1.5),
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(12),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+
+                                              const SizedBox(height: 16),
+
+                                              // Hint for admin (neatly integrated inside card)
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                    horizontal: 14, vertical: 8),
+                                                decoration: BoxDecoration(
+                                                  color: AppColors.primaryLight,
+                                                  borderRadius: BorderRadius.circular(10),
+                                                  border: Border.all(
+                                                    color: AppColors.primary.withValues(alpha: 0.15),
+                                                  ),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    const Icon(Icons.info_outline_rounded,
+                                                        color: AppColors.primaryDark, size: 15),
+                                                    const SizedBox(width: 8),
+                                                    Expanded(
+                                                      child: RichText(
+                                                        text: const TextSpan(
+                                                          style: TextStyle(
+                                                            fontSize: 11.5,
+                                                            color: AppColors.primaryDark,
+                                                          ),
+                                                          children: [
+                                                            TextSpan(text: 'Admin: gunakan '),
+                                                            TextSpan(
+                                                              text: 'admin / admin123',
+                                                              style: TextStyle(
+                                                                  fontWeight: FontWeight.bold,
+                                                                  fontFamily: 'monospace'),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                        ],
+                                        ),
                                       ),
                                     ),
-                                  ),
 
-                                  // Flexible spacer to distribute height on taller screens (Galaxy A55, iPhone 15, tablets)
-                                  const Spacer(),
+                                    // Bottom spacer balancing the card to center
+                                    const Spacer(),
 
-                                  // Bottom footer branding - eliminates dead empty space
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 16, bottom: 20),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Icon(
-                                              Icons.verified_outlined,
-                                              size: 14,
-                                              color: AppColors.primary.withValues(alpha: 0.7),
-                                            ),
-                                            const SizedBox(width: 6),
-                                            const Text(
-                                              'DigiQ Official Store • Terverifikasi QRIS',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: AppColors.textSecondary,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ],
+                                    // Bottom subtle branding
+                                    const Padding(
+                                      padding: EdgeInsets.only(bottom: 12),
+                                      child: Text(
+                                        'DigiQ Official Store • Transaksi Cepat & Aman via QRIS',
+                                        style: TextStyle(
+                                          fontSize: 10.5,
+                                          color: AppColors.textMuted,
+                                          fontWeight: FontWeight.w500,
                                         ),
-                                        const SizedBox(height: 4),
-                                        const Text(
-                                          'Solusi Cepat Kebutuhan Akun & Produk Digital',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: AppColors.textMuted,
-                                          ),
-                                        ),
-                                      ],
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),
