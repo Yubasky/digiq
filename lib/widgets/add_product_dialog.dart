@@ -82,54 +82,58 @@ class _AddProductDialogState extends State<AddProductDialog> {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 460),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(20),
           child: Form(
             key: _formKey,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header
+                // Header (Overflow-safe)
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryLight,
-                            borderRadius: BorderRadius.circular(12),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryLight,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.add_shopping_cart_rounded, color: AppColors.primaryDark, size: 22),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text(
+                            'Tambah Produk Digital',
+                            style: TextStyle(
+                              fontSize: 16.5,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          child: const Icon(Icons.add_shopping_cart_rounded, color: AppColors.primaryDark),
-                        ),
-                        const SizedBox(width: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            Text(
-                              'Tambah Produk Digital',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            Text(
-                              'Mode Admin • Katalog Toko',
-                              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                            ),
-                          ],
-                        ),
-                      ],
+                          SizedBox(height: 2),
+                          Text(
+                            'Mode Admin • Katalog Toko',
+                            style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
                     ),
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close_rounded, color: AppColors.textSecondary),
+                      padding: const EdgeInsets.all(4),
+                      constraints: const BoxConstraints(),
                     ),
                   ],
                 ),
-                const Divider(height: 28),
+                const Divider(height: 24),
 
                 // Category selector
                 const Text(
@@ -139,12 +143,20 @@ class _AddProductDialogState extends State<AddProductDialog> {
                 const SizedBox(height: 8),
                 DropdownButtonFormField<ProductCategory>(
                   initialValue: _selectedCategory,
-                  decoration: const InputDecoration(isDense: true),
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  ),
                   items: ProductCategory.values
                       .where((c) => c != ProductCategory.all)
                       .map((cat) => DropdownMenuItem(
                             value: cat,
-                            child: Text(cat.label, style: const TextStyle(fontSize: 14)),
+                            child: Text(
+                              cat.label,
+                              style: const TextStyle(fontSize: 13.5),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ))
                       .toList(),
                   onChanged: (val) {

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/admin_dashboard_screen.dart';
+import 'screens/login_screen.dart';
 import 'theme/app_theme.dart';
 
 void main() {
@@ -16,7 +16,7 @@ class DigiQApp extends StatelessWidget {
       title: 'DigiQ - Digital Store & QRIS',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: const AdminDashboardScreen(),
+      home: const LoginScreen(),
     );
   }
 }

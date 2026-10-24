@@ -4,11 +4,21 @@ import '../theme/app_theme.dart';
 class QrisModal extends StatefulWidget {
   final double currentBalance;
   final Function(double amount, String customerName, String productName) onPaymentSimulated;
+  final double? initialAmount;
+  final String? initialCustomerName;
+  final String? initialProductName;
+  final double? baseAmount;
+  final double? feeAmount;
 
   const QrisModal({
     super.key,
     required this.currentBalance,
     required this.onPaymentSimulated,
+    this.initialAmount,
+    this.initialCustomerName,
+    this.initialProductName,
+    this.baseAmount,
+    this.feeAmount,
   });
 
   @override
@@ -16,9 +26,20 @@ class QrisModal extends StatefulWidget {
 }
 
 class _QrisModalState extends State<QrisModal> {
-  final TextEditingController _amountController = TextEditingController(text: '50000');
-  final TextEditingController _customerController = TextEditingController(text: 'Bayu Prayoga');
+  late final TextEditingController _amountController;
+  late final TextEditingController _customerController;
   bool _isProcessing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _amountController = TextEditingController(
+      text: (widget.initialAmount ?? 50000).toInt().toString(),
+    );
+    _customerController = TextEditingController(
+      text: widget.initialCustomerName ?? 'Bayu Prayoga',
+    );
+  }
 
   @override
   void dispose() {
@@ -28,8 +49,9 @@ class _QrisModalState extends State<QrisModal> {
   }
 
   void _triggerPayment() {
-    final double amount = double.tryParse(_amountController.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 50000;
-    final String customer = _customerController.text.trim().isEmpty ? 'Pelanggan DigiQ' : _customerController.text.trim();
+    final double amount = double.tryParse(_amountController.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? (widget.initialAmount ?? 50000);
+    final String customer = _customerController.text.trim().isEmpty ? (widget.initialCustomerName ?? 'Pelanggan DigiQ') : _customerController.text.trim();
+    final String productName = widget.initialProductName ?? 'Top Up & Pembayaran Digital';
 
     setState(() {
       _isProcessing = true;
@@ -41,7 +63,7 @@ class _QrisModalState extends State<QrisModal> {
         _isProcessing = false;
       });
       Navigator.of(context).pop();
-      widget.onPaymentSimulated(amount, customer, 'Top Up & Pembayaran Digital');
+      widget.onPaymentSimulated(amount, customer, productName);
     });
   }
 
@@ -60,40 +82,41 @@ class _QrisModalState extends State<QrisModal> {
             children: [
               // Header with QRIS official style banner
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE11D48),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Text(
-                          'QRIS',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.2,
-                            fontSize: 16,
-                          ),
-                        ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE11D48),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      'QRIS',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.2,
+                        fontSize: 16,
                       ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Pembayaran Cepat',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: AppColors.textPrimary,
-                        ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Pembayaran Cepat',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: AppColors.textPrimary,
                       ),
-                    ],
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close_rounded, color: AppColors.textSecondary),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                   ),
                 ],
               ),
@@ -249,7 +272,7 @@ class _QrisModalState extends State<QrisModal> {
                       children: [
                         const Text('Nominal Tagihan:', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                         Text(
-                          formatCurrency(double.tryParse(_amountController.text) ?? 50000),
+                          formatCurrency(widget.baseAmount ?? (double.tryParse(_amountController.text) ?? 50000)),
                           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
                         ),
                       ],
@@ -257,9 +280,12 @@ class _QrisModalState extends State<QrisModal> {
                     const SizedBox(height: 2),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: const [
-                        Text('Biaya Transaksi QRIS:', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                        Text('Rp 0 (0% Promo)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.success)),
+                      children: [
+                        const Text('Biaya Layanan QRIS (0.7%):', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                        Text(
+                          widget.feeAmount != null ? formatCurrency(widget.feeAmount!) : 'Rp 0 (Promo)',
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.success),
+                        ),
                       ],
                     ),
                     const Divider(height: 12),
@@ -267,11 +293,11 @@ class _QrisModalState extends State<QrisModal> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
-                          'Total Diterima Penjual:',
+                          'Total Pembayaran:',
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textPrimary),
                         ),
                         Text(
-                          formatCurrency(double.tryParse(_amountController.text) ?? 50000),
+                          formatCurrency(double.tryParse(_amountController.text) ?? (widget.initialAmount ?? 50000)),
                           style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.primaryDark),
                         ),
                       ],

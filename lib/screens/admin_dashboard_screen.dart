@@ -5,6 +5,7 @@ import '../theme/app_theme.dart';
 import '../widgets/add_product_dialog.dart';
 import '../widgets/customer_preview_sheet.dart';
 import '../widgets/qris_modal.dart';
+import 'login_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -337,24 +338,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ],
                 ),
               ),
-
-              // Bottom Navigation Bar
-              _buildBottomNavigationBar(),
             ],
           ),
         ),
       ),
+      bottomNavigationBar: _buildBottomNavigationBar(),
       floatingActionButton: _currentNavIndex == 0 || _currentNavIndex == 1
-          ? FloatingActionButton.extended(
+          ? FloatingActionButton(
               onPressed: _showAddProductDialog,
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               elevation: 4,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text(
-                'Tambah Produk',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
+              shape: const CircleBorder(),
+              tooltip: 'Tambah Produk Digital',
+              child: const Icon(Icons.add_rounded, size: 28),
             )
           : null,
     );
@@ -476,19 +473,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
             const SizedBox(width: 10),
             // Brand and Admin tag
+            // Brand and Admin tag
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Row(
-                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Flexible(
                         child: Text(
                           'DigiQ Store',
                           style: const TextStyle(
-                            fontSize: 16,
+                            fontSize: 15,
                             fontWeight: FontWeight.w800,
                             color: AppColors.textPrimary,
                           ),
@@ -496,9 +493,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 4),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                         decoration: BoxDecoration(
                           color: AppColors.primaryLight,
                           borderRadius: BorderRadius.circular(6),
@@ -506,7 +503,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         child: const Text(
                           'ADMIN',
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 9,
                             fontWeight: FontWeight.w800,
                             color: AppColors.primaryDark,
                           ),
@@ -517,18 +514,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   Row(
                     children: [
                       Container(
-                        width: 7,
-                        height: 7,
+                        width: 6,
+                        height: 6,
                         decoration: const BoxDecoration(
                           color: AppColors.success,
                           shape: BoxShape.circle,
                         ),
                       ),
-                      const SizedBox(width: 5),
+                      const SizedBox(width: 4),
                       const Flexible(
                         child: Text(
                           'Toko Aktif • QRIS',
-                          style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                          style: TextStyle(fontSize: 10.5, color: AppColors.textSecondary),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -538,29 +535,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
             // Simulation Mode Switcher Button (View as Buyer)
             Tooltip(
               message: 'Simulasi Mode Pelanggan / User',
               child: InkWell(
                 onTap: _showCustomerPreview,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(16),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
                   decoration: BoxDecoration(
                     color: AppColors.primaryLight,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: const [
-                      Icon(Icons.remove_red_eye_rounded, size: 15, color: AppColors.primaryDark),
-                      SizedBox(width: 4),
+                      Icon(Icons.remove_red_eye_rounded, size: 13, color: AppColors.primaryDark),
+                      SizedBox(width: 3),
                       Text(
                         'Mode User',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: FontWeight.bold,
                           color: AppColors.primaryDark,
                         ),
@@ -570,13 +567,58 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
               ),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 2),
             // QRIS Quick Header Icon
             IconButton(
               onPressed: _showQrisModal,
               tooltip: 'Tampilkan QRIS Toko',
-              icon: const Icon(Icons.qr_code_2_rounded, color: AppColors.primary, size: 26),
-              padding: const EdgeInsets.all(6),
+              icon: const Icon(Icons.qr_code_2_rounded, color: AppColors.primary, size: 24),
+              padding: const EdgeInsets.all(4),
+              constraints: const BoxConstraints(),
+            ),
+            const SizedBox(width: 2),
+            // Logout Button
+            IconButton(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    title: const Text('Keluar', style: TextStyle(fontWeight: FontWeight.bold)),
+                    content: const Text('Yakin ingin keluar dari akun Admin?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Batal'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          Navigator.of(context).pushAndRemoveUntil(
+                            PageRouteBuilder(
+                              pageBuilder: (_, anim, _) => const LoginScreen(),
+                              transitionsBuilder: (_, anim, _, child) =>
+                                  FadeTransition(opacity: anim, child: child),
+                              transitionDuration: const Duration(milliseconds: 400),
+                            ),
+                            (route) => false,
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.danger,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          elevation: 0,
+                        ),
+                        child: const Text('Keluar'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+              tooltip: 'Keluar',
+              icon: const Icon(Icons.logout_rounded, color: AppColors.danger, size: 22),
+              padding: const EdgeInsets.all(4),
               constraints: const BoxConstraints(),
             ),
           ],
@@ -662,15 +704,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget _buildWalletCard() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         gradient: AppColors.primaryGradient,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.3),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+            color: AppColors.primary.withValues(alpha: 0.25),
+            blurRadius: 12,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -681,33 +723,40 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 14),
                     ),
-                    child: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 16),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Saldo Toko (DANA Bisnis)',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
+                    const SizedBox(width: 7),
+                    const Expanded(
+                      child: Text(
+                        'Saldo Toko (DANA Bisnis)',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 6),
               IconButton(
                 onPressed: () => setState(() => _isBalanceVisible = !_isBalanceVisible),
                 icon: Icon(
                   _isBalanceVisible ? Icons.visibility_rounded : Icons.visibility_off_rounded,
                   color: Colors.white,
-                  size: 20,
+                  size: 18,
                 ),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -715,25 +764,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ],
           ),
 
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
 
-          // Balance Amount
+          // Balance Amount (Compact font size)
           Text(
             _isBalanceVisible ? formatCurrency(_storeBalance) : 'Rp ••••••••',
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0.5,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.3,
             ),
           ),
 
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
 
           // Metrics divider line
-          Container(height: 1, color: Colors.white.withValues(alpha: 0.2)),
+          Container(height: 0.8, color: Colors.white.withValues(alpha: 0.2)),
 
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
 
           // Bottom Stats: Today's Transactions & Quick QRIS Trigger
           Row(
@@ -744,19 +793,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   children: [
                     const Text(
                       'Transaksi Masuk Hari Ini',
-                      style: TextStyle(color: Colors.white70, fontSize: 11),
+                      style: TextStyle(color: Colors.white70, fontSize: 10.5),
                     ),
                     const SizedBox(height: 2),
                     Row(
                       children: [
-                        const Icon(Icons.check_circle_rounded, color: Colors.white, size: 14),
+                        const Icon(Icons.check_circle_rounded, color: Colors.white, size: 13),
                         const SizedBox(width: 4),
-                        Text(
-                          '$_todayTransactionCount Berhasil (QRIS)',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                        Expanded(
+                          child: Text(
+                            '$_todayTransactionCount Berhasil (QRIS)',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11.5,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -764,22 +817,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
               ElevatedButton.icon(
                 onPressed: _showQrisModal,
-                icon: const Icon(Icons.qr_code_rounded, size: 16, color: AppColors.primaryDark),
+                icon: const Icon(Icons.qr_code_rounded, size: 14, color: AppColors.primaryDark),
                 label: const Text(
                   'QRIS Toko',
                   style: TextStyle(
                     color: AppColors.primaryDark,
                     fontWeight: FontWeight.bold,
-                    fontSize: 12,
+                    fontSize: 11,
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
                   elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
               ),
             ],
@@ -1064,7 +1118,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 0.76,
+        childAspectRatio: 0.68,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),
@@ -1097,13 +1151,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         children: [
           // Top row: Category tag + toggle
           Padding(
-            padding: const EdgeInsets.only(left: 12, right: 8, top: 10),
+            padding: const EdgeInsets.only(left: 10, right: 6, top: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Flexible(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: Color(product.colorHex).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(6),
@@ -1111,7 +1165,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     child: Text(
                       product.provider,
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 9.5,
                         fontWeight: FontWeight.bold,
                         color: Color(product.colorHex),
                       ),
@@ -1121,7 +1175,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                 ),
                 Transform.scale(
-                  scale: 0.7,
+                  scale: 0.65,
                   child: Switch(
                     value: product.isActive,
                     activeThumbColor: AppColors.primary,
@@ -1135,9 +1189,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           // Product Icon Graphic Box
           Center(
             child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 6),
-              width: 58,
-              height: 58,
+              margin: const EdgeInsets.symmetric(vertical: 4),
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
@@ -1150,23 +1204,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Color(product.colorHex).withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
+                    color: Color(product.colorHex).withValues(alpha: 0.25),
+                    blurRadius: 6,
+                    offset: const Offset(0, 3),
                   ),
                 ],
               ),
               child: Icon(
                 product.icon,
                 color: Colors.white,
-                size: 30,
+                size: 24,
               ),
             ),
           ),
 
           // Name and Price
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1174,19 +1228,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   product.name,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 12.5,
+                    fontSize: 12,
                     color: AppColors.textPrimary,
                     height: 1.2,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
                 Text(
                   formatCurrency(product.price),
                   style: const TextStyle(
                     fontWeight: FontWeight.w900,
-                    fontSize: 14,
+                    fontSize: 13.5,
                     color: AppColors.primaryDark,
                   ),
                 ),
@@ -1571,34 +1625,37 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         color: Colors.white,
         border: Border(top: BorderSide(color: AppColors.cardBorder, width: 1)),
       ),
-      child: BottomNavigationBar(
-        currentIndex: _currentNavIndex,
-        onTap: (index) => setState(() => _currentNavIndex = index),
-        backgroundColor: Colors.white,
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.textMuted,
-        selectedFontSize: 11,
-        unselectedFontSize: 11,
-        type: BottomNavigationBarType.fixed,
-        elevation: 0,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard_rounded),
-            label: 'Beranda',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.inventory_2_rounded),
-            label: 'Katalog',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long_rounded),
-            label: 'Transaksi',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.storefront_rounded),
-            label: 'Toko Admin',
-          ),
-        ],
+      child: SafeArea(
+        top: false,
+        child: BottomNavigationBar(
+          currentIndex: _currentNavIndex,
+          onTap: (index) => setState(() => _currentNavIndex = index),
+          backgroundColor: Colors.white,
+          selectedItemColor: AppColors.primary,
+          unselectedItemColor: AppColors.textMuted,
+          selectedFontSize: 11,
+          unselectedFontSize: 11,
+          type: BottomNavigationBarType.fixed,
+          elevation: 0,
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.dashboard_rounded),
+              label: 'Beranda',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.inventory_2_rounded),
+              label: 'Katalog',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.receipt_long_rounded),
+              label: 'Transaksi',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.storefront_rounded),
+              label: 'Toko Admin',
+            ),
+          ],
+        ),
       ),
     );
   }
