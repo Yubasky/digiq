@@ -49,6 +49,7 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _doLogin() async {
+    if (_isLoading) return;
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
@@ -238,6 +239,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 TextFormField(
                                   controller: _identifierController,
                                   keyboardType: TextInputType.emailAddress,
+                                  textInputAction: TextInputAction.next,
                                   style: const TextStyle(fontSize: 14),
                                   decoration: InputDecoration(
                                     hintText: 'email@kamu.com atau username',
@@ -286,6 +288,8 @@ class _LoginScreenState extends State<LoginScreen>
                                 TextFormField(
                                   controller: _passwordController,
                                   obscureText: _obscurePassword,
+                                  textInputAction: TextInputAction.done,
+                                  onFieldSubmitted: (_) => _doLogin(),
                                   style: const TextStyle(fontSize: 14),
                                   decoration: InputDecoration(
                                     hintText: 'Masukkan password',
