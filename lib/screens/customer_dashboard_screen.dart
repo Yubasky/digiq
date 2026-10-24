@@ -465,14 +465,14 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
           backgroundColor: const Color(0xFF0077B6),
           title: Image.asset(
             'assets/img/logo digiq putih.png',
-            height: 46,
+            height: 32,
             fit: BoxFit.contain,
             errorBuilder: (_, _, _) => const Text(
               'DigiQ',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
-                fontSize: 22,
+                fontSize: 18,
               ),
             ),
           ),
@@ -918,31 +918,35 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.65,
-        minChildSize: 0.45,
-        maxChildSize: 0.88,
-        builder: (_, scroll) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            children: [
-              Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: AppColors.cardBorder,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+      builder: (sheetContext) => SafeArea(
+        top: false,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               ),
-              Expanded(
-                child: ListView(
-                  controller: scroll,
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              child: SingleChildScrollView(
+                physics: const ClampingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Handle bar
+                    Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 14),
+                        decoration: BoxDecoration(
+                          color: AppColors.cardBorder,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
                     // Image / Icon banner
                     Center(
                       child: Container(
@@ -1038,7 +1042,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                           flex: 2,
                           child: OutlinedButton.icon(
                             onPressed: () {
-                              Navigator.pop(context);
+                              Navigator.pop(sheetContext);
                               _addToCart(product);
                             },
                             icon: const Icon(Icons.add_shopping_cart_rounded, size: 18),
@@ -1059,7 +1063,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                           flex: 3,
                           child: ElevatedButton.icon(
                             onPressed: () {
-                              Navigator.pop(context);
+                              Navigator.pop(sheetContext);
                               _openDirectQrisPayment(product);
                             },
                             icon: const Icon(Icons.qr_code_2_rounded, size: 20),
@@ -1081,7 +1085,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                   ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1621,14 +1625,14 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             backgroundColor: const Color(0xFF0077B6),
             title: Image.asset(
               'assets/img/logo digiq putih.png',
-              height: 44,
+              height: 32,
               fit: BoxFit.contain,
               errorBuilder: (_, _, _) => const Text(
                 'DigiQ',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
-                  fontSize: 20,
+                  fontSize: 18,
                 ),
               ),
             ),
