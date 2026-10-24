@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/user_model.dart';
 import '../theme/app_theme.dart';
+import 'customer_dashboard_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -14,6 +15,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -47,6 +49,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   void dispose() {
     _animController.dispose();
     _nameController.dispose();
+    _usernameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
@@ -61,6 +64,10 @@ class _RegisterScreenState extends State<RegisterScreen>
       return;
     }
 
+    if (UserStore.isUsernameTaken(_usernameController.text.trim())) {
+      _showSnack('Username sudah digunakan. Gunakan username lain.', isError: true);
+      return;
+    }
     if (UserStore.isEmailTaken(_emailController.text.trim())) {
       _showSnack('Email sudah digunakan. Gunakan email lain.', isError: true);
       return;
@@ -76,6 +83,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     final newUser = UserAccount(
       id: 'usr-${DateTime.now().millisecondsSinceEpoch}',
       name: _nameController.text.trim(),
+      username: _usernameController.text.trim().toLowerCase(),
       email: _emailController.text.trim(),
       phone: _phoneController.text.trim(),
       password: _passwordController.text,
@@ -87,9 +95,16 @@ class _RegisterScreenState extends State<RegisterScreen>
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    _showSnack('Akun berhasil dibuat! Silakan login.', isError: false);
-    await Future.delayed(const Duration(milliseconds: 900));
-    if (mounted) Navigator.of(context).pop();
+    _showSnack('Akun berhasil dibuat! Selamat datang, ${newUser.name}.', isError: false);
+    await Future.delayed(const Duration(milliseconds: 600));
+    if (mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => CustomerDashboardScreen(currentUser: newUser),
+        ),
+        (route) => false,
+      );
+    }
   }
 
   void _showSnack(String msg, {required bool isError}) {
@@ -236,6 +251,25 @@ class _RegisterScreenState extends State<RegisterScreen>
                                       validator: (v) {
                                         if (v == null || v.trim().isEmpty) return 'Nama wajib diisi';
                                         if (v.trim().length < 3) return 'Nama minimal 3 karakter';
+                                        return null;
+                                      },
+                                    ),
+
+                                    const SizedBox(height: 14),
+                                    _buildLabel('Username'),
+                                    const SizedBox(height: 6),
+                                    _buildTextField(
+                                      controller: _usernameController,
+                                      hint: 'Contoh: bayup99',
+                                      icon: Icons.alternate_email_rounded,
+                                      validator: (v) {
+                                        if (v == null || v.trim().isEmpty) return 'Username wajib diisi';
+                                        final u = v.trim();
+                                        if (u.length < 3) return 'Username minimal 3 karakter';
+                                        if (u.length > 20) return 'Username maksimal 20 karakter';
+                                        if (!RegExp(r'^[a-zA-Z0-9._]+$').hasMatch(u)) {
+                                          return 'Hanya boleh huruf, angka, titik, atau garis bawah';
+                                        }
                                         return null;
                                       },
                                     ),

@@ -6,6 +6,7 @@ class UserRole {
 class UserAccount {
   final String id;
   final String name;
+  final String username;
   final String email;
   final String phone;
   final String password;
@@ -15,6 +16,7 @@ class UserAccount {
   UserAccount({
     required this.id,
     required this.name,
+    this.username = '',
     required this.email,
     required this.phone,
     required this.password,
@@ -31,6 +33,7 @@ class UserStore {
   static final UserAccount adminAccount = UserAccount(
     id: 'admin-001',
     name: 'Admin DigiQ',
+    username: 'admin',
     email: 'admin',
     phone: '08123456789',
     password: 'admin123',
@@ -46,26 +49,37 @@ class UserStore {
 
   /// Returns [UserAccount] if credentials match, null otherwise.
   static UserAccount? login(String emailOrUsername, String password) {
+    final query = emailOrUsername.trim().toLowerCase();
     // Check admin first
-    if ((emailOrUsername == 'admin' || emailOrUsername == adminAccount.email) &&
+    if ((query == 'admin' || query == adminAccount.email.toLowerCase()) &&
         password == adminAccount.password) {
       return adminAccount;
     }
     // Check registered customers
     try {
       return _users.firstWhere(
-        (u) => (u.email == emailOrUsername || u.phone == emailOrUsername) && u.password == password,
+        (u) =>
+            (u.email.toLowerCase() == query ||
+             u.username.toLowerCase() == query ||
+             u.phone == query) &&
+            u.password == password,
       );
     } catch (_) {
       return null;
     }
   }
 
+  static bool isUsernameTaken(String username) {
+    final clean = username.trim().toLowerCase();
+    if (clean == 'admin') return true;
+    return _users.any((u) => u.username.toLowerCase() == clean);
+  }
+
   static bool isEmailTaken(String email) {
-    return _users.any((u) => u.email == email);
+    return _users.any((u) => u.email.toLowerCase() == email.trim().toLowerCase());
   }
 
   static bool isPhoneTaken(String phone) {
-    return _users.any((u) => u.phone == phone);
+    return _users.any((u) => u.phone == phone.trim());
   }
 }

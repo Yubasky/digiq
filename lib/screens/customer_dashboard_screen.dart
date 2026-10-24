@@ -6,153 +6,7 @@ import '../theme/app_theme.dart';
 import '../widgets/qris_modal.dart';
 import 'login_screen.dart';
 
-/// Sample shared products list (same as admin's seed data so the catalog is consistent)
-List<ProductItem> _sharedProducts = [
-  ProductItem(
-    id: 'p-001',
-    name: 'Pulsa 10.000',
-    category: ProductCategory.pulsaData,
-    price: 11500,
-    provider: 'Telkomsel',
-    description: 'Pulsa Telkomsel 10.000 aktif 30 hari',
-    stock: 999,
-    isActive: true,
-    icon: Icons.signal_cellular_alt_rounded,
-    colorHex: 0xFFEF4444,
-  ),
-  ProductItem(
-    id: 'p-002',
-    name: 'Pulsa 25.000',
-    category: ProductCategory.pulsaData,
-    price: 26500,
-    provider: 'Telkomsel',
-    description: 'Pulsa Telkomsel 25.000 aktif 30 hari',
-    stock: 999,
-    isActive: true,
-    icon: Icons.signal_cellular_alt_rounded,
-    colorHex: 0xFFEF4444,
-  ),
-  ProductItem(
-    id: 'p-003',
-    name: 'Paket Data 1GB',
-    category: ProductCategory.pulsaData,
-    price: 15000,
-    provider: 'Indosat',
-    description: 'Data Indosat 1GB 7 hari',
-    stock: 999,
-    isActive: true,
-    icon: Icons.wifi_rounded,
-    colorHex: 0xFFFFAA00,
-  ),
-  ProductItem(
-    id: 'p-004',
-    name: 'Paket Data 5GB',
-    category: ProductCategory.pulsaData,
-    price: 35000,
-    provider: 'XL Axiata',
-    description: 'Data XL 5GB 30 hari',
-    stock: 999,
-    isActive: true,
-    icon: Icons.wifi_rounded,
-    colorHex: 0xFF0077FF,
-  ),
-  ProductItem(
-    id: 'p-005',
-    name: 'Mobile Legends 86 Diamond',
-    category: ProductCategory.games,
-    price: 19000,
-    provider: 'Moonton',
-    description: '86 Diamond Mobile Legends',
-    stock: 999,
-    isActive: true,
-    icon: Icons.sports_esports_rounded,
-    colorHex: 0xFF7C3AED,
-  ),
-  ProductItem(
-    id: 'p-006',
-    name: 'Free Fire 70 Diamond',
-    category: ProductCategory.games,
-    price: 15000,
-    provider: 'Garena',
-    description: '70 Diamond Free Fire',
-    stock: 999,
-    isActive: true,
-    icon: Icons.local_fire_department_rounded,
-    colorHex: 0xFFFF6B00,
-  ),
-  ProductItem(
-    id: 'p-007',
-    name: 'Top Up OVO',
-    category: ProductCategory.ewallet,
-    price: 50000,
-    provider: 'OVO',
-    description: 'Isi saldo OVO Rp 50.000',
-    stock: 999,
-    isActive: true,
-    icon: Icons.account_balance_wallet_rounded,
-    colorHex: 0xFF4C1D95,
-  ),
-  ProductItem(
-    id: 'p-008',
-    name: 'Top Up GoPay',
-    category: ProductCategory.ewallet,
-    price: 100000,
-    provider: 'GoPay',
-    description: 'Isi saldo GoPay Rp 100.000',
-    stock: 999,
-    isActive: true,
-    icon: Icons.account_balance_wallet_rounded,
-    colorHex: 0xFF00AA5B,
-  ),
-  ProductItem(
-    id: 'p-009',
-    name: 'Netflix 1 Bulan',
-    category: ProductCategory.streaming,
-    price: 65000,
-    provider: 'Netflix',
-    description: 'Voucher Netflix Premium 1 Bulan',
-    stock: 50,
-    isActive: true,
-    icon: Icons.movie_filter_rounded,
-    colorHex: 0xFFDC2626,
-  ),
-  ProductItem(
-    id: 'p-010',
-    name: 'Spotify Premium',
-    category: ProductCategory.streaming,
-    price: 49000,
-    provider: 'Spotify',
-    description: 'Spotify Premium Individual 1 Bulan',
-    stock: 100,
-    isActive: true,
-    icon: Icons.music_note_rounded,
-    colorHex: 0xFF16A34A,
-  ),
-  ProductItem(
-    id: 'p-011',
-    name: 'Token PLN 50.000',
-    category: ProductCategory.plnTagihan,
-    price: 50500,
-    provider: 'PLN',
-    description: 'Token Listrik PLN Rp 50.000',
-    stock: 999,
-    isActive: true,
-    icon: Icons.bolt_rounded,
-    colorHex: 0xFFCA8A04,
-  ),
-  ProductItem(
-    id: 'p-012',
-    name: 'Token PLN 100.000',
-    category: ProductCategory.plnTagihan,
-    price: 101500,
-    provider: 'PLN',
-    description: 'Token Listrik PLN Rp 100.000',
-    stock: 999,
-    isActive: true,
-    icon: Icons.bolt_rounded,
-    colorHex: 0xFFCA8A04,
-  ),
-];
+// Shared in-memory CartItem model
 
 class CartItem {
   final ProductItem product;
@@ -168,29 +22,21 @@ class CustomerDashboardScreen extends StatefulWidget {
   State<CustomerDashboardScreen> createState() => _CustomerDashboardScreenState();
 }
 
-class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
-    with TickerProviderStateMixin {
+class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   int _currentTab = 0; // 0=Beranda, 1=Keranjang, 2=Riwayat, 3=Profil
-  ProductCategory _selectedCategory = ProductCategory.all;
   final List<CartItem> _cart = [];
-  final List<QrisTransaction> _transactions = [];
+  late final List<QrisTransaction> _transactions;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-
-  late TabController _categoryTabController;
 
   @override
   void initState() {
     super.initState();
-    _categoryTabController = TabController(
-      length: ProductCategory.values.length,
-      vsync: this,
-    );
+    _transactions = List.from(TransactionStore.transactions);
   }
 
   @override
   void dispose() {
-    _categoryTabController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -257,15 +103,14 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
   // ─── Filtered products ──────────────────────────────────────────────────────
 
   List<ProductItem> get _filteredProducts {
-    var list = _sharedProducts.where((p) => p.isActive).toList();
-    if (_selectedCategory != ProductCategory.all) {
-      list = list.where((p) => p.category == _selectedCategory).toList();
-    }
+    var list = ProductStore.products.where((p) => p.isActive).toList();
     if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
       list = list
           .where((p) =>
-              p.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-              p.provider.toLowerCase().contains(_searchQuery.toLowerCase()))
+              p.name.toLowerCase().contains(q) ||
+              p.provider.toLowerCase().contains(q) ||
+              p.description.toLowerCase().contains(q))
           .toList();
     }
     return list;
@@ -284,7 +129,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
     final double feeAmount = _cartFee;
     final String prodSummary = _cart.isNotEmpty
         ? _cart.map((c) => '${c.product.name} (x${c.qty})').join(', ')
-        : 'Top Up Digital DigiQ';
+        : 'Akun Digital DigiQ';
 
     showDialog(
       context: context,
@@ -307,9 +152,51 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
             timestamp: DateTime.now(),
             status: 'SUCCESS',
           );
+          for (final c in _cart) {
+            ProductStore.reduceStock(c.product.id, c.qty);
+          }
+          TransactionStore.addTransaction(tx);
           setState(() {
             _transactions.insert(0, tx);
             _cart.clear();
+          });
+          _showPaymentSuccess(tx);
+        },
+      ),
+    );
+  }
+
+  void _openDirectQrisPayment(ProductItem product) {
+    final double baseAmount = product.price;
+    final double feeAmount = baseAmount * 0.007; // 0.7% QRIS fee
+    final double grandTotal = baseAmount + feeAmount;
+    final String prodSummary = product.name;
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => QrisModal(
+        currentBalance: 999999,
+        initialAmount: grandTotal,
+        initialCustomerName: widget.currentUser.name,
+        initialProductName: prodSummary,
+        baseAmount: baseAmount,
+        feeAmount: feeAmount,
+        onPaymentSimulated: (amount, customerName, productName) {
+          final tx = QrisTransaction(
+            id: 'TRX-${DateTime.now().millisecondsSinceEpoch}',
+            customerName: customerName,
+            productName: prodSummary,
+            baseAmount: baseAmount,
+            feeAmount: feeAmount,
+            totalAmount: amount,
+            timestamp: DateTime.now(),
+            status: 'SUCCESS',
+          );
+          ProductStore.reduceStock(product.id, 1);
+          TransactionStore.addTransaction(tx);
+          setState(() {
+            _transactions.insert(0, tx);
           });
           _showPaymentSuccess(tx);
         },
@@ -570,11 +457,61 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
       slivers: [
         // App Bar
         SliverAppBar(
-          expandedHeight: 220,
+          toolbarHeight: 62,
+          expandedHeight: 180,
           floating: false,
           pinned: true,
           elevation: 0,
           backgroundColor: const Color(0xFF0077B6),
+          title: Image.asset(
+            'assets/img/logo digiq putih.png',
+            height: 46,
+            fit: BoxFit.contain,
+            errorBuilder: (_, _, _) => const Text(
+              'DigiQ',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 22,
+              ),
+            ),
+          ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 14),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.notifications_outlined,
+                          color: Colors.white, size: 24),
+                      onPressed: () {},
+                      constraints:
+                          const BoxConstraints(minWidth: 42, minHeight: 42),
+                      padding: EdgeInsets.zero,
+                    ),
+                  ),
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: AppColors.warning,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           flexibleSpace: FlexibleSpaceBar(
             background: Container(
               decoration: const BoxDecoration(
@@ -585,67 +522,12 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
                 ),
               ),
               child: SafeArea(
-                bottom: false,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 74),
+                  padding: const EdgeInsets.fromLTRB(20, 72, 20, 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      Row(
-                        children: [
-                          Image.asset(
-                            'assets/img/Logo_digiq.png',
-                            height: 32,
-                            errorBuilder: (_, _, _) => const Icon(
-                              Icons.bolt_rounded,
-                              color: Colors.white,
-                              size: 28,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'DigiQ',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          const Spacer(),
-                          Stack(
-                            children: [
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.18),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: IconButton(
-                                  icon: const Icon(Icons.notifications_outlined,
-                                      color: Colors.white, size: 22),
-                                  onPressed: () {},
-                                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-                                  padding: EdgeInsets.zero,
-                                ),
-                              ),
-                              Positioned(
-                                top: 6,
-                                right: 6,
-                                child: Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: const BoxDecoration(
-                                    color: AppColors.warning,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
                       Text(
                         'Halo, ${widget.currentUser.name.split(' ').first} 👋',
                         style: const TextStyle(
@@ -669,52 +551,49 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
               ),
             ),
           ),
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(62),
-            child: Container(
-              decoration: const BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-              ),
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (v) => setState(() => _searchQuery = v),
-                style: const TextStyle(fontSize: 13),
-                decoration: InputDecoration(
-                  hintText: 'Cari produk, provider...',
-                  hintStyle:
-                      const TextStyle(color: AppColors.textMuted, fontSize: 13),
-                  prefixIcon: const Icon(Icons.search_rounded,
-                      color: AppColors.textMuted, size: 20),
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear_rounded,
-                              color: AppColors.textMuted, size: 18),
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() => _searchQuery = '');
-                          },
-                        )
-                      : null,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none),
-                  enabledBorder: OutlineInputBorder(
+        ),
+
+        // Search Bar in full-width Box Adapter
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (v) => setState(() => _searchQuery = v),
+              style: const TextStyle(fontSize: 13),
+              decoration: InputDecoration(
+                hintText: 'Cari akun Netflix, ChatGPT, Spotify, Google...',
+                hintStyle:
+                    const TextStyle(color: AppColors.textMuted, fontSize: 13),
+                prefixIcon: const Icon(Icons.search_rounded,
+                    color: AppColors.textMuted, size: 20),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear_rounded,
+                            color: AppColors.textMuted, size: 18),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      )
+                    : null,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 11),
+                border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.cardBorder),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide:
-                        const BorderSide(color: AppColors.primary, width: 1.5),
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
+                    borderSide: BorderSide.none),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.cardBorder),
                 ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide:
+                      const BorderSide(color: AppColors.primary, width: 1.5),
+                ),
+                filled: true,
+                fillColor: Colors.white,
               ),
             ),
           ),
@@ -725,12 +604,44 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
           child: _buildPromoBanner(),
         ),
 
-        // Category chips
-        SliverPersistentHeader(
-          pinned: true,
-          delegate: _CategoryHeaderDelegate(
-            selectedCategory: _selectedCategory,
-            onSelect: (cat) => setState(() => _selectedCategory = cat),
+        // Accounts catalog header banner
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: const [
+                    Icon(Icons.workspace_premium_rounded, size: 20, color: AppColors.primary),
+                    SizedBox(width: 6),
+                    Text(
+                      'Katalog Akun Premium',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryLight,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${_filteredProducts.length} Akun Ready',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primaryDark,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
 
@@ -885,25 +796,42 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Icon area
-            Container(
-              width: double.infinity,
-              height: 74,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.09),
-                borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(16)),
-              ),
-              child: Center(
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.16),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(product.icon, color: color, size: 24),
+            // Image or Icon area
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              child: Container(
+                width: double.infinity,
+                height: 78,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.09),
                 ),
+                child: product.imageUrl != null && product.imageUrl!.isNotEmpty
+                    ? Image.network(
+                        product.imageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => Center(
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: color.withValues(alpha: 0.16),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(product.icon, color: color, size: 24),
+                          ),
+                        ),
+                      )
+                    : Center(
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.16),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(product.icon, color: color, size: 24),
+                        ),
+                      ),
               ),
             ),
             Expanded(
@@ -924,10 +852,25 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      product.provider,
-                      style: const TextStyle(
-                          fontSize: 10.5, color: AppColors.textMuted),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            product.provider,
+                            style: const TextStyle(fontSize: 10.5, color: AppColors.textMuted),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          'Stok: ${product.stock}',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: product.stock > 0 ? AppColors.success : AppColors.danger,
+                          ),
+                        ),
+                      ],
                     ),
                     const Spacer(),
                     Text(
@@ -943,9 +886,8 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
                       width: double.infinity,
                       height: 32,
                       child: ElevatedButton.icon(
-                        onPressed: () => _addToCart(product),
-                        icon: const Icon(Icons.add_shopping_cart_rounded,
-                            size: 14),
+                        onPressed: () => _openDirectQrisPayment(product),
+                        icon: const Icon(Icons.qr_code_2_rounded, size: 15),
                         label: const Text('Beli',
                             style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         style: ElevatedButton.styleFrom(
@@ -977,9 +919,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        minChildSize: 0.4,
-        maxChildSize: 0.85,
+        initialChildSize: 0.65,
+        minChildSize: 0.45,
+        maxChildSize: 0.88,
         builder: (_, scroll) => Container(
           decoration: const BoxDecoration(
             color: Colors.white,
@@ -1001,19 +943,35 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
                   controller: scroll,
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
                   children: [
-                    // Icon
+                    // Image / Icon banner
                     Center(
                       child: Container(
-                        width: 80,
+                        width: 120,
                         height: 80,
                         decoration: BoxDecoration(
-                          color: color.withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
+                          color: color.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: color.withValues(alpha: 0.15),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
-                        child: Icon(product.icon, color: color, size: 44),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: product.imageUrl != null && product.imageUrl!.isNotEmpty
+                              ? Image.network(
+                                  product.imageUrl!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) => Icon(product.icon, color: color, size: 40),
+                                )
+                              : Icon(product.icon, color: color, size: 40),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 12),
                     Text(
                       product.name,
                       textAlign: TextAlign.center,
@@ -1023,21 +981,28 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
                         color: AppColors.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Center(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 3),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: color.withValues(alpha: 0.1),
+                          color: AppColors.successLight,
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: Text(
-                          product.category.label,
-                          style: TextStyle(
-                              fontSize: 11.5,
-                              color: color,
-                              fontWeight: FontWeight.w600),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.check_circle_rounded, size: 13, color: AppColors.success),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${product.stock} Akun Siap Pakai',
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                color: AppColors.success,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -1045,7 +1010,8 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
                     // Info rows
                     _detailRow('Provider', product.provider),
                     _detailRow('Deskripsi', product.description),
-                    _detailRow('Stok', '${product.stock} unit'),
+                    _detailRow('Ketersediaan', '${product.stock} akun ready'),
+                    _detailRow('Pengiriman', 'Instan & Bergaransi Resmi'),
                     const Divider(height: 24),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1064,25 +1030,53 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _addToCart(product);
-                        },
-                        icon: const Icon(Icons.add_shopping_cart_rounded),
-                        label: const Text('Tambah ke Keranjang'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14)),
-                          elevation: 0,
+                    const SizedBox(height: 18),
+                    // Dual action buttons: Tambah Keranjang & Beli Sekarang (Langsung QRIS)
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _addToCart(product);
+                            },
+                            icon: const Icon(Icons.add_shopping_cart_rounded, size: 18),
+                            label: const Text(
+                              '+ Keranjang',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              side: const BorderSide(color: AppColors.primary, width: 1.5),
+                              foregroundColor: AppColors.primary,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          flex: 3,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _openDirectQrisPayment(product);
+                            },
+                            icon: const Icon(Icons.qr_code_2_rounded, size: 20),
+                            label: const Text(
+                              'Beli Sekarang',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              elevation: 0,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -1619,10 +1613,25 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
+            toolbarHeight: 62,
             expandedHeight: 200,
             pinned: true,
             automaticallyImplyLeading: false,
-            backgroundColor: AppColors.primary,
+            elevation: 0,
+            backgroundColor: const Color(0xFF0077B6),
+            title: Image.asset(
+              'assets/img/logo digiq putih.png',
+              height: 44,
+              fit: BoxFit.contain,
+              errorBuilder: (_, _, _) => const Text(
+                'DigiQ',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                ),
+              ),
+            ),
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: const BoxDecoration(
@@ -1636,6 +1645,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
+                      const SizedBox(height: 22),
                       Container(
                         width: 72,
                         height: 72,
@@ -1690,8 +1700,10 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
             ),
           ),
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
+            child: Container(
+              width: double.infinity,
+              color: AppColors.background,
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
               child: Column(
                 children: [
                   // User info card
@@ -1700,6 +1712,12 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
                     children: [
                       _profileInfoRow(Icons.person_outline_rounded, 'Nama',
                           widget.currentUser.name),
+                      _profileInfoRow(
+                          Icons.alternate_email_rounded,
+                          'Username',
+                          widget.currentUser.username.isNotEmpty
+                              ? '@${widget.currentUser.username}'
+                              : '@${widget.currentUser.name.toLowerCase().replaceAll(' ', '')}'),
                       _profileInfoRow(Icons.email_outlined, 'Email',
                           widget.currentUser.email),
                       _profileInfoRow(Icons.phone_outlined, 'No. HP',
@@ -1750,6 +1768,11 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
                         label: 'Bantuan & FAQ',
                         onTap: () {},
                       ),
+                      _menuItem(
+                        icon: Icons.info_outline_rounded,
+                        label: 'Tentang Aplikasi',
+                        onTap: _showAboutAppDialog,
+                      ),
                     ],
                   ),
 
@@ -1782,18 +1805,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
                       ),
                       trailing: const Icon(Icons.chevron_right_rounded,
                           color: AppColors.danger, size: 20),
-                      onTap: () {
-                        Navigator.of(context).pushAndRemoveUntil(
-                          PageRouteBuilder(
-                            pageBuilder: (_, anim, _) => const LoginScreen(),
-                            transitionsBuilder: (_, anim, _, child) =>
-                                FadeTransition(opacity: anim, child: child),
-                            transitionDuration:
-                                const Duration(milliseconds: 400),
-                          ),
-                          (route) => false,
-                        );
-                      },
+                      onTap: _confirmLogout,
                     ),
                   ),
 
@@ -1943,95 +1955,198 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
       ),
     );
   }
-}
 
-// ─── Category Header Delegate ────────────────────────────────────────────────
-
-class _CategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
-  final ProductCategory selectedCategory;
-  final void Function(ProductCategory) onSelect;
-
-  _CategoryHeaderDelegate(
-      {required this.selectedCategory, required this.onSelect});
-
-  @override
-  Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Container(
-      color: AppColors.background,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-        child: Row(
-          children: ProductCategory.values.map((cat) {
-            final isSelected = selectedCategory == cat;
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: GestureDetector(
-                onTap: () => onSelect(cat),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: isSelected ? AppColors.primary : Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isSelected
-                          ? AppColors.primary
-                          : AppColors.cardBorder,
-                    ),
-                    boxShadow: isSelected
-                        ? [
-                            BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.25),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
-                            )
-                          ]
-                        : null,
+  void _showAboutAppDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF06ACDC), Color(0xFF0077B6)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        cat.icon,
-                        size: 15,
-                        color: isSelected
-                            ? Colors.white
-                            : AppColors.textSecondary,
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        cat.label,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: isSelected
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                          color: isSelected
-                              ? Colors.white
-                              : AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Image.asset(
+                    'assets/img/logo digiq putih.png',
+                    height: 24,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, _, _) => const Icon(
+                      Icons.bolt_rounded,
+                      color: Colors.white,
+                      size: 32,
+                    ),
                   ),
                 ),
               ),
-            );
-          }).toList(),
+              const SizedBox(height: 14),
+              const Text(
+                'DigiQ Mobile',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'Versi 1.0.0 (Beta)',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primaryDark,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Aplikasi mobile produk digital yang terintegrasi pembayaran QRIS dengan konsep DANA Bisnis.\n\nNotasi biaya otomatis terjumlah, simulasi notifikasi transaksi instan, katalog pulsa, paket data, PLN, dan top up e-wallet.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: AppColors.textSecondary,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text(
+                    'Tutup',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  @override
-  double get maxExtent => 52;
-
-  @override
-  double get minExtent => 52;
-
-  @override
-  bool shouldRebuild(covariant _CategoryHeaderDelegate oldDelegate) =>
-      oldDelegate.selectedCategory != selectedCategory;
+  void _confirmLogout() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: AppColors.danger.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.logout_rounded,
+                    color: AppColors.danger, size: 30),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Konfirmasi Keluar',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Apakah Anda yakin ingin keluar dari akun DigiQ?',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 22),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.textSecondary,
+                        side: const BorderSide(color: AppColors.cardBorder),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text('Batal',
+                          style: TextStyle(fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        Navigator.of(context).pushAndRemoveUntil(
+                          PageRouteBuilder(
+                            pageBuilder: (_, anim, _) => const LoginScreen(),
+                            transitionsBuilder: (_, anim, _, child) =>
+                                FadeTransition(opacity: anim, child: child),
+                            transitionDuration:
+                                const Duration(milliseconds: 400),
+                          ),
+                          (route) => false,
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.danger,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text('Ya, Keluar',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
+
+// ─── Category Header Delegate ────────────────────────────────────────────────
+
+

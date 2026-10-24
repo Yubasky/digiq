@@ -11,7 +11,6 @@ class LoginScreen extends StatefulWidget {
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
-
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
@@ -141,7 +140,7 @@ class _LoginScreenState extends State<LoginScreen>
             right: 0,
             child: CustomPaint(
               painter: _WavePainter(),
-              size: Size(size.width, 220),
+              size: Size(size.width, 330),
             ),
           ),
 
@@ -160,34 +159,26 @@ class _LoginScreenState extends State<LoginScreen>
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Image.asset(
-                              'assets/img/Logo_digiq.png',
-                              height: 60,
-                              errorBuilder: (_, _, _) => Container(
-                                width: 60,
-                                height: 60,
-                                decoration: BoxDecoration(
-                                  gradient: AppColors.primaryGradient,
-                                  borderRadius: BorderRadius.circular(18),
+                              'assets/img/logo digiq putih.png',
+                              height: 88,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, _, _) => const Text(
+                                'DigiQ',
+                                style: TextStyle(
+                                  fontSize: 34,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  letterSpacing: 1,
                                 ),
-                                child: const Icon(Icons.bolt_rounded,
-                                    color: Colors.white, size: 36),
                               ),
                             ),
-                            const SizedBox(height: 10),
-                            const Text(
-                              'DigiQ',
-                              style: TextStyle(
-                                fontSize: 30,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                                letterSpacing: 1,
-                              ),
-                            ),
+                            const SizedBox(height: 8),
                             const Text(
                               'Produk Digital, Bayar via QRIS',
                               style: TextStyle(
-                                fontSize: 12.5,
-                                color: Colors.white70,
+                                fontSize: 13,
+                                color: Colors.white,
+                                fontWeight: FontWeight.w400,
                                 letterSpacing: 0.3,
                               ),
                             ),
@@ -585,6 +576,29 @@ class _LoginScreenState extends State<LoginScreen>
 class _WavePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
+    // Secondary softer wave in background for depth
+    final softPaint = Paint()
+      ..shader = LinearGradient(
+        colors: [
+          const Color(0xFF00B4D8).withValues(alpha: 0.4),
+          const Color(0xFF06ACDC).withValues(alpha: 0.25),
+        ],
+        begin: Alignment.topRight,
+        end: Alignment.bottomLeft,
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    final softPath = Path();
+    softPath.moveTo(0, 0);
+    softPath.lineTo(size.width, 0);
+    softPath.lineTo(size.width, size.height * 0.90);
+    softPath.quadraticBezierTo(
+        size.width * 0.65, size.height * 1.05, size.width * 0.35, size.height * 0.88);
+    softPath.quadraticBezierTo(
+        size.width * 0.15, size.height * 0.78, 0, size.height * 0.94);
+    softPath.close();
+    canvas.drawPath(softPath, softPaint);
+
+    // Primary vibrant blue wave
     final paint = Paint()
       ..shader = const LinearGradient(
         colors: [Color(0xFF06ACDC), Color(0xFF0077B6)],
@@ -595,11 +609,11 @@ class _WavePainter extends CustomPainter {
     final path = Path();
     path.moveTo(0, 0);
     path.lineTo(size.width, 0);
-    path.lineTo(size.width, size.height * 0.72);
+    path.lineTo(size.width, size.height * 0.80);
     path.quadraticBezierTo(
-        size.width * 0.75, size.height * 0.95, size.width * 0.5, size.height * 0.78);
+        size.width * 0.72, size.height * 0.98, size.width * 0.45, size.height * 0.84);
     path.quadraticBezierTo(
-        size.width * 0.25, size.height * 0.62, 0, size.height * 0.82);
+        size.width * 0.20, size.height * 0.70, 0, size.height * 0.90);
     path.close();
 
     canvas.drawPath(path, paint);

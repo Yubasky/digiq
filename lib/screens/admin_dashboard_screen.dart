@@ -3,8 +3,6 @@ import '../models/product_model.dart';
 import '../models/transaction_model.dart';
 import '../theme/app_theme.dart';
 import '../widgets/add_product_dialog.dart';
-import '../widgets/customer_preview_sheet.dart';
-import '../widgets/qris_modal.dart';
 import 'login_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -17,13 +15,12 @@ class AdminDashboardScreen extends StatefulWidget {
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _currentNavIndex = 0;
   bool _isBalanceVisible = true;
-  ProductCategory _selectedCategory = ProductCategory.all;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
   // Store financial state
-  double _storeBalance = 3850000;
-  int _todayTransactionCount = 28;
+  double get _storeBalance => _transactions.fold(3850000.0, (sum, t) => sum + t.totalAmount);
+  int get _todayTransactionCount => 25 + _transactions.length;
 
   // Real-time notification banner state
   QrisTransaction? _latestNotification;
@@ -48,179 +45,37 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   void _initializeData() {
-    _products = [
-      const ProductItem(
-        id: 'prod_1',
-        name: 'Mobile Legends 86 Diamonds',
-        category: ProductCategory.games,
-        price: 22500,
-        provider: 'Moonton',
-        description: 'Topup cepat via User ID & Zone ID. Otomatis masuk 1 detik.',
-        icon: Icons.sports_esports_rounded,
-        colorHex: 0xFF0284C7,
-      ),
-      const ProductItem(
-        id: 'prod_2',
-        name: 'Free Fire 140 Diamonds',
-        category: ProductCategory.games,
-        price: 20000,
-        provider: 'Garena',
-        description: 'Topup instant Free Fire resmi dan legal 100%.',
-        icon: Icons.sports_esports_rounded,
-        colorHex: 0xFFEF4444,
-      ),
-      const ProductItem(
-        id: 'prod_3',
-        name: 'Pulsa Telkomsel 50.000',
-        category: ProductCategory.pulsaData,
-        price: 51200,
-        provider: 'Telkomsel',
-        description: 'Masa aktif bertambah 30 hari. Pengiriman nomor nasional.',
-        icon: Icons.signal_cellular_alt_rounded,
-        colorHex: 0xFFDC2626,
-      ),
-      const ProductItem(
-        id: 'prod_4',
-        name: 'Paket Data Indosat 30GB',
-        category: ProductCategory.pulsaData,
-        price: 65000,
-        provider: 'Indosat Ooredoo',
-        description: 'Kuota utama 30GB 24 Jam berlaku 30 hari.',
-        icon: Icons.wifi_rounded,
-        colorHex: 0xFFF59E0B,
-      ),
-      const ProductItem(
-        id: 'prod_5',
-        name: 'Top Up DANA 100.000',
-        category: ProductCategory.ewallet,
-        price: 101500,
-        provider: 'DANA Bisnis',
-        description: 'Transfer instan ke akun DANA. Bebas biaya admin.',
-        icon: Icons.account_balance_wallet_rounded,
-        colorHex: 0xFF06ACDC,
-      ),
-      const ProductItem(
-        id: 'prod_6',
-        name: 'Spotify Premium 1 Bulan',
-        category: ProductCategory.streaming,
-        price: 54900,
-        provider: 'Spotify',
-        description: 'Akun Individual resmi. Musik tanpa iklan & offline download.',
-        icon: Icons.movie_filter_rounded,
-        colorHex: 0xFF10B981,
-      ),
-      const ProductItem(
-        id: 'prod_7',
-        name: 'Token Listrik PLN 50.000',
-        category: ProductCategory.plnTagihan,
-        price: 52000,
-        provider: 'PLN Indonesia',
-        description: 'Stroom kode token 20 digit instan via SMS dan invoice.',
-        icon: Icons.bolt_rounded,
-        colorHex: 0xFF8B5CF6,
-      ),
-      const ProductItem(
-        id: 'prod_8',
-        name: 'Top Up GoPay 50.000',
-        category: ProductCategory.ewallet,
-        price: 51000,
-        provider: 'GoTo',
-        description: 'Saldo langsung aktif untuk GoFood, GoRide, dan GoCar.',
-        icon: Icons.account_balance_wallet_rounded,
-        colorHex: 0xFF059669,
-      ),
-    ];
-
-    _transactions = [
-      QrisTransaction(
-        id: 'TRX-98214',
-        customerName: 'Ahmad Faiz',
-        productName: 'Mobile Legends 86 Diamonds',
-        baseAmount: 22500,
-        feeAmount: 0,
-        totalAmount: 22500,
-        timestamp: DateTime.now().subtract(const Duration(minutes: 8)),
-      ),
-      QrisTransaction(
-        id: 'TRX-98213',
-        customerName: 'Siti Rahma',
-        productName: 'Pulsa Telkomsel 50.000',
-        baseAmount: 51200,
-        feeAmount: 0,
-        totalAmount: 51200,
-        timestamp: DateTime.now().subtract(const Duration(minutes: 27)),
-      ),
-      QrisTransaction(
-        id: 'TRX-98212',
-        customerName: 'Rian Saputra',
-        productName: 'Spotify Premium 1 Bulan',
-        baseAmount: 54900,
-        feeAmount: 0,
-        totalAmount: 54900,
-        timestamp: DateTime.now().subtract(const Duration(hours: 1, minutes: 12)),
-      ),
-    ];
+    _products = ProductStore.products;
+    _transactions = TransactionStore.transactions;
   }
 
-  void _onPaymentSimulated(double amount, String customerName, String productName) {
-    final newTrx = QrisTransaction(
-      id: 'TRX-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
-      customerName: customerName,
-      productName: productName,
-      baseAmount: amount,
-      feeAmount: 0,
-      totalAmount: amount,
-      timestamp: DateTime.now(),
-    );
 
-    setState(() {
-      _storeBalance += amount;
-      _todayTransactionCount += 1;
-      _transactions.insert(0, newTrx);
-      _latestNotification = newTrx;
-      _showNotificationBanner = true;
-    });
-
-    // Auto dismiss notification banner after 6 seconds
-    Future.delayed(const Duration(seconds: 6), () {
-      if (mounted) {
-        setState(() {
-          _showNotificationBanner = false;
-        });
-      }
-    });
-
-    // Show instant snackbar
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle_rounded, color: Colors.white),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Pembayaran QRIS ${formatCurrency(amount)} dari $customerName otomatis dijumlahkan!',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: AppColors.success,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 4),
-      ),
-    );
-  }
 
   void _addNewProduct(ProductItem item) {
     setState(() {
-      _products.insert(0, item);
+      ProductStore.addProduct(item);
+      _products = ProductStore.products;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('✓ Produk "${item.name}" berhasil ditambahkan ke katalog toko!'),
+        content: Text('✓ Akun "${item.name}" berhasil ditambahkan ke katalog toko!'),
         backgroundColor: AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _updateProduct(ProductItem item) {
+    setState(() {
+      ProductStore.updateProduct(item);
+      _products = ProductStore.products;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('✓ Akun "${item.name}" berhasil diperbarui!'),
+        backgroundColor: AppColors.success,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -228,11 +83,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   void _toggleProductStatus(String id) {
     setState(() {
-      final index = _products.indexWhere((p) => p.id == id);
-      if (index != -1) {
-        final current = _products[index];
-        _products[index] = current.copyWith(isActive: !current.isActive);
-      }
+      ProductStore.toggleStatus(id);
+      _products = ProductStore.products;
     });
   }
 
@@ -242,7 +94,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Hapus Produk?'),
+        title: const Text('Hapus Akun?'),
         content: Text('Apakah Anda yakin ingin menghapus "${item.name}" dari katalog toko?'),
         actions: [
           TextButton(
@@ -253,11 +105,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             onPressed: () {
               Navigator.of(ctx).pop();
               setState(() {
-                _products.removeWhere((p) => p.id == id);
+                ProductStore.deleteProduct(id);
+                _products = ProductStore.products;
               });
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Produk "${item.name}" telah dihapus.'),
+                  content: Text('Akun "${item.name}" telah dihapus.'),
                   behavior: SnackBarBehavior.floating,
                 ),
               );
@@ -270,32 +123,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  void _showQrisModal() {
+  void _showAddProductDialog([ProductItem? productToEdit]) {
     showDialog(
       context: context,
-      builder: (context) => QrisModal(
-        currentBalance: _storeBalance,
-        onPaymentSimulated: _onPaymentSimulated,
-      ),
-    );
-  }
-
-  void _showAddProductDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AddProductDialog(onProductAdded: _addNewProduct),
-    );
-  }
-
-  void _showCustomerPreview() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => CustomerPreviewSheet(
-        products: _products,
-        onCheckoutSuccess: (amount, customer, product) {
-          _onPaymentSimulated(amount, customer, product);
+      builder: (context) => AddProductDialog(
+        initialProduct: productToEdit,
+        onProductAdded: (item) {
+          if (productToEdit != null) {
+            _updateProduct(item);
+          } else {
+            _addNewProduct(item);
+          }
         },
       ),
     );
@@ -303,11 +141,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   List<ProductItem> get _filteredProducts {
     return _products.where((p) {
-      final matchesCategory = _selectedCategory == ProductCategory.all || p.category == _selectedCategory;
       final matchesSearch = _searchQuery.isEmpty ||
           p.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          p.provider.toLowerCase().contains(_searchQuery.toLowerCase());
-      return matchesCategory && matchesSearch;
+          p.provider.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          p.description.toLowerCase().contains(_searchQuery.toLowerCase());
+      return matchesSearch;
     }).toList();
   }
 
@@ -536,47 +374,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ),
             const SizedBox(width: 4),
-            // Simulation Mode Switcher Button (View as Buyer)
-            Tooltip(
-              message: 'Simulasi Mode Pelanggan / User',
-              child: InkWell(
-                onTap: _showCustomerPreview,
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryLight,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(Icons.remove_red_eye_rounded, size: 13, color: AppColors.primaryDark),
-                      SizedBox(width: 3),
-                      Text(
-                        'Mode User',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primaryDark,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 2),
-            // QRIS Quick Header Icon
-            IconButton(
-              onPressed: _showQrisModal,
-              tooltip: 'Tampilkan QRIS Toko',
-              icon: const Icon(Icons.qr_code_2_rounded, color: AppColors.primary, size: 24),
-              padding: const EdgeInsets.all(4),
-              constraints: const BoxConstraints(),
-            ),
-            const SizedBox(width: 2),
             // Logout Button
             IconButton(
               onPressed: () {
@@ -687,11 +484,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
 
             const SizedBox(height: 10),
-
-            // Category Filter Pills
-            _buildCategoryFilterPills(),
-
-            const SizedBox(height: 14),
 
             // Products Grid
             _buildProductsGrid(limit: 6),
@@ -817,25 +609,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              ElevatedButton.icon(
-                onPressed: _showQrisModal,
-                icon: const Icon(Icons.qr_code_rounded, size: 14, color: AppColors.primaryDark),
-                label: const Text(
-                  'QRIS Toko',
-                  style: TextStyle(
-                    color: AppColors.primaryDark,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 11,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
             ],
           ),
         ],
@@ -846,28 +619,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget _buildQuickActionBar() {
     final actions = [
       {
-        'title': 'Tambah Produk',
+        'title': 'Tambah Akun',
         'icon': Icons.add_box_rounded,
         'color': AppColors.primary,
-        'onTap': _showAddProductDialog,
+        'onTap': () => _showAddProductDialog(),
       },
       {
-        'title': 'QRIS Bisnis',
-        'icon': Icons.qr_code_scanner_rounded,
+        'title': 'Katalog Akun',
+        'icon': Icons.inventory_2_rounded,
         'color': const Color(0xFF0284C7),
-        'onTap': _showQrisModal,
+        'onTap': () => setState(() => _currentNavIndex = 1),
       },
       {
-        'title': 'Test Pembayaran',
-        'icon': Icons.flash_on_rounded,
-        'color': const Color(0xFFF59E0B),
-        'onTap': () => _onPaymentSimulated(50000, 'Bagas Pratama', 'Voucher Game DigiQ'),
-      },
-      {
-        'title': 'Mode User',
-        'icon': Icons.shopping_bag_rounded,
+        'title': 'Penjualan',
+        'icon': Icons.receipt_long_rounded,
         'color': const Color(0xFF10B981),
-        'onTap': _showCustomerPreview,
+        'onTap': () => setState(() => _currentNavIndex = 2),
+      },
+      {
+        'title': 'Toko & CS',
+        'icon': Icons.storefront_rounded,
+        'color': const Color(0xFF8B5CF6),
+        'onTap': () => setState(() => _currentNavIndex = 3),
       },
     ];
 
@@ -1026,55 +799,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildCategoryFilterPills() {
-    return SizedBox(
-      height: 38,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: ProductCategory.values.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, idx) {
-          final cat = ProductCategory.values[idx];
-          final isSelected = _selectedCategory == cat;
 
-          return InkWell(
-            onTap: () => setState(() => _selectedCategory = cat),
-            borderRadius: BorderRadius.circular(20),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary : Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: isSelected ? AppColors.primary : AppColors.cardBorder,
-                ),
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.25),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        )
-                      ]
-                    : null,
-              ),
-              child: Center(
-                child: Text(
-                  cat.label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                    color: isSelected ? Colors.white : AppColors.textPrimary,
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
 
   Widget _buildProductsGrid({int? limit}) {
     final list = limit != null ? _filteredProducts.take(limit).toList() : _filteredProducts;
@@ -1149,7 +874,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top row: Category tag + toggle
+          // Top row: Provider tag + toggle
           Padding(
             padding: const EdgeInsets.only(left: 10, right: 6, top: 8),
             child: Row(
@@ -1186,39 +911,34 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ),
 
-          // Product Icon Graphic Box
+          // Product Graphic / Image Box
           Center(
             child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 4),
-              width: 48,
-              height: 48,
+              margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+              height: 56,
+              width: double.infinity,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Color(product.colorHex).withValues(alpha: 0.85),
-                    Color(product.colorHex),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Color(product.colorHex).withValues(alpha: 0.25),
-                    blurRadius: 6,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
+                color: Color(product.colorHex).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(
-                product.icon,
-                color: Colors.white,
-                size: 24,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: product.imageUrl != null && product.imageUrl!.isNotEmpty
+                    ? Image.network(
+                        product.imageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => Center(
+                          child: Icon(product.icon, color: Color(product.colorHex), size: 28),
+                        ),
+                      )
+                    : Center(
+                        child: Icon(product.icon, color: Color(product.colorHex), size: 28),
+                      ),
               ),
             ),
           ),
 
-          // Name and Price
+          // Name, Price & Stock
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10),
             child: Column(
@@ -1236,13 +956,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 3),
-                Text(
-                  formatCurrency(product.price),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 13.5,
-                    color: AppColors.primaryDark,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      formatCurrency(product.price),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12.5,
+                        color: AppColors.primaryDark,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: product.stock > 0 ? AppColors.successLight : Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'Stok: ${product.stock}',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.bold,
+                          color: product.stock > 0 ? AppColors.success : AppColors.danger,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -1250,9 +990,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
           const Spacer(),
 
-          // Card Footer: Stock & delete action
+          // Card Footer: Actions (Edit & Delete)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: const BoxDecoration(
               border: Border(top: BorderSide(color: AppColors.cardBorder, width: 0.8)),
             ),
@@ -1270,20 +1010,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     Text(
                       product.isActive ? 'Aktif' : 'Nonaktif',
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 10.5,
                         color: product.isActive ? AppColors.success : AppColors.textMuted,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
-                InkWell(
-                  onTap: () => _deleteProduct(product.id),
-                  borderRadius: BorderRadius.circular(6),
-                  child: const Padding(
-                    padding: EdgeInsets.all(2),
-                    child: Icon(Icons.delete_outline_rounded, size: 16, color: AppColors.textMuted),
-                  ),
+                Row(
+                  children: [
+                    InkWell(
+                      onTap: () => _showAddProductDialog(product),
+                      borderRadius: BorderRadius.circular(6),
+                      child: const Padding(
+                        padding: EdgeInsets.all(3),
+                        child: Icon(Icons.edit_outlined, size: 16, color: AppColors.primary),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    InkWell(
+                      onTap: () => _deleteProduct(product.id),
+                      borderRadius: BorderRadius.circular(6),
+                      child: const Padding(
+                        padding: EdgeInsets.all(3),
+                        child: Icon(Icons.delete_outline_rounded, size: 16, color: AppColors.textMuted),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -1317,12 +1070,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   : null,
             ),
           ),
-          const SizedBox(height: 14),
-
-          // Categories
-          _buildCategoryFilterPills(),
-
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
 
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1398,12 +1146,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 'Riwayat Transaksi QRIS',
                 style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
               ),
-              ElevatedButton.icon(
-                onPressed: _showQrisModal,
-                icon: const Icon(Icons.add, size: 14),
-                label: const Text('Simulasi Baru', style: TextStyle(fontSize: 11)),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.successLight,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${_transactions.length} Transaksi',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.success),
                 ),
               ),
             ],
@@ -1554,8 +1305,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           _buildSettingsTile(
             icon: Icons.qr_code_rounded,
             title: 'Pengaturan QRIS Merchant',
-            subtitle: 'ID: ID102026889901 • Auto-Notasi Biaya Aktif',
-            onTap: _showQrisModal,
+            subtitle: 'ID: ID102026889901 • Status Aktif & Terverifikasi',
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('QRIS Toko Resmi DigiQ aktif dan terintegrasi.')),
+              );
+            },
           ),
           _buildSettingsTile(
             icon: Icons.support_agent_rounded,

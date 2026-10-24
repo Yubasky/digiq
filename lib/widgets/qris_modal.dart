@@ -26,32 +26,14 @@ class QrisModal extends StatefulWidget {
 }
 
 class _QrisModalState extends State<QrisModal> {
-  late final TextEditingController _amountController;
-  late final TextEditingController _customerController;
   bool _isProcessing = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _amountController = TextEditingController(
-      text: (widget.initialAmount ?? 50000).toInt().toString(),
-    );
-    _customerController = TextEditingController(
-      text: widget.initialCustomerName ?? 'Bayu Prayoga',
-    );
-  }
-
-  @override
-  void dispose() {
-    _amountController.dispose();
-    _customerController.dispose();
-    super.dispose();
-  }
-
   void _triggerPayment() {
-    final double amount = double.tryParse(_amountController.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? (widget.initialAmount ?? 50000);
-    final String customer = _customerController.text.trim().isEmpty ? (widget.initialCustomerName ?? 'Pelanggan DigiQ') : _customerController.text.trim();
-    final String productName = widget.initialProductName ?? 'Top Up & Pembayaran Digital';
+    final double amount = widget.initialAmount ?? widget.baseAmount ?? 50000;
+    final String customer = (widget.initialCustomerName != null && widget.initialCustomerName!.isNotEmpty)
+        ? widget.initialCustomerName!
+        : 'Pelanggan DigiQ';
+    final String productName = widget.initialProductName ?? 'Akun Digital DigiQ';
 
     setState(() {
       _isProcessing = true;
@@ -69,12 +51,17 @@ class _QrisModalState extends State<QrisModal> {
 
   @override
   Widget build(BuildContext context) {
+    final double totalPay = widget.initialAmount ??
+        ((widget.baseAmount ?? 50000) + (widget.feeAmount ?? 0));
+    final double basePay = widget.baseAmount ?? totalPay;
+    final double feePay = widget.feeAmount ?? (totalPay - basePay);
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       backgroundColor: Colors.white,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
+        constraints: const BoxConstraints(maxWidth: 400),
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -102,10 +89,10 @@ class _QrisModalState extends State<QrisModal> {
                   const SizedBox(width: 10),
                   const Expanded(
                     child: Text(
-                      'Pembayaran Cepat',
+                      'Pembayaran QRIS',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 15,
+                        fontSize: 16,
                         color: AppColors.textPrimary,
                       ),
                       maxLines: 1,
@@ -120,7 +107,7 @@ class _QrisModalState extends State<QrisModal> {
                   ),
                 ],
               ),
-              const Divider(height: 24),
+              const Divider(height: 22),
 
               // Merchant Info
               Container(
@@ -137,7 +124,7 @@ class _QrisModalState extends State<QrisModal> {
                       'DIGIQ STORE OFFICIAL',
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
-                        fontSize: 15,
+                        fontSize: 14.5,
                         color: AppColors.textPrimary,
                         letterSpacing: 0.5,
                       ),
@@ -154,15 +141,15 @@ class _QrisModalState extends State<QrisModal> {
                 ),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
-              // QR Code Visual Box
+              // QR Code Visual Box (Clean, without center obstruction)
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), width: 2),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), width: 1.5),
                   boxShadow: [
                     BoxShadow(
                       color: AppColors.primary.withValues(alpha: 0.08),
@@ -173,64 +160,31 @@ class _QrisModalState extends State<QrisModal> {
                 ),
                 child: Column(
                   children: [
-                    // Simulated high fidelity QR code pattern
-                    SizedBox(
+                    // Clean, unobstructed QR code pattern
+                    Container(
                       width: 200,
                       height: 200,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          CustomPaint(
-                            size: const Size(200, 200),
-                            painter: _QrisPainter(),
-                          ),
-                          // Center badge
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.15),
-                                  blurRadius: 6,
-                                ),
-                              ],
-                            ),
-                            child: Container(
-                              width: 32,
-                              height: 32,
-                              decoration: const BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: AppColors.primaryGradient,
-                              ),
-                              child: const Center(
-                                child: Text(
-                                  'Q',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                      color: Colors.white,
+                      child: CustomPaint(
+                        size: const Size(200, 200),
+                        painter: _QrisPainter(),
                       ),
                     ),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.flash_on_rounded, size: 16, color: AppColors.success),
+                        const Icon(Icons.flash_on_rounded, size: 15, color: AppColors.success),
                         const SizedBox(width: 4),
-                        Text(
-                          'Mendukung DANA, GoPay, OVO, ShopeePay, BCA, Mandiri',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.grey.shade700,
+                        Flexible(
+                          child: Text(
+                            'Scan via DANA, GoPay, OVO, ShopeePay, BCA, Mandiri',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey.shade700,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
                         ),
                       ],
@@ -239,9 +193,9 @@ class _QrisModalState extends State<QrisModal> {
                 ),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
-              // Auto sum cost breakdown banner (Konsep Dana Bisnis)
+              // Order & Fee breakdown banner
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -252,27 +206,29 @@ class _QrisModalState extends State<QrisModal> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: const [
-                        Icon(Icons.info_outline_rounded, size: 16, color: AppColors.primaryDark),
-                        SizedBox(width: 6),
-                        Text(
-                          'Fitur DANA Bisnis: Auto-Notasi Biaya',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                            color: AppColors.primaryDark,
+                    if (widget.initialProductName != null && widget.initialProductName!.isNotEmpty) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Produk:', style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
+                          Flexible(
+                            child: Text(
+                              widget.initialProductName!,
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.textPrimary),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                    ],
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Nominal Tagihan:', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                        const Text('Nominal Tagihan:', style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
                         Text(
-                          formatCurrency(widget.baseAmount ?? (double.tryParse(_amountController.text) ?? 50000)),
+                          formatCurrency(basePay),
                           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
                         ),
                       ],
@@ -281,9 +237,9 @@ class _QrisModalState extends State<QrisModal> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Biaya Layanan QRIS (0.7%):', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                        const Text('Biaya Layanan QRIS (0.7%):', style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
                         Text(
-                          widget.feeAmount != null ? formatCurrency(widget.feeAmount!) : 'Rp 0 (Promo)',
+                          feePay > 0 ? formatCurrency(feePay) : 'Rp 0 (Promo)',
                           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.success),
                         ),
                       ],
@@ -297,8 +253,8 @@ class _QrisModalState extends State<QrisModal> {
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textPrimary),
                         ),
                         Text(
-                          formatCurrency(double.tryParse(_amountController.text) ?? (widget.initialAmount ?? 50000)),
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.primaryDark),
+                          formatCurrency(totalPay),
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.primaryDark),
                         ),
                       ],
                     ),
@@ -306,52 +262,25 @@ class _QrisModalState extends State<QrisModal> {
                 ),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
-              // Simulation trigger (Allows Admin to test real-time payment receiving)
+              // Instructions
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.amber.shade300),
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.cardBorder),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '⚡ Test Simulasi Notifikasi Pembayaran:',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.brown),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _customerController,
-                            decoration: const InputDecoration(
-                              labelText: 'Nama Pembeli',
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            ),
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            controller: _amountController,
-                            keyboardType: TextInputType.number,
-                            onChanged: (_) => setState(() {}),
-                            decoration: const InputDecoration(
-                              labelText: 'Nominal (Rp)',
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            ),
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        ),
-                      ],
+                child: Row(
+                  children: const [
+                    Icon(Icons.info_outline_rounded, size: 16, color: AppColors.textSecondary),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Setelah transfer berhasil di aplikasi m-Banking/e-wallet, klik tombol konfirmasi di bawah.',
+                        style: TextStyle(fontSize: 11, color: AppColors.textSecondary, height: 1.3),
+                      ),
                     ),
                   ],
                 ),
@@ -359,7 +288,7 @@ class _QrisModalState extends State<QrisModal> {
 
               const SizedBox(height: 16),
 
-              // Action button to simulate payment
+              // Action button to confirm payment
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -370,11 +299,15 @@ class _QrisModalState extends State<QrisModal> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : const Icon(Icons.check_circle_outline_rounded),
-                  label: Text(_isProcessing ? 'Memverifikasi Pembayaran...' : 'Simulasikan Pembayaran QRIS Sukses'),
+                      : const Icon(Icons.check_circle_rounded, size: 20),
+                  label: Text(
+                    _isProcessing ? 'Memverifikasi Pembayaran...' : 'Saya Sudah Bayar',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),
@@ -386,6 +319,7 @@ class _QrisModalState extends State<QrisModal> {
   }
 }
 
+/// Realistic unobstructed QR code painter with complete patterns
 class _QrisPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
@@ -396,7 +330,7 @@ class _QrisPainter extends CustomPainter {
     const int matrixSize = 25;
     final double cellSize = size.width / matrixSize;
 
-    // Outer framing box function
+    // Corner Finder Patterns
     void drawPositionPattern(double x, double y) {
       canvas.drawRect(Rect.fromLTWH(x, y, 7 * cellSize, 7 * cellSize), paint);
       final whitePaint = Paint()..color = Colors.white;
@@ -408,19 +342,42 @@ class _QrisPainter extends CustomPainter {
     drawPositionPattern(size.width - 7 * cellSize, 0);
     drawPositionPattern(0, size.height - 7 * cellSize);
 
-    // Decorative pseudorandom QR matrix blocks
+    // Alignment pattern near bottom right
+    void drawAlignmentPattern(double x, double y) {
+      canvas.drawRect(Rect.fromLTWH(x, y, 5 * cellSize, 5 * cellSize), paint);
+      final whitePaint = Paint()..color = Colors.white;
+      canvas.drawRect(Rect.fromLTWH(x + cellSize, y + cellSize, 3 * cellSize, 3 * cellSize), whitePaint);
+      canvas.drawRect(Rect.fromLTWH(x + 2 * cellSize, y + 2 * cellSize, cellSize, cellSize), paint);
+    }
+    drawAlignmentPattern(16 * cellSize, 16 * cellSize);
+
+    // Data matrix modules across entire QR (NO center cutout or blocking badge)
     for (int r = 0; r < matrixSize; r++) {
       for (int c = 0; c < matrixSize; c++) {
+        // Skip corner finder pattern areas
         if (r < 8 && c < 8) continue;
         if (r < 8 && c >= matrixSize - 8) continue;
         if (r >= matrixSize - 8 && c < 8) continue;
-        if (r >= 10 && r <= 14 && c >= 10 && c <= 14) continue;
+        // Skip alignment pattern area
+        if (r >= 16 && r <= 20 && c >= 16 && c <= 20) continue;
 
-        if ((r * 7 + c * 13 + (r * c)) % 3 == 0 || (r + c) % 2 == 0 && (r * c) % 5 == 0) {
+        // Timing pattern
+        if (r == 6 || c == 6) {
+          if ((r + c) % 2 == 0) {
+            canvas.drawRect(
+              Rect.fromLTWH(c * cellSize + 0.3, r * cellSize + 0.3, cellSize - 0.6, cellSize - 0.6),
+              paint,
+            );
+          }
+          continue;
+        }
+
+        // Clean pseudo-data pattern
+        if ((r * 7 + c * 13 + (r * c)) % 3 == 0 || ((r + c) % 2 == 0 && (r * c) % 4 == 0) || (r + c) % 5 == 0) {
           canvas.drawRRect(
             RRect.fromRectAndRadius(
-              Rect.fromLTWH(c * cellSize + 0.5, r * cellSize + 0.5, cellSize - 1, cellSize - 1),
-              const Radius.circular(1),
+              Rect.fromLTWH(c * cellSize + 0.3, r * cellSize + 0.3, cellSize - 0.6, cellSize - 0.6),
+              const Radius.circular(0.8),
             ),
             paint,
           );
