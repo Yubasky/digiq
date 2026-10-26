@@ -9,13 +9,28 @@ class SupabaseConfig {
   static const _url = String.fromEnvironment('SUPABASE_URL');
   static const _anonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
+  /// Membersihkan URL jika tidak sengaja ditambahkan path seperti /rest/v1/ atau trailing slash.
+  static String get _cleanUrl {
+    var url = _url.trim();
+    while (url.endsWith('/')) {
+      url = url.substring(0, url.length - 1);
+    }
+    if (url.endsWith('/rest/v1')) {
+      url = url.substring(0, url.length - '/rest/v1'.length);
+    }
+    while (url.endsWith('/')) {
+      url = url.substring(0, url.length - 1);
+    }
+    return url;
+  }
+
   /// Panggil sekali di main() sebelum runApp().
   static Future<void> initialize() async {
     assert(_url.isNotEmpty, 'SUPABASE_URL belum di-set via --dart-define');
     assert(_anonKey.isNotEmpty, 'SUPABASE_ANON_KEY belum di-set via --dart-define');
 
     await Supabase.initialize(
-      url: _url,
+      url: _cleanUrl,
       publishableKey: _anonKey,
       authOptions: const FlutterAuthClientOptions(
         authFlowType: AuthFlowType.pkce,
