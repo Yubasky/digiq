@@ -6,7 +6,15 @@
 -- ┌────────────────────────────────────────────────────────┐
 -- │  EXTENSIONS                                            │
 -- └────────────────────────────────────────────────────────┘
-CREATE EXTENSION IF NOT EXISTS "pg_cron" SCHEMA extensions;
+DO $$
+BEGIN
+  CREATE EXTENSION IF NOT EXISTS "pg_cron" SCHEMA extensions;
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE 'Extension pg_cron dilewati (aktifkan via dashboard jika dibutuhkan)';
+END;
+$$;
+
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ┌────────────────────────────────────────────────────────┐
@@ -27,24 +35,6 @@ BEGIN
   NEW.updated_at = now();
   RETURN NEW;
 END;
-$$;
-
--- ┌────────────────────────────────────────────────────────┐
--- │  HELPER: is_admin() — STABLE, SECURITY DEFINER         │
--- │  Dipakai di semua policy supaya tidak rekursi RLS       │
--- └────────────────────────────────────────────────────────┘
-CREATE OR REPLACE FUNCTION public.is_admin()
-RETURNS BOOLEAN
-LANGUAGE sql
-SECURITY DEFINER
-STABLE
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.profiles
-    WHERE id = auth.uid()
-      AND role = 'admin'
-  );
 $$;
 
 -- ┌────────────────────────────────────────────────────────┐
@@ -96,6 +86,26 @@ CREATE TRIGGER on_auth_user_created
 
 REVOKE UPDATE ON public.profiles FROM authenticated;
 GRANT UPDATE (full_name, phone, avatar_url) ON public.profiles TO authenticated;
+
+-- ┌────────────────────────────────────────────────────────┐
+-- │  HELPER: is_admin() — STABLE, SECURITY DEFINER         │
+-- │  Dipakai di semua policy supaya tidak rekursi RLS       │
+-- └────────────────────────────────────────────────────────┘
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid()
+      AND role = 'admin'
+  );
+END;
+$$;
 
 -- ┌────────────────────────────────────────────────────────┐
 -- │  TABEL: products                                       │
@@ -453,9 +463,52 @@ ALTER TABLE public.products      REPLICA IDENTITY FULL;
 ALTER TABLE public.transactions  REPLICA IDENTITY FULL;
 ALTER TABLE public.chat_messages REPLICA IDENTITY FULL;
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.products;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.transactions;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.chat_messages;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'products'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.products;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'transactions'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.transactions;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'chat_messages'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.chat_messages;
+  END IF;
+END;
+$$;
+
+-- ┌────────────────────────────────────────────────────────┐
+-- │  STORAGE: avatars bucket & policies                    │
+-- └────────────────────────────────────────────────────────┘
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('avatars', 'avatars', true)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "Avatar images are publicly accessible" ON storage.objects;
+CREATE POLICY "Avatar images are publicly accessible"
+  ON storage.objects FOR SELECT TO public
+  USING (bucket_id = 'avatars');
+
+DROP POLICY IF EXISTS "Users can upload their own avatar" ON storage.objects;
+CREATE POLICY "Users can upload their own avatar"
+  ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+DROP POLICY IF EXISTS "Users can update their own avatar" ON storage.objects;
+CREATE POLICY "Users can update their own avatar"
+  ON storage.objects FOR UPDATE TO authenticated
+  USING (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::text);
 
 -- ┌────────────────────────────────────────────────────────┐
 -- │  CARA MEMBUAT ADMIN PERTAMA:                           │
@@ -466,3 +519,4 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.chat_messages;
 -- │     WHERE id='<uuid>';                                 │
 -- │  4. Aktifkan TOTP MFA di akun tsb sebelum login admin  │
 -- └────────────────────────────────────────────────────────┘
+
