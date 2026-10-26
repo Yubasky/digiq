@@ -27,9 +27,8 @@ class TransactionService {
     return TransactionModel.fromMap(data as Map<String, dynamic>);
   }
 
-  // ─── Stream: transaksi user sendiri ─────────────────────────────────────────
-
-  /// Stream realtime transaksi milik user yang login, join dengan produk.
+  /// Stream realtime transaksi milik user yang login.
+  /// Karena .stream() tidak mendukung join, kita ambil data produk terpisah.
   static Stream<List<TransactionModel>> watchUserTransactions() {
     final uid = _sb.auth.currentUser?.id;
     if (uid == null) return const Stream.empty();
@@ -39,18 +38,66 @@ class TransactionService {
         .stream(primaryKey: ['id'])
         .eq('user_id', uid)
         .order('created_at', ascending: false)
-        .map((rows) => rows.map((r) => TransactionModel.fromMap(r)).toList());
+        .asyncMap((rows) async {
+          if (rows.isEmpty) return <TransactionModel>[];
+          final productIds = rows
+              .map((r) => r['product_id'] as String)
+              .toSet()
+              .toList();
+          try {
+            final products = await _sb
+                .from('products')
+                .select('id, name, category')
+                .inFilter('id', productIds);
+            final productMap = {
+              for (final p in products) p['id'] as String: p,
+            };
+            return rows.map((r) {
+              final enriched = Map<String, dynamic>.from(r);
+              enriched['products'] = productMap[r['product_id']];
+              return TransactionModel.fromMap(enriched);
+            }).toList();
+          } catch (_) {
+            return rows
+                .map((r) => TransactionModel.fromMap(r))
+                .toList();
+          }
+        });
   }
 
   // ─── Stream: semua transaksi (admin) ────────────────────────────────────────
 
-  /// Stream semua transaksi untuk admin, join dengan profil dan produk.
+  /// Stream semua transaksi untuk admin, diperkaya data produk.
   static Stream<List<TransactionModel>> watchAllTransactionsForAdmin() {
     return _sb
         .from(_table)
         .stream(primaryKey: ['id'])
         .order('created_at', ascending: false)
-        .map((rows) => rows.map((r) => TransactionModel.fromMap(r)).toList());
+        .asyncMap((rows) async {
+          if (rows.isEmpty) return <TransactionModel>[];
+          final productIds = rows
+              .map((r) => r['product_id'] as String)
+              .toSet()
+              .toList();
+          try {
+            final products = await _sb
+                .from('products')
+                .select('id, name, category')
+                .inFilter('id', productIds);
+            final productMap = {
+              for (final p in products) p['id'] as String: p,
+            };
+            return rows.map((r) {
+              final enriched = Map<String, dynamic>.from(r);
+              enriched['products'] = productMap[r['product_id']];
+              return TransactionModel.fromMap(enriched);
+            }).toList();
+          } catch (_) {
+            return rows
+                .map((r) => TransactionModel.fromMap(r))
+                .toList();
+          }
+        });
   }
 
   // ─── Admin: update status via RPC ────────────────────────────────────────────

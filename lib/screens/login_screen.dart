@@ -129,8 +129,8 @@ class _LoginScreenState extends State<LoginScreen>
         : CustomerDashboardScreen(profile: profile);
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (_, anim, __) => dest,
-        transitionsBuilder: (_, anim, __, child) =>
+        pageBuilder: (_, anim, secondaryAnim) => dest,
+        transitionsBuilder: (_, anim, secondaryAnim, child) =>
             FadeTransition(opacity: anim, child: child),
         transitionDuration: const Duration(milliseconds: 400),
       ),

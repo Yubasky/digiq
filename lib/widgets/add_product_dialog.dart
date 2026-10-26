@@ -152,7 +152,7 @@ class _AddProductDialogState extends State<AddProductDialog> {
       final newProduct = ProductItem(
         id: widget.initialProduct?.id ?? 'acc_${DateTime.now().millisecondsSinceEpoch}',
         name: _nameController.text.trim(),
-        category: ProductCategory.all,
+        category: widget.initialProduct?.category ?? ProductCategory.streaming,
         price: price,
         provider: _providerController.text.trim().isEmpty ? 'DigiQ Store' : _providerController.text.trim(),
         description: _descController.text.trim().isEmpty ? 'Akun premium resmi bergaransi DigiQ. Pengiriman instan otomatis.' : _descController.text.trim(),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/product_model.dart';
 import '../models/profile_model.dart';
@@ -5,7 +6,6 @@ import '../models/transaction_model.dart';
 import '../services/auth_service.dart';
 import '../services/product_service.dart';
 import '../services/transaction_service.dart';
-import '../services/chat_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/qris_modal.dart';
 import 'login_screen.dart';
@@ -38,18 +38,39 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   // Stream subscriptions
   late final Stream<List<ProductModel>> _productStream;
   late final Stream<List<TransactionModel>> _trxStream;
+  StreamSubscription<List<ProductModel>>? _productSub;
+  StreamSubscription<List<TransactionModel>>? _trxSub;
 
   @override
   void initState() {
     super.initState();
     _productStream = ProductService.watchProducts(activeOnly: true);
     _trxStream = TransactionService.watchUserTransactions();
+    _productSub = _productStream.listen((list) {
+      if (mounted) {
+        setState(() {
+          _products = list;
+          _productsLoading = false;
+        });
+      }
+    });
+    _trxSub = _trxStream.listen((list) {
+      if (mounted) {
+        setState(() {
+          _transactions = list
+              .map((m) => QrisTransaction.fromTransactionModel(m, widget.profile.fullName))
+              .toList();
+        });
+      }
+    });
     // Expire pending di server saat buka riwayat
     TransactionService.expirePendingTransactions();
   }
 
   @override
   void dispose() {
+    _productSub?.cancel();
+    _trxSub?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -477,14 +498,14 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
           backgroundColor: const Color(0xFF0077B6),
           title: Image.asset(
             'assets/img/logo digiq putih.png',
-            height: 46,
+            height: 32,
             fit: BoxFit.contain,
             errorBuilder: (_, _, _) => const Text(
               'DigiQ',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
-                fontSize: 22,
+                fontSize: 18,
               ),
             ),
           ),
@@ -930,31 +951,35 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.65,
-        minChildSize: 0.45,
-        maxChildSize: 0.88,
-        builder: (_, scroll) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            children: [
-              Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: AppColors.cardBorder,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+      builder: (sheetContext) => SafeArea(
+        top: false,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               ),
-              Expanded(
-                child: ListView(
-                  controller: scroll,
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              child: SingleChildScrollView(
+                physics: const ClampingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Handle bar
+                    Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 14),
+                        decoration: BoxDecoration(
+                          color: AppColors.cardBorder,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
                     // Image / Icon banner
                     Center(
                       child: Container(
@@ -1050,7 +1075,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                           flex: 2,
                           child: OutlinedButton.icon(
                             onPressed: () {
-                              Navigator.pop(context);
+                              Navigator.pop(sheetContext);
                               _addToCart(product);
                             },
                             icon: const Icon(Icons.add_shopping_cart_rounded, size: 18),
@@ -1071,7 +1096,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                           flex: 3,
                           child: ElevatedButton.icon(
                             onPressed: () {
-                              Navigator.pop(context);
+                              Navigator.pop(sheetContext);
                               _openDirectQrisPayment(product);
                             },
                             icon: const Icon(Icons.qr_code_2_rounded, size: 20),
@@ -1093,7 +1118,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                   ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1132,6 +1157,14 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   }
 
   Widget _buildEmptyState() {
+    if (_productsLoading) {
+      return const Padding(
+        padding: EdgeInsets.all(48),
+        child: Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      );
+    }
     return Container(
       padding: const EdgeInsets.all(48),
       child: Column(
@@ -1633,14 +1666,14 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             backgroundColor: const Color(0xFF0077B6),
             title: Image.asset(
               'assets/img/logo digiq putih.png',
-              height: 44,
+              height: 32,
               fit: BoxFit.contain,
               errorBuilder: (_, _, _) => const Text(
                 'DigiQ',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
-                  fontSize: 20,
+                  fontSize: 18,
                 ),
               ),
             ),
@@ -2120,8 +2153,10 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         Navigator.of(ctx).pop();
+                        await AuthService.signOut();
+                        if (!mounted) return;
                         Navigator.of(context).pushAndRemoveUntil(
                           PageRouteBuilder(
                             pageBuilder: (_, anim, _) => const LoginScreen(),

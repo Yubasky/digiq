@@ -11,6 +11,7 @@
 //  3b. Jika belum (customer baru) → enroll TOTP → tampilkan QR → verify → aal2
 //  4. Admin WAJIB aal2; jika tidak, aksi admin ditolak di server.
 
+import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'supabase_config.dart';
 import '../models/profile_model.dart';
@@ -122,7 +123,7 @@ class AuthService {
 
       return AuthResult(
         success: true,
-        totpUri: enrollRes.totp.uri,
+        totpUri: enrollRes.totp?.uri,
         enrollFactorId: enrollRes.id,
         message: 'Scan QR code dengan aplikasi autentikator Anda.',
       );
@@ -217,8 +218,8 @@ class AuthService {
   /// Cek apakah sesi saat ini sudah aal2.
   static Future<bool> isAal2() async {
     try {
-      final level = await _sb.auth.mfa.getAuthenticatorAssuranceLevel();
-      return level.currentLevel == AuthenticatorAssuranceLevelString.aal2;
+      final level = _sb.auth.mfa.getAuthenticatorAssuranceLevel();
+      return level.currentLevel == AuthenticatorAssuranceLevels.aal2;
     } catch (_) {
       return false;
     }
@@ -241,7 +242,7 @@ class AuthService {
       final updates = <String, dynamic>{
         'full_name': fullName.trim(),
         'phone': phone.trim(),
-        if (avatarUrl != null) 'avatar_url': avatarUrl,
+        'avatar_url': ?avatarUrl,
       };
 
       await _sb.from('profiles').update(updates).eq('id', uid);
@@ -274,7 +275,7 @@ class AuthService {
 
       await _sb.storage.from('avatars').uploadBinary(
         storagePath,
-        bytes,
+        Uint8List.fromList(bytes),
         fileOptions: const FileOptions(upsert: true, contentType: 'image/jpeg'),
       );
 
@@ -326,8 +327,3 @@ class AuthService {
   }
 }
 
-/// Extension kecil supaya perbandingan AAL lebih readable.
-extension AuthenticatorAssuranceLevelString on AuthenticatorAssuranceLevelString {
-  static const aal1 = 'aal1';
-  static const aal2 = 'aal2';
-}

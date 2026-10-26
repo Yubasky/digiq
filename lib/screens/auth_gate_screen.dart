@@ -9,7 +9,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../services/supabase_config.dart';
 import '../services/auth_service.dart';
 import '../models/profile_model.dart';
 import 'login_screen.dart';
