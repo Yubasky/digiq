@@ -1,9 +1,13 @@
-import 'package:flutter/material.dart';
-import 'screens/login_screen.dart';
-import 'theme/app_theme.dart';
+// lib/main.dart
 
-void main() {
+import 'package:flutter/material.dart';
+import 'services/supabase_config.dart';
+import 'theme/app_theme.dart';
+import 'screens/auth_gate_screen.dart';
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SupabaseConfig.initialize();
   runApp(const DigiQApp());
 }
 
@@ -16,7 +20,7 @@ class DigiQApp extends StatelessWidget {
       title: 'DigiQ - Digital Store & QRIS',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: const LoginScreen(),
+      home: const AuthGateScreen(),
     );
   }
 }

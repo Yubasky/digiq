@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import '../models/product_model.dart';
-import '../models/user_model.dart';
+import '../models/profile_model.dart';
 import '../models/transaction_model.dart';
+import '../services/auth_service.dart';
+import '../services/product_service.dart';
+import '../services/transaction_service.dart';
+import '../services/chat_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/qris_modal.dart';
 import 'login_screen.dart';
@@ -15,24 +19,33 @@ class CartItem {
 }
 
 class CustomerDashboardScreen extends StatefulWidget {
-  final UserAccount currentUser;
-  const CustomerDashboardScreen({super.key, required this.currentUser});
+  final ProfileModel profile;
+  const CustomerDashboardScreen({super.key, required this.profile});
 
   @override
   State<CustomerDashboardScreen> createState() => _CustomerDashboardScreenState();
 }
 
 class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
-  int _currentTab = 0; // 0=Beranda, 1=Keranjang, 2=Riwayat, 3=Profil
+  int _currentTab = 0;
   final List<CartItem> _cart = [];
-  late final List<QrisTransaction> _transactions;
+  List<QrisTransaction> _transactions = [];
+  List<ProductModel> _products = [];
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  bool _productsLoading = true;
+
+  // Stream subscriptions
+  late final Stream<List<ProductModel>> _productStream;
+  late final Stream<List<TransactionModel>> _trxStream;
 
   @override
   void initState() {
     super.initState();
-    _transactions = List.from(TransactionStore.transactions);
+    _productStream = ProductService.watchProducts(activeOnly: true);
+    _trxStream = TransactionService.watchUserTransactions();
+    // Expire pending di server saat buka riwayat
+    TransactionService.expirePendingTransactions();
   }
 
   @override
@@ -103,7 +116,10 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   // ─── Filtered products ──────────────────────────────────────────────────────
 
   List<ProductItem> get _filteredProducts {
-    var list = ProductStore.products.where((p) => p.isActive).toList();
+    // Konversi ProductModel Supabase ke ProductItem untuk kompatibilitas widget lama
+    var list = _products
+        .map((m) => ProductItem.fromProductModel(m))
+        .toList();
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
       list = list
@@ -137,7 +153,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       builder: (_) => QrisModal(
         currentBalance: 999999,
         initialAmount: grandTotal,
-        initialCustomerName: widget.currentUser.name,
+        initialCustomerName: widget.profile.fullName,
         initialProductName: prodSummary,
         baseAmount: baseAmount,
         feeAmount: feeAmount,
@@ -152,10 +168,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             timestamp: DateTime.now(),
             status: 'SUCCESS',
           );
-          for (final c in _cart) {
-            ProductStore.reduceStock(c.product.id, c.qty);
-          }
-          TransactionStore.addTransaction(tx);
+          // Stok dikelola di server oleh RPC; tidak perlu diupdate lokal
           setState(() {
             _transactions.insert(0, tx);
             _cart.clear();
@@ -168,7 +181,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
 
   void _openDirectQrisPayment(ProductItem product) {
     final double baseAmount = product.price;
-    final double feeAmount = baseAmount * 0.007; // 0.7% QRIS fee
+    final double feeAmount = baseAmount * 0.007;
     final double grandTotal = baseAmount + feeAmount;
     final String prodSummary = product.name;
 
@@ -178,7 +191,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       builder: (_) => QrisModal(
         currentBalance: 999999,
         initialAmount: grandTotal,
-        initialCustomerName: widget.currentUser.name,
+        initialCustomerName: widget.profile.fullName,
         initialProductName: prodSummary,
         baseAmount: baseAmount,
         feeAmount: feeAmount,
@@ -193,8 +206,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             timestamp: DateTime.now(),
             status: 'SUCCESS',
           );
-          ProductStore.reduceStock(product.id, 1);
-          TransactionStore.addTransaction(tx);
+          // Stok dikelola di server
           setState(() {
             _transactions.insert(0, tx);
           });
@@ -529,7 +541,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       Text(
-                        'Halo, ${widget.currentUser.name.split(' ').first} 👋',
+                        'Halo, ${widget.profile.fullName.split(' ').first} 👋',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 22,
@@ -1657,8 +1669,8 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                         ),
                         child: Center(
                           child: Text(
-                            widget.currentUser.name.isNotEmpty
-                                ? widget.currentUser.name[0].toUpperCase()
+                            widget.profile.fullName.isNotEmpty
+                                ? widget.profile.fullName[0].toUpperCase()
                                 : '?',
                             style: const TextStyle(
                               color: Colors.white,
@@ -1670,7 +1682,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        widget.currentUser.name,
+                        widget.profile.fullName,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 18,
@@ -1711,17 +1723,13 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                     title: 'Informasi Akun',
                     children: [
                       _profileInfoRow(Icons.person_outline_rounded, 'Nama',
-                          widget.currentUser.name),
+                          widget.profile.fullName),
                       _profileInfoRow(
                           Icons.alternate_email_rounded,
-                          'Username',
-                          widget.currentUser.username.isNotEmpty
-                              ? '@${widget.currentUser.username}'
-                              : '@${widget.currentUser.name.toLowerCase().replaceAll(' ', '')}'),
-                      _profileInfoRow(Icons.email_outlined, 'Email',
-                          widget.currentUser.email),
+                          'ID Akun',
+                          widget.profile.id.substring(0, 8).toUpperCase()),
                       _profileInfoRow(Icons.phone_outlined, 'No. HP',
-                          widget.currentUser.phone),
+                          widget.profile.phone),
                     ],
                   ),
 

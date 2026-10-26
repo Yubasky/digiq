@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../models/user_model.dart';
+import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
-import 'customer_dashboard_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -64,47 +63,29 @@ class _RegisterScreenState extends State<RegisterScreen>
       return;
     }
 
-    if (UserStore.isUsernameTaken(_usernameController.text.trim())) {
-      _showSnack('Username sudah digunakan. Gunakan username lain.', isError: true);
-      return;
-    }
-    if (UserStore.isEmailTaken(_emailController.text.trim())) {
-      _showSnack('Email sudah digunakan. Gunakan email lain.', isError: true);
-      return;
-    }
-    if (UserStore.isPhoneTaken(_phoneController.text.trim())) {
-      _showSnack('Nomor HP sudah terdaftar.', isError: true);
-      return;
-    }
-
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 1200));
 
-    final newUser = UserAccount(
-      id: 'usr-${DateTime.now().millisecondsSinceEpoch}',
-      name: _nameController.text.trim(),
-      username: _usernameController.text.trim().toLowerCase(),
+    final result = await AuthService.signUp(
       email: _emailController.text.trim(),
-      phone: _phoneController.text.trim(),
       password: _passwordController.text,
-      role: UserRole.customer,
-      createdAt: DateTime.now(),
+      fullName: _nameController.text.trim(),
+      phone: _phoneController.text.trim(),
     );
-    UserStore.registerUser(newUser);
 
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    _showSnack('Akun berhasil dibuat! Selamat datang, ${newUser.name}.', isError: false);
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (mounted) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) => CustomerDashboardScreen(currentUser: newUser),
-        ),
-        (route) => false,
-      );
+    if (!result.success) {
+      _showSnack(result.message ?? 'Pendaftaran gagal.', isError: true);
+      return;
     }
+
+    _showSnack(
+      'Akun berhasil dibuat! Cek email untuk verifikasi, lalu login.',
+      isError: false,
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 800));
+    if (mounted) Navigator.of(context).pop();
   }
 
   void _showSnack(String msg, {required bool isError}) {
