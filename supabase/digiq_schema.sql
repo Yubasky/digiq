@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
                     CHECK (role IN ('customer', 'admin')),
   balance         NUMERIC(15, 2) NOT NULL DEFAULT 0
                     CHECK (balance >= 0),
-  is_2fa_enabled  BOOLEAN NOT NULL DEFAULT true,
+  is_2fa_enabled  BOOLEAN NOT NULL DEFAULT false,
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -211,16 +211,16 @@ CREATE POLICY "products_select_admin"
 
 CREATE POLICY "products_insert_admin"
   ON public.products FOR INSERT TO authenticated
-  WITH CHECK (public.is_admin() AND (auth.jwt() ->> 'aal') = 'aal2');
+  WITH CHECK (public.is_admin());
 
 CREATE POLICY "products_update_admin"
   ON public.products FOR UPDATE TO authenticated
-  USING (public.is_admin() AND (auth.jwt() ->> 'aal') = 'aal2')
-  WITH CHECK (public.is_admin() AND (auth.jwt() ->> 'aal') = 'aal2');
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 
 CREATE POLICY "products_delete_admin"
   ON public.products FOR DELETE TO authenticated
-  USING (public.is_admin() AND (auth.jwt() ->> 'aal') = 'aal2');
+  USING (public.is_admin());
 
 -- transactions
 DROP POLICY IF EXISTS "trx_select_own"   ON public.transactions;
@@ -255,7 +255,7 @@ CREATE POLICY "chat_insert_customer"
 
 CREATE POLICY "chat_insert_admin"
   ON public.chat_messages FOR INSERT TO authenticated
-  WITH CHECK (public.is_admin() AND (auth.jwt() ->> 'aal') = 'aal2' AND sender_id = auth.uid());
+  WITH CHECK (public.is_admin() AND sender_id = auth.uid());
 
 CREATE POLICY "chat_update_read"
   ON public.chat_messages FOR UPDATE TO authenticated
@@ -282,19 +282,10 @@ DECLARE
   v_expired_at TIMESTAMPTZ;
   v_qris       TEXT;
   v_trx        public.transactions%ROWTYPE;
-  v_aal        TEXT;
 BEGIN
   v_user_id := auth.uid();
   IF v_user_id IS NULL THEN
     RAISE EXCEPTION 'Tidak terautentikasi' USING ERRCODE = '42501';
-  END IF;
-
-  v_aal := auth.jwt() ->> 'aal';
-  IF EXISTS (
-    SELECT 1 FROM public.profiles
-    WHERE id = v_user_id AND is_2fa_enabled = true AND role = 'customer'
-  ) AND v_aal <> 'aal2' THEN
-    RAISE EXCEPTION 'Verifikasi 2FA diperlukan untuk melakukan pembelian' USING ERRCODE = '42501';
   END IF;
 
   SELECT * INTO v_product FROM public.products
@@ -350,9 +341,6 @@ DECLARE
 BEGIN
   IF NOT public.is_admin() THEN
     RAISE EXCEPTION 'Akses ditolak: hanya admin' USING ERRCODE = '42501';
-  END IF;
-  IF (auth.jwt() ->> 'aal') <> 'aal2' THEN
-    RAISE EXCEPTION 'Verifikasi 2FA admin diperlukan' USING ERRCODE = '42501';
   END IF;
   IF p_status NOT IN ('success', 'failed') THEN
     RAISE EXCEPTION 'Status tidak valid' USING ERRCODE = '22023';
@@ -425,9 +413,6 @@ AS $$
 BEGIN
   IF NOT public.is_admin() THEN
     RAISE EXCEPTION 'Akses ditolak: hanya admin' USING ERRCODE = '42501';
-  END IF;
-  IF (auth.jwt() ->> 'aal') <> 'aal2' THEN
-    RAISE EXCEPTION 'Verifikasi 2FA admin diperlukan' USING ERRCODE = '42501';
   END IF;
 
   RETURN QUERY
@@ -517,6 +502,5 @@ CREATE POLICY "Users can update their own avatar"
 -- │  3. Jalankan:                                          │
 -- │     UPDATE public.profiles SET role='admin'            │
 -- │     WHERE id='<uuid>';                                 │
--- │  4. Aktifkan TOTP MFA di akun tsb sebelum login admin  │
 -- └────────────────────────────────────────────────────────┘
 

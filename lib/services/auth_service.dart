@@ -84,48 +84,31 @@ class AuthService {
     }
   }
 
-  // ─── Sign In (Tahap 1: password) ────────────────────────────────────────────
+  // ─── Sign In (Email & Password Langsung) ────────────────────────────────────
 
-  /// Login email+password. Mengembalikan:
-  /// - success=true + mfaFactorId  → user punya TOTP, perlu verifikasi
-  /// - success=true + totpUri       → user belum punya TOTP, perlu enrollment
-  /// - success=true + profile       → aal2 sudah tercapai (jarang di sini)
-  static Future<AuthResult> signInStep1({
+  /// Login email & password standar (1 langkah, tanpa MFA/TOTP).
+  static Future<AuthResult> signIn({
     required String email,
     required String password,
   }) async {
     try {
-      await _sb.auth.signInWithPassword(
+      final res = await _sb.auth.signInWithPassword(
         email: email.trim(),
         password: password,
       );
 
-      // Cek faktor MFA yang terdaftar
-      final factors = await _sb.auth.mfa.listFactors();
-      final totpFactors = factors.totp
-          .where((f) => f.status == FactorStatus.verified)
-          .toList();
-
-      if (totpFactors.isNotEmpty) {
-        // Sudah punya TOTP terverifikasi → perlu challenge
-        return AuthResult(
-          success: true,
-          mfaFactorId: totpFactors.first.id,
-          message: 'Masukkan kode 6 digit dari aplikasi autentikator Anda.',
+      if (res.user == null) {
+        return const AuthResult(
+          success: false,
+          message: 'Login gagal. Periksa kembali email dan password.',
         );
       }
 
-      // Belum punya TOTP → enrollment
-      final enrollRes = await _sb.auth.mfa.enroll(
-        issuer: 'DigiQ',
-        factorType: FactorType.totp,
-      );
-
+      final profile = await getCurrentProfile();
       return AuthResult(
         success: true,
-        totpUri: enrollRes.totp?.uri,
-        enrollFactorId: enrollRes.id,
-        message: 'Scan QR code dengan aplikasi autentikator Anda.',
+        profile: profile,
+        message: 'Login berhasil.',
       );
     } on AuthException catch (e) {
       return AuthResult(success: false, message: _translateAuthError(e.message));
@@ -134,60 +117,21 @@ class AuthService {
     }
   }
 
-  // ─── MFA Challenge + Verify (Tahap 2) ───────────────────────────────────────
+  /// Alias signInStep1 untuk kompatibilitas.
+  static Future<AuthResult> signInStep1({
+    required String email,
+    required String password,
+  }) => signIn(email: email, password: password);
 
-  /// Verifikasi TOTP untuk faktor yang sudah terdaftar.
-  static Future<AuthResult> verifyTotp({
-    required String factorId,
-    required String code,
-  }) async {
+  /// Login via Google / Gmail OAuth dari Supabase.
+  static Future<bool> signInWithGoogle() async {
     try {
-      final challengeRes =
-          await _sb.auth.mfa.challenge(factorId: factorId);
-      await _sb.auth.mfa.verify(
-        factorId: factorId,
-        challengeId: challengeRes.id,
-        code: code.trim(),
+      return await _sb.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: 'digiq://login-callback',
       );
-
-      final profile = await getCurrentProfile();
-      return AuthResult(
-        success: true,
-        profile: profile,
-        message: 'Verifikasi berhasil.',
-      );
-    } on AuthException catch (e) {
-      return AuthResult(success: false, message: _translateAuthError(e.message));
-    } catch (e) {
-      return AuthResult(success: false, message: 'Kode tidak valid atau expired.');
-    }
-  }
-
-  /// Verifikasi TOTP saat enrollment baru (unenrolled factor).
-  static Future<AuthResult> verifyEnrollment({
-    required String factorId,
-    required String code,
-  }) async {
-    try {
-      final challengeRes =
-          await _sb.auth.mfa.challenge(factorId: factorId);
-      await _sb.auth.mfa.verify(
-        factorId: factorId,
-        challengeId: challengeRes.id,
-        code: code.trim(),
-      );
-
-      final profile = await getCurrentProfile();
-      return AuthResult(
-        success: true,
-        profile: profile,
-        message: 'Autentikator berhasil dikonfigurasi!',
-      );
-    } on AuthException catch (e) {
-      return AuthResult(success: false, message: _translateAuthError(e.message));
-    } catch (e) {
-      return AuthResult(
-          success: false, message: 'Verifikasi enrollment gagal: $e');
+    } catch (_) {
+      return false;
     }
   }
 
@@ -215,15 +159,8 @@ class AuthService {
     return profile?.role;
   }
 
-  /// Cek apakah sesi saat ini sudah aal2.
-  static Future<bool> isAal2() async {
-    try {
-      final level = _sb.auth.mfa.getAuthenticatorAssuranceLevel();
-      return level.currentLevel == AuthenticatorAssuranceLevels.aal2;
-    } catch (_) {
-      return false;
-    }
-  }
+  /// Cek apakah user sedang login (selalu true jika ada sesi aktif).
+  static Future<bool> isAal2() async => _sb.auth.currentUser != null;
 
   // ─── Update profile ─────────────────────────────────────────────────────────
 

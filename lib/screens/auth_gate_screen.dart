@@ -33,43 +33,26 @@ class AuthGateScreen extends StatelessWidget {
           return const LoginScreen();
         }
 
-        // Session ada — cek aal2 + role asinkron
-        return FutureBuilder<_GateData>(
-          future: _resolveDestination(),
-          builder: (context, gateSnap) {
-            if (!gateSnap.hasData) return const _LoadingPage();
-
-            final gate = gateSnap.data!;
-            if (!gate.isAal2) {
-              // Belum aal2 → perlu verifikasi MFA
-              return const LoginScreen();
+        // Session ada — ambil data profil & role
+        return FutureBuilder<ProfileModel?>(
+          future: AuthService.getCurrentProfile(),
+          builder: (context, profileSnap) {
+            if (profileSnap.connectionState == ConnectionState.waiting) {
+              return const _LoadingPage();
             }
 
-            if (gate.profile == null) return const LoginScreen();
+            final profile = profileSnap.data;
+            if (profile == null) return const LoginScreen();
 
-            if (gate.profile!.isAdmin) {
+            if (profile.isAdmin) {
               return const AdminDashboardScreen();
             }
-            return CustomerDashboardScreen(profile: gate.profile!);
+            return CustomerDashboardScreen(profile: profile);
           },
         );
       },
     );
   }
-
-  static Future<_GateData> _resolveDestination() async {
-    final isAal2 = await AuthService.isAal2();
-    if (!isAal2) return _GateData(isAal2: false, profile: null);
-
-    final profile = await AuthService.getCurrentProfile();
-    return _GateData(isAal2: true, profile: profile);
-  }
-}
-
-class _GateData {
-  final bool isAal2;
-  final ProfileModel? profile;
-  _GateData({required this.isAal2, required this.profile});
 }
 
 class _LoadingPage extends StatelessWidget {

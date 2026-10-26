@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
 import '../models/profile_model.dart';
 import '../theme/app_theme.dart';
@@ -23,11 +22,6 @@ class _LoginScreenState extends State<LoginScreen>
   bool _isLoading = false;
   bool _rememberMe = false;
 
-  // MFA state
-  String? _mfaFactorId;       // verify faktor existing
-  String? _enrollFactorId;    // verify saat enrollment baru
-  String? _totpUri;           // URI QR enrollment
-  String _mfaStep = '';       // '' | 'verify' | 'enroll'
 
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
@@ -62,7 +56,7 @@ class _LoginScreenState extends State<LoginScreen>
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
 
-    final result = await AuthService.signInStep1(
+    final result = await AuthService.signIn(
       email: _identifierController.text.trim(),
       password: _passwordController.text,
     );
@@ -75,50 +69,12 @@ class _LoginScreenState extends State<LoginScreen>
       return;
     }
 
-    if (result.mfaFactorId != null) {
-      // Punya TOTP terdaftar → minta kode verifikasi
-      _mfaFactorId = result.mfaFactorId;
-      setState(() => _mfaStep = 'verify');
-      _showMfaSheet();
-    } else if (result.totpUri != null) {
-      // Belum punya TOTP → enrollment
-      _enrollFactorId = result.enrollFactorId;
-      _totpUri = result.totpUri;
-      setState(() => _mfaStep = 'enroll');
-      _showMfaSheet();
-    }
-  }
-
-  Future<void> _verifyCode(String code, {required bool isEnroll}) async {
-    setState(() => _isLoading = true);
-    AuthResult result;
-    if (isEnroll) {
-      result = await AuthService.verifyEnrollment(
-        factorId: _enrollFactorId!,
-        code: code,
-      );
-    } else {
-      result = await AuthService.verifyTotp(
-        factorId: _mfaFactorId!,
-        code: code,
-      );
-    }
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-
-    if (!result.success) {
-      _showError(result.message ?? 'Kode tidak valid.');
-      return;
-    }
-
     final profile = result.profile;
     if (profile == null) {
       _showError('Gagal memuat profil. Coba login ulang.');
       return;
     }
 
-    if (!mounted) return;
-    Navigator.of(context).pop(); // tutup bottom sheet
     _navigateToHome(profile);
   }
 
@@ -148,24 +104,6 @@ class _LoginScreenState extends State<LoginScreen>
     ));
   }
 
-  // ─── TOTP Bottom Sheet ───────────────────────────────────────────────────
-
-  void _showMfaSheet() {
-    final isEnroll = _mfaStep == 'enroll';
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _MfaBottomSheet(
-        isEnroll: isEnroll,
-        totpUri: _totpUri,
-        isLoading: _isLoading,
-        onVerify: (code) => _verifyCode(code, isEnroll: isEnroll),
-      ),
-    );
-  }
-
-  // _doLogin sekarang ada di blok di atas (setelah dispose)
 
   @override
   Widget build(BuildContext context) {
@@ -611,7 +549,7 @@ class _LoginScreenState extends State<LoginScreen>
                               SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'Login aman dengan verifikasi 2 langkah (TOTP).',
+                                  'Login aman dan cepat dengan akun DigiQ.',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: AppColors.primaryDark,
@@ -685,193 +623,4 @@ class _WavePainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-// ─── MFA Bottom Sheet ─────────────────────────────────────────────────────────
 
-class _MfaBottomSheet extends StatefulWidget {
-  final bool isEnroll;
-  final String? totpUri;
-  final bool isLoading;
-  final Future<void> Function(String code) onVerify;
-
-  const _MfaBottomSheet({
-    required this.isEnroll,
-    this.totpUri,
-    required this.isLoading,
-    required this.onVerify,
-  });
-
-  @override
-  State<_MfaBottomSheet> createState() => _MfaBottomSheetState();
-}
-
-class _MfaBottomSheetState extends State<_MfaBottomSheet> {
-  final _codeController = TextEditingController();
-  bool _isSubmitting = false;
-
-  @override
-  void dispose() {
-    _codeController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    final code = _codeController.text.trim();
-    if (code.length != 6) return;
-    setState(() => _isSubmitting = true);
-    await widget.onVerify(code);
-    if (mounted) setState(() => _isSubmitting = false);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Handle bar
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.cardBorder,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            Text(
-              widget.isEnroll
-                  ? 'Aktifkan Autentikator 🔐'
-                  : 'Verifikasi 2 Langkah 🔐',
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              widget.isEnroll
-                  ? 'Scan QR code di bawah dengan Google Authenticator atau aplikasi TOTP lainnya, lalu masukkan kode 6 digit.'
-                  : 'Masukkan kode 6 digit dari aplikasi autentikator Anda.',
-              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 20),
-
-            // QR Code untuk enrollment
-            if (widget.isEnroll && widget.totpUri != null) ...[
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: AppColors.cardBorder),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    children: [
-                      // Gunakan qr_flutter untuk render QR
-                      const Icon(
-                        Icons.qr_code_2_rounded,
-                        size: 120,
-                        color: AppColors.textPrimary,
-                      ),
-                      const SizedBox(height: 8),
-                      SelectableText(
-                        widget.totpUri!,
-                        style: const TextStyle(
-                            fontSize: 8, color: AppColors.textMuted),
-                        maxLines: 2,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-
-            // Input kode 6 digit
-            TextFormField(
-              controller: _codeController,
-              keyboardType: TextInputType.number,
-              maxLength: 6,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 12,
-              ),
-              decoration: InputDecoration(
-                hintText: '000000',
-                hintStyle: TextStyle(
-                    color: AppColors.textMuted.withValues(alpha: 0.5),
-                    fontSize: 24,
-                    letterSpacing: 12),
-                counterText: '',
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.cardBorder),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide:
-                      const BorderSide(color: AppColors.primary, width: 2),
-                ),
-                filled: true,
-                fillColor: AppColors.background,
-              ),
-              onChanged: (v) {
-                if (v.length == 6) _submit();
-              },
-            ),
-            const SizedBox(height: 20),
-
-            // Tombol verifikasi
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                onPressed: _isSubmitting ? null : _submit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
-                  elevation: 0,
-                ),
-                child: _isSubmitting
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2.5, color: Colors.white),
-                      )
-                    : Text(
-                        widget.isEnroll
-                            ? 'Konfirmasi & Aktifkan'
-                            : 'Verifikasi Kode',
-                        style: const TextStyle(
-                            fontSize: 15.5, fontWeight: FontWeight.bold),
-                      ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
