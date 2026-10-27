@@ -1,19 +1,10 @@
 // lib/services/auth_service.dart
 //
-// Alur 2FA yang dipilih: TOTP (Time-based One-Time Password)
-// Alasan: TOTP berjalan offline setelah enrollment sehingga tidak bergantung
-// pada pengiriman email/SMS, lebih andal untuk aplikasi payment digital.
-//
-// Alur login:
-//  1. signInWithPassword → sesi aal1
-//  2. cek apakah faktor TOTP sudah terdaftar (mfa.listFactors)
-//  3a. Jika sudah → challenge + verify kode 6 digit → sesi naik ke aal2
-//  3b. Jika belum (customer baru) → enroll TOTP → tampilkan QR → verify → aal2
-//  4. Admin WAJIB aal2; jika tidak, aksi admin ditolak di server.
+// Layanan autentikasi DigiQ: Registrasi, Login, Password Reset, Verifikasi Email.
 
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'supabase_config.dart';
 import '../models/profile_model.dart';
 
@@ -23,27 +14,15 @@ class AuthResult {
   final String? message;
   final ProfileModel? profile;
 
-  /// Saat login membutuhkan verifikasi TOTP, ini berisi factor ID.
-  final String? mfaFactorId;
-
-  /// Saat enrollment TOTP baru, ini berisi TOTP URI (untuk QR code).
-  final String? totpUri;
-
-  /// Factor ID saat enrollment, dipakai untuk verify.
-  final String? enrollFactorId;
-
-  const AuthResult({
-    required this.success,
-    this.message,
-    this.profile,
-    this.mfaFactorId,
-    this.totpUri,
-    this.enrollFactorId,
-  });
+  const AuthResult({required this.success, this.message, this.profile});
 }
 
 class AuthService {
   static SupabaseClient get _sb => SupabaseConfig.supabase;
+
+  /// In-memory security flag: true saat alur recovery aktif.
+  /// Mencegah akses ke dashboard hingga password diperbarui atau user sign out.
+  static bool isPasswordRecovery = false;
 
   // ─── Redirect URI ────────────────────────────────────────────────────────────
 
@@ -75,10 +54,7 @@ class AuthService {
         email: email.trim(),
         password: password,
         emailRedirectTo: emailRedirectTo ?? kAuthRedirectUri,
-        data: {
-          'full_name': fullName.trim(),
-          'phone': phone.trim(),
-        },
+        data: {'full_name': fullName.trim(), 'phone': phone.trim()},
       );
 
       if (res.user == null) {
@@ -96,7 +72,10 @@ class AuthService {
         message: 'Akun berhasil dibuat! Silakan verifikasi email Anda.',
       );
     } on AuthException catch (e) {
-      return AuthResult(success: false, message: _translateAuthError(e.message));
+      return AuthResult(
+        success: false,
+        message: _translateAuthError(e.message),
+      );
     } catch (e) {
       return AuthResult(success: false, message: 'Terjadi kesalahan: $e');
     }
@@ -118,14 +97,18 @@ class AuthService {
 
       return const AuthResult(
         success: true,
-        message:
-            'Email verifikasi baru berhasil dikirim. Periksa kotak masuk atau spam di Gmail Anda.',
+        message: 'Email verifikasi baru berhasil dikirim. Periksa kotak masuk atau spam di Gmail Anda.',
       );
     } on AuthException catch (e) {
-      return AuthResult(success: false, message: _translateAuthError(e.message));
+      return AuthResult(
+        success: false,
+        message: _translateAuthError(e.message),
+      );
     } catch (e) {
       return AuthResult(
-          success: false, message: 'Gagal mengirim ulang email verifikasi: $e');
+        success: false,
+        message: 'Gagal mengirim ulang email verifikasi: $e',
+      );
     }
   }
 
@@ -133,37 +116,64 @@ class AuthService {
 
   /// Kirim email reset password. Pesan sukses selalu netral agar tidak
   /// membocorkan apakah email terdaftar (anti account-enumeration).
+  /// Rate-limit dan network errors diterjemahkan secara ramah.
   static Future<AuthResult> resetPassword(String email) async {
+    final cleanEmail = email.trim();
+    if (cleanEmail.isEmpty) {
+      return const AuthResult(success: false, message: 'Email wajib diisi.');
+    }
     try {
       await _sb.auth.resetPasswordForEmail(
-        email.trim(),
+        cleanEmail,
         redirectTo: kAuthRedirectUri,
       );
       return const AuthResult(
         success: true,
-        message:
-            'Jika email terdaftar, tautan reset kata sandi telah dikirim. Silakan periksa kotak masuk atau folder spam Anda.',
+        message: 'Jika email terdaftar, tautan telah dikirim. Silakan periksa kotak masuk atau folder spam Anda.',
       );
     } on AuthException catch (e) {
-      return AuthResult(success: false, message: _translateAuthError(e.message));
-    } catch (e) {
-      return AuthResult(success: false, message: 'Terjadi kesalahan jaringan: $e');
+      final lower = e.message.toLowerCase();
+      // Hanya tampilkan error jika kena rate limit, selebihnya netral
+      if (lower.contains('rate limit') ||
+          lower.contains('over_email_send_rate_limit') ||
+          lower.contains('for security purposes')) {
+        return AuthResult(
+          success: false,
+          message: _translateAuthError(e.message),
+        );
+      }
+      return const AuthResult(
+        success: true,
+        message: 'Jika email terdaftar, tautan telah dikirim. Silakan periksa kotak masuk atau folder spam Anda.',
+      );
+    } catch (_) {
+      return const AuthResult(
+        success: false,
+        message: 'Koneksi internet bermasalah. Periksa jaringan Anda.',
+      );
     }
   }
 
   // ─── Map OTP type string → OtpType ──────────────────────────────────────────
 
   /// Petakan string type dari URL ke OtpType Supabase.
-  /// Kembalikan null jika tidak dikenal (bukan null-safe crash — caller harus cek).
+  /// Mendukung: email, signup, recovery, magiclink, emailChange (email_change), invite.
+  /// Kembalikan null jika tidak dikenal.
   static OtpType? mapOtpType(String? t) {
     switch (t?.toLowerCase()) {
       case 'email':
-      case 'signup':
         return OtpType.email;
+      case 'signup':
+        return OtpType.signup;
       case 'recovery':
         return OtpType.recovery;
       case 'magiclink':
         return OtpType.magiclink;
+      case 'email_change':
+      case 'emailchange':
+        return OtpType.emailChange;
+      case 'invite':
+        return OtpType.invite;
       default:
         return null;
     }
@@ -177,21 +187,38 @@ class AuthService {
     required String tokenHash,
     required String type,
   }) async {
-    final otpType = mapOtpType(type);
+    final cleanHash = tokenHash.trim();
+    final cleanType = type.trim();
+
+    if (cleanHash.isEmpty || cleanType.isEmpty) {
+      return const AuthResult(
+        success: false,
+        message:
+            'Tautan verifikasi tidak lengkap. Parameter token tidak ditemukan.',
+      );
+    }
+
+    final otpType = mapOtpType(cleanType);
     if (otpType == null) {
       return const AuthResult(
         success: false,
         message: 'Jenis tautan tidak dikenal. Silakan minta tautan baru.',
       );
     }
+
     try {
-      await _sb.auth.verifyOTP(tokenHash: tokenHash, type: otpType);
+      await _sb.auth.verifyOTP(tokenHash: cleanHash, type: otpType);
       return const AuthResult(success: true);
     } on AuthException catch (e) {
-      return AuthResult(success: false, message: _translateAuthError(e.message));
+      return AuthResult(
+        success: false,
+        message: _translateAuthError(e.message),
+      );
     } catch (e) {
       return AuthResult(
-          success: false, message: 'Gagal memverifikasi tautan: $e');
+        success: false,
+        message: 'Koneksi internet bermasalah saat memverifikasi tautan: $e',
+      );
     }
   }
 
@@ -231,7 +258,10 @@ class AuthService {
         message: 'Login berhasil.',
       );
     } on AuthException catch (e) {
-      return AuthResult(success: false, message: _translateAuthError(e.message));
+      return AuthResult(
+        success: false,
+        message: _translateAuthError(e.message),
+      );
     } catch (e) {
       return AuthResult(success: false, message: 'Terjadi kesalahan: $e');
     }
@@ -241,8 +271,7 @@ class AuthService {
   static Future<AuthResult> signInStep1({
     required String email,
     required String password,
-  }) =>
-      signIn(email: email, password: password);
+  }) => signIn(email: email, password: password);
 
   /// Login via Google / Gmail OAuth dari Supabase.
   /// Web: gunakan kAuthRedirectUri. Mobile: scheme khusus.
@@ -277,50 +306,6 @@ class AuthService {
     return profile?.role;
   }
 
-  // ─── MFA / 2FA TOTP Helpers ─────────────────────────────────────────────────
-
-  /// Cek apakah sesi saat ini berstatus AAL2 (MFA terverifikasi).
-  static bool isSessionAal2() {
-    try {
-      final aal = _sb.auth.mfa.getAuthenticatorAssuranceLevel();
-      return aal.currentLevel == AuthenticatorAssuranceLevels.aal2;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  /// Cek apakah pengguna saat ini AAL2 (asynchronous helper).
-  static Future<bool> isAal2() async => isSessionAal2();
-
-  /// Daftar faktor MFA yang terhubung pada akun saat ini.
-  static Future<AuthMFAListFactorsResponse> listFactors() async {
-    return await _sb.auth.mfa.listFactors();
-  }
-
-  /// Mendaftarkan faktor TOTP baru.
-  static Future<AuthMFAEnrollResponse> enrollTotp({String issuer = 'DigiQ'}) async {
-    return await _sb.auth.mfa.enroll(
-      factorType: FactorType.totp,
-      issuer: issuer,
-    );
-  }
-
-  /// Melakukan challenge dan verifikasi kode 6 digit TOTP untuk naik ke AAL2.
-  static Future<AuthMFAVerifyResponse> challengeAndVerifyTotp({
-    required String factorId,
-    required String code,
-  }) async {
-    return await _sb.auth.mfa.challengeAndVerify(
-      factorId: factorId,
-      code: code.trim(),
-    );
-  }
-
-  /// Menghapus faktor MFA yang belum selesai diverifikasi atau dibatalkan.
-  static Future<void> unenrollFactor(String factorId) async {
-    await _sb.auth.mfa.unenroll(factorId);
-  }
-
   // ─── Update profile ─────────────────────────────────────────────────────────
 
   /// Update nama, HP, dan/atau avatar_url.
@@ -332,7 +317,10 @@ class AuthService {
     try {
       final uid = _sb.auth.currentUser?.id;
       if (uid == null) {
-        return const AuthResult(success: false, message: 'Tidak terautentikasi.');
+        return const AuthResult(
+          success: false,
+          message: 'Tidak terautentikasi.',
+        );
       }
 
       final updates = <String, dynamic>{
@@ -343,7 +331,10 @@ class AuthService {
 
       await _sb.from('profiles').update(updates).eq('id', uid);
 
-      return const AuthResult(success: true, message: 'Profil berhasil diperbarui.');
+      return const AuthResult(
+        success: true,
+        message: 'Profil berhasil diperbarui.',
+      );
     } catch (e) {
       return AuthResult(success: false, message: 'Gagal update profil: $e');
     }
@@ -353,9 +344,15 @@ class AuthService {
   static Future<AuthResult> changePassword(String newPassword) async {
     try {
       await _sb.auth.updateUser(UserAttributes(password: newPassword));
-      return const AuthResult(success: true, message: 'Password berhasil diubah.');
+      return const AuthResult(
+        success: true,
+        message: 'Password berhasil diubah.',
+      );
     } on AuthException catch (e) {
-      return AuthResult(success: false, message: _translateAuthError(e.message));
+      return AuthResult(
+        success: false,
+        message: _translateAuthError(e.message),
+      );
     } catch (e) {
       return AuthResult(success: false, message: 'Gagal ganti password: $e');
     }
@@ -369,11 +366,15 @@ class AuthService {
       if (uid == null) return null;
       final storagePath = '$uid/avatar.jpg';
 
-      await _sb.storage.from('avatars').uploadBinary(
+      await _sb.storage
+          .from('avatars')
+          .uploadBinary(
             storagePath,
             Uint8List.fromList(bytes),
-            fileOptions:
-                const FileOptions(upsert: true, contentType: 'image/jpeg'),
+            fileOptions: const FileOptions(
+              upsert: true,
+              contentType: 'image/jpeg',
+            ),
           );
 
       return _sb.storage.from('avatars').getPublicUrl(storagePath);
@@ -385,6 +386,7 @@ class AuthService {
   // ─── Sign Out ────────────────────────────────────────────────────────────────
 
   static Future<void> signOut() async {
+    isPasswordRecovery = false;
     await _sb.auth.signOut();
   }
 

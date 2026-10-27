@@ -54,7 +54,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    if (result.success || true) {
+    if (result.success) {
       // Selalu tampilkan pesan netral (tidak bocorkan apakah email terdaftar)
       setState(() => _sent = true);
       _startCooldown();
@@ -322,9 +322,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           width: double.infinity,
           height: 50,
           child: OutlinedButton.icon(
-            onPressed: (_cooldown > 0 || _isLoading)
-                ? null
-                : () => setState(() => _sent = false),
+            onPressed: (_cooldown > 0 || _isLoading) ? null : _submit,
             icon: const Icon(Icons.refresh_rounded, size: 20),
             label: Text(
               _cooldown > 0
@@ -345,15 +343,31 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text(
-            'Kembali ke Login',
-            style: TextStyle(
-                fontSize: 13,
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w600),
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            TextButton(
+              onPressed: () => setState(() => _sent = false),
+              child: const Text(
+                'Ubah Email',
+                style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600),
+              ),
+            ),
+            const Text('•', style: TextStyle(color: AppColors.textMuted)),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Kembali ke Login',
+                style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
         ),
       ],
     );

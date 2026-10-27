@@ -36,12 +36,26 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
 
   @override
   void dispose() {
+    if (!_success) {
+      // Pastikan sesi recovery ditutup jika user menutup layar tanpa ganti password
+      AuthService.signOut();
+    }
     // Pastikan password tidak tersimpan di memori lebih lama dari perlu
     _pwdCtrl.clear();
     _confirmCtrl.clear();
     _pwdCtrl.dispose();
     _confirmCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _cancelAndExit() async {
+    await AuthService.signOut();
+    widget.onDone?.call();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
   }
 
   Future<void> _submit() async {
@@ -101,8 +115,14 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      // Jangan biarkan user menekan back ke dashboard selama recovery aktif
+      // Jangan biarkan user menekan back ke dashboard selama recovery aktif.
+      // Jika mencoba pop atau navigasi keluar, lakukan cancel dan sign out.
       canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (!didPop) {
+          await _cancelAndExit();
+        }
+      },
       child: Scaffold(
         backgroundColor: AppColors.background,
         body: SafeArea(
@@ -333,6 +353,22 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14)),
                 elevation: 0,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Tombol Batal & Keluar (Sign Out demi keamanan)
+          Center(
+            child: TextButton(
+              onPressed: _isLoading ? null : _cancelAndExit,
+              child: const Text(
+                'Batalkan dan Kembali ke Login',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),

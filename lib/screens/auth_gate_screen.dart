@@ -47,6 +47,9 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
   /// Flag saat alur recovery aktif: cegah routing ke dashboard.
   bool _isPasswordRecovery = false;
 
+  /// Penanda jika error terakhir berasal dari alur recovery (bukan verifikasi pendaftaran).
+  bool _isRecoveryError = false;
+
   /// Guard: token hanya diproses sekali, karena token_hash sekali pakai.
   bool _tokenProcessed = false;
 
@@ -71,6 +74,14 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
         // Bersihkan URL sebelum proses async agar token tidak tersimpan di history
         removeTokensFromUrl(['token_hash', 'type']);
         _processToken(tokenHash, type);
+      } else if (uri.path.contains('verify') ||
+          uri.fragment.contains('verify') ||
+          query.containsKey('token_hash') ||
+          query.containsKey('type')) {
+        _tokenProcessed = true;
+        _deepLinkError =
+            'Tautan verifikasi tidak lengkap. Parameter token tidak ditemukan.';
+        _isRecoveryError = (type?.toLowerCase() == 'recovery');
       }
     }
 
@@ -104,6 +115,7 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
     if (result.success) {
       // Cek apakah ini alur recovery
       final isRecovery = type?.toLowerCase() == 'recovery';
+      AuthService.isPasswordRecovery = isRecovery;
       setState(() {
         _isLoading = false;
         if (isRecovery) {
@@ -113,13 +125,16 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
           _showVerifiedScreen = true;
           _isPasswordRecovery = false;
         }
+        _isRecoveryError = false;
         _deepLinkError = null;
         // Perbarui sesi setelah verifyOTP membuat sesi baru
         _session = SupabaseConfig.supabase.auth.currentSession;
       });
     } else {
+      final isRecovery = type?.toLowerCase() == 'recovery';
       setState(() {
         _isLoading = false;
+        _isRecoveryError = isRecovery;
         _deepLinkError = result.message;
         _showVerifiedScreen = false;
       });
@@ -134,9 +149,20 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
 
       // Event passwordRecovery dikirim Supabase setelah token recovery valid
       if (event == AuthChangeEvent.passwordRecovery) {
+        AuthService.isPasswordRecovery = true;
         setState(() {
           _session = session;
           _isPasswordRecovery = true;
+          _isLoading = false;
+        });
+        return;
+      }
+
+      if (event == AuthChangeEvent.signedOut) {
+        AuthService.isPasswordRecovery = false;
+        setState(() {
+          _session = null;
+          _isPasswordRecovery = false;
           _isLoading = false;
         });
         return;
@@ -196,10 +222,11 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
     }
 
     // 1. Alur recovery aktif → wajib set password baru, blokir dashboard
-    if (_isPasswordRecovery) {
+    if (AuthService.isPasswordRecovery || _isPasswordRecovery) {
       return SetNewPasswordScreen(
         onDone: () {
           // Setelah password diset & signOut, reset flag dan kembali ke login
+          AuthService.isPasswordRecovery = false;
           if (mounted) setState(() => _isPasswordRecovery = false);
         },
       );
@@ -210,6 +237,7 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
       return EmailVerificationScreen(
         initialStatus: VerificationStatus.error,
         errorMessage: _deepLinkError,
+        isRecovery: _isRecoveryError,
       );
     }
 
@@ -241,9 +269,6 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
         }
 
         if (profile.isAdmin) {
-          if (!AuthService.isSessionAal2()) {
-            return const LoginScreen();
-          }
           return const AdminDashboardScreen();
         }
         return CustomerDashboardScreen(profile: profile);

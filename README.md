@@ -354,6 +354,9 @@ Template tidak bisa diubah dari kode; harus dilakukan manual.
 
 Edit di Supabase Dashboard → **Authentication → Email Templates → Reset Password**.
 
+> [!IMPORTANT]
+> **JANGAN gunakan path `/verify`** (seperti `{{ .SiteURL }}/verify?...`). Aplikasi Flutter Web DigiQ menggunakan *hash URL strategy* (`/#/`) dan hosting statis mungkin tidak memiliki konfigurasi URL rewrite/fallback sehingga tautan langsung ke `/verify` dapat berujung 404. Gunakan `{{ .SiteURL }}/?token_hash={{ .TokenHash }}&type=recovery`.
+
 ```html
 <h2>Atur Ulang Kata Sandi DigiQ</h2>
 <p>Kami menerima permintaan untuk mengatur ulang kata sandi akun Anda.</p>
@@ -377,6 +380,7 @@ Masuk ke **Authentication → URL Configuration** dan isi:
 | **Redirect URLs** | `https://enikzrad.web.id/**` |
 | | `digiq://auth-callback` |
 | | `digiq://login-callback` |
+| | `http://localhost:9000/**` |
 
 ### d) Perintah Build
 
@@ -389,6 +393,7 @@ flutter build web --dart-define=PUBLIC_SITE_URL=https://enikzrad.web.id \
 ### e) Catatan
 
 - Template email **hanya bisa diedit di Supabase Dashboard**, tidak dari kode.
+- **SMTP bawaan Supabase sangat dibatasi** (rate limit rendah, risiko masuk folder spam/delay); untuk lingkungan produksi **sangat disarankan menggunakan Custom SMTP** (seperti Resend, SendGrid, Amazon SES, atau SMTP Google Workspace).
 - Link menggunakan `token_hash` → bisa dibuka di browser berbeda (berbeda dari PKCE `code`).
 - `PUBLIC_SITE_URL` tanpa trailing slash — ditambah otomatis oleh `kAuthRedirectUri`.
 - Jangan commit `SUPABASE_URL` / `SUPABASE_ANON_KEY` ke repo; gunakan `.env`.

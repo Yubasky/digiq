@@ -37,12 +37,12 @@ void main() {
       expect(AuthService.mapOtpType('email'), OtpType.email);
     });
 
-    test('signup → OtpType.email (alias)', () {
-      expect(AuthService.mapOtpType('signup'), OtpType.email);
+    test('signup → OtpType.signup', () {
+      expect(AuthService.mapOtpType('signup'), OtpType.signup);
     });
 
-    test('SIGNUP uppercase → OtpType.email (case-insensitive)', () {
-      expect(AuthService.mapOtpType('SIGNUP'), OtpType.email);
+    test('SIGNUP uppercase → OtpType.signup (case-insensitive)', () {
+      expect(AuthService.mapOtpType('SIGNUP'), OtpType.signup);
     });
 
     test('recovery → OtpType.recovery', () {
@@ -53,20 +53,24 @@ void main() {
       expect(AuthService.mapOtpType('magiclink'), OtpType.magiclink);
     });
 
+    test('email_change → OtpType.emailChange', () {
+      expect(AuthService.mapOtpType('email_change'), OtpType.emailChange);
+    });
+
+    test('emailchange → OtpType.emailChange', () {
+      expect(AuthService.mapOtpType('emailchange'), OtpType.emailChange);
+    });
+
+    test('invite → OtpType.invite', () {
+      expect(AuthService.mapOtpType('invite'), OtpType.invite);
+    });
+
     test('null → null (tidak dikenal)', () {
       expect(AuthService.mapOtpType(null), isNull);
     });
 
     test('string kosong → null', () {
       expect(AuthService.mapOtpType(''), isNull);
-    });
-
-    test('nilai asing (invite) → null', () {
-      expect(AuthService.mapOtpType('invite'), isNull);
-    });
-
-    test('nilai asing (email_change) → null', () {
-      expect(AuthService.mapOtpType('email_change'), isNull);
     });
 
     test('nilai random → null', () {

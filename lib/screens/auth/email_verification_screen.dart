@@ -14,6 +14,7 @@ import '../../theme/app_theme.dart';
 import '../admin_dashboard_screen.dart';
 import '../customer_dashboard_screen.dart';
 import '../login_screen.dart';
+import 'forgot_password_screen.dart';
 
 enum VerificationStatus {
   waiting,
@@ -29,6 +30,7 @@ class EmailVerificationScreen extends StatefulWidget {
   final String? email;
   final VerificationStatus initialStatus;
   final String? errorMessage;
+  final bool isRecovery;
 
   const EmailVerificationScreen({
     super.key,
@@ -36,6 +38,7 @@ class EmailVerificationScreen extends StatefulWidget {
     VerificationStatus? initialStatus,
     VerificationStatus? initialState,
     this.errorMessage,
+    this.isRecovery = false,
   }) : initialStatus =
             initialStatus ?? initialState ?? VerificationStatus.waiting;
 
@@ -604,6 +607,108 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   // ─── Tampilan 3 — Halaman Gagal / Link Kedaluwarsa (error) ──────────────────
 
   Widget _buildErrorCard() {
+    if (widget.isRecovery) {
+      final displayError = _errorMessage ??
+          'Tautan reset kata sandi sudah kedaluwarsa atau sudah digunakan. Silakan minta tautan baru.';
+
+      return Container(
+        key: const ValueKey('recovery_error_card'),
+        padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.error.withValues(alpha: 0.12),
+              blurRadius: 32,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 84,
+              height: 84,
+              decoration: BoxDecoration(
+                color: AppColors.errorLight,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.error.withValues(alpha: 0.35),
+                  width: 2,
+                ),
+              ),
+              child: const Icon(
+                Icons.lock_reset_rounded,
+                size: 46,
+                color: AppColors.error,
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Tautan Reset Tidak Valid',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              displayError,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 13.5,
+                color: AppColors.textSecondary,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 26),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (_) => const ForgotPasswordScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.refresh_rounded, size: 20),
+                label: const Text(
+                  'Minta Tautan Reset Baru',
+                  style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  elevation: 0,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: _navigateToLogin,
+              child: const Text(
+                'Kembali ke Halaman Login',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     final displayError = _errorMessage ??
         'Tautan verifikasi sudah kedaluwarsa atau tidak valid saat kembali dari Gmail. Silakan kirim ulang tautan baru.';
 
