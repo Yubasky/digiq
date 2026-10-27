@@ -58,14 +58,30 @@ graph TD
 
 Jalankan skrip migrasi SQL berikut secara berurutan di menu **SQL Editor** pada Supabase Dashboard:
 
-1. **Skema Utama & Tabel Inti**:
-   Jalankan file `supabase/01_main_schema.sql` (atau `supabase/digiq_schema.sql`).
-2. **Konfigurasi Storage & Realtime**:
-   Jalankan file `supabase/02_storage_and_realtime.sql`.
-3. **Sistem QRIS Statis + Kode Unik & Mutasi**:
-   Jalankan file `supabase/002_qris_unique_code.sql`.
+| Urutan | File Migrasi | Deskripsi & Tujuan |
+| :---: | :--- | :--- |
+| **1** | [`supabase/01_main_schema.sql`](file:///d:/PROJEK%20FAN%20DEV/digiq/supabase/01_main_schema.sql) | Skema dasar (extensions, profiles, products, transactions, chat, RLS & triggers). |
+| **2** | [`supabase/02_storage_and_realtime.sql`](file:///d:/PROJEK%20FAN%20DEV/digiq/supabase/02_storage_and_realtime.sql) | Storage bucket `avatars`, publication realtime, dan seed produk awal. |
+| **3** | [`supabase/002_qris_unique_code.sql`](file:///d:/PROJEK%20FAN%20DEV/digiq/supabase/002_qris_unique_code.sql) | Konsep QRIS statis (`kopi sat`), kode unik dinamis, `app_settings`, mutasi pembayaran. |
+| **4** | [`supabase/004_audit_fixes.sql`](file:///d:/PROJEK%20FAN%20DEV/digiq/supabase/004_audit_fixes.sql) | Perbaikan audit: helper `admin_session_ok()`, TRX sequence (`#TRX-YYYYMMDD-000001`), fallback `external_ref`, dan RPC `admin_today_stats()`. |
 
-Skrip telah dibuat **idempoten** (`IF NOT EXISTS`, `ON CONFLICT DO UPDATE`), sehingga aman dijalankan berulang kali.
+> [!NOTE]
+> Jika database Anda sudah pernah menjalankan migrasi 01, 02, dan 002 sebelumnya, Anda hanya perlu menjalankan [`supabase/004_audit_fixes.sql`](file:///d:/PROJEK%20FAN%20DEV/digiq/supabase/004_audit_fixes.sql). Seluruh skrip bersifat **idempoten** (`IF NOT EXISTS`, `ON CONFLICT DO NOTHING / UPDATE`).
+
+---
+
+## 🔐 Setup Autentikasi 2FA TOTP (Wajib Admin)
+
+Untuk menjamin keamanan tingkat tinggi pada operasional administrasi:
+1. **Aktifkan MFA di Supabase Dashboard**:
+   - Buka **Authentication** ➔ **MFA**.
+   - Pastikan opsi **App Authenticator (TOTP)** berstatus **Enabled**.
+2. **Alur Kerja Admin di APK DigiQ**:
+   - Saat admin login via email & password, aplikasi otomatis memverifikasi faktor TOTP.
+   - Jika admin belum pernah mendaftar TOTP: dialog aktivasi otomatis muncul dengan QR Code resmi (`qr_flutter`) dan Secret Key (dapat disalin) untuk Google Authenticator / Authy.
+   - Admin memasukkan kode 6 digit untuk validasi awal.
+   - Setelah sukses diverifikasi, sesi naik ke level **AAL2**.
+   - Admin tidak dapat mengakses [`AdminDashboardScreen`](file:///d:/PROJEK%20FAN%20DEV/digiq/lib/screens/admin_dashboard_screen.dart) maupun menjalankan RPC admin sebelum verifikasi AAL2 terpenuhi (`admin_session_ok()`).
 
 ---
 
@@ -77,10 +93,13 @@ Edge Function menerima notifikasi uang masuk dari forwarder notifikasi/mutasi ba
    ```bash
    supabase functions deploy payment-webhook --no-verify-jwt
    ```
-2. **Set Secret Environment**:
+2. **Set Secret Environment (WAJIB)**:
    ```bash
    supabase secrets set WEBHOOK_SECRET="kunci_rahasia_hmac_sha256_anda"
    ```
+   > [!IMPORTANT]
+   > Webhook menerapkan prinsip *fail-closed*: jika `WEBHOOK_SECRET` belum dikonfigurasi di Supabase Secrets, webhook langsung mengembalikan HTTP 500 `"Secret not configured"` sebelum memproses payload apa pun. Header `x-webhook-signature` wajib disertakan pada setiap request (HTTP 401 jika kosong atau tanda tangan tidak cocok).
+
 3. **Contoh Payload Webhook (cURL)**:
    ```bash
    curl -X POST https://<PROJECT_REF>.supabase.co/functions/v1/payment-webhook \

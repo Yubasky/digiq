@@ -12,11 +12,13 @@ Tabel indeks dokumentasi arsitektur, keamanan, dan implementasi fitur sistem Dig
 | **06** | [06-qris-static-unique-code.md](file:///d:/PROJEK%20FAN%20DEV/digiq/tasks/06-qris-static-unique-code.md) | Pembayaran QRIS Statis resmi `kopi sat` (`ID1026516422080`), injeksi nominal dinamis, kode unik (1-300), dan mesin verifikasi mutasi. | **SELESAI (100%)** |
 | **07** | [07-audit-testing.md](file:///d:/PROJEK%20FAN%20DEV/digiq/tasks/07-audit-testing.md) | Hasil audit keamanan komprehensif, uji konkurensi, tes idempoten, dan laporan `flutter analyze` & `flutter test`. | **SELESAI (100%)** |
 | **08** | [08-email-verification-deeplink.md](file:///d:/PROJEK%20FAN%20DEV/digiq/tasks/08-email-verification-deeplink.md) | Alur verifikasi email Gmail, deep link PKCE redirect APK, dan layar konfirmasi 100% murni Dart. | **SELESAI (100%)** |
+| **09** | [09-audit-fixes-and-cleanup.md](file:///d:/PROJEK%20FAN%20DEV/digiq/tasks/09-audit-fixes-and-cleanup.md) | Perbaikan audit keamanan (webhook fail-closed, 2FA admin AAL2 terpusat, TRX sequence, external_ref fallback, stats RPC) & pembersihan kode mati. | **SELESAI (100%)** |
 
 ---
 
 ### Verifikasi Ringkas Sistem
 - **Flutter Analyze**: `0 issues` (Bersih 100%)
 - **Flutter Test**: `11/11 Passed` (Lulus 100%)
-- **Backend**: Supabase Database Migration `002_qris_unique_code.sql` + Edge Function `payment-webhook` (100% Native Dart Client Flow)
+- **Backend**: Supabase Database Migrations `01` ➔ `02` ➔ `002` ➔ `004_audit_fixes.sql` + Edge Function `payment-webhook` (100% Native Dart Client Flow)
+
 

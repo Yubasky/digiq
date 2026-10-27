@@ -100,35 +100,85 @@ class TransactionService {
 
   // ─── Stream: semua transaksi (admin) ────────────────────────────────────────
 
-  /// Stream semua transaksi untuk admin, diperkaya data produk.
+  static final Map<String, Map<String, dynamic>> _productCache = {};
+
+  /// Stream semua transaksi untuk admin, diperkaya data produk (dibatasi 100 transaksi terbaru).
   static Stream<List<TransactionModel>> watchAllTransactionsForAdmin() {
     return _sb
         .from(_table)
         .stream(primaryKey: ['id'])
         .order('created_at', ascending: false)
+        .limit(100)
         .asyncMap((rows) async {
           if (rows.isEmpty) return <TransactionModel>[];
-          final productIds = rows
+          final uncachedIds = rows
               .map((r) => r['product_id'] as String)
+              .where((id) => !_productCache.containsKey(id))
               .toSet()
               .toList();
-          try {
-            final products = await _sb
-                .from('products')
-                .select('id, name, category')
-                .inFilter('id', productIds);
-            final productMap = {
-              for (final p in products) p['id'] as String: p,
-            };
-            return rows.map((r) {
-              final enriched = Map<String, dynamic>.from(r);
-              enriched['products'] = productMap[r['product_id']];
-              return TransactionModel.fromMap(enriched);
-            }).toList();
-          } catch (_) {
-            return rows.map((r) => TransactionModel.fromMap(r)).toList();
+
+          if (uncachedIds.isNotEmpty) {
+            try {
+              final products = await _sb
+                  .from('products')
+                  .select('id, name, category')
+                  .inFilter('id', uncachedIds);
+              for (final p in products) {
+                _productCache[p['id'] as String] = p;
+              }
+            } catch (_) {}
           }
+
+          return rows.map((r) {
+            final enriched = Map<String, dynamic>.from(r);
+            enriched['products'] = _productCache[r['product_id']];
+            return TransactionModel.fromMap(enriched);
+          }).toList();
         });
+  }
+
+  /// Memuat riwayat transaksi lama sebelum tanggal tertentu (pagination).
+  static Future<List<TransactionModel>> loadOlderTransactions({
+    required DateTime before,
+    int limit = 50,
+  }) async {
+    try {
+      final rows = await _sb
+          .from(_table)
+          .select('*, products(id, name, category)')
+          .lt('created_at', before.toIso8601String())
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      return (rows as List)
+          .map((r) => TransactionModel.fromMap(r as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Mengambil agregat statistik riil hari ini via RPC database (zona waktu Asia/Jakarta).
+  static Future<Map<String, dynamic>> getAdminTodayStats() async {
+    try {
+      final res = await _sb.rpc('admin_today_stats');
+      if (res is Map<String, dynamic>) {
+        return res;
+      }
+      return {
+        'omset': 0.0,
+        'success_count': 0,
+        'pending_count': 0,
+        'total_count': 0,
+      };
+    } catch (_) {
+      return {
+        'omset': 0.0,
+        'success_count': 0,
+        'pending_count': 0,
+        'total_count': 0,
+      };
+    }
   }
 
   // ─── Stream: Mutasi Pembayaran (admin) ───────────────────────────────────────
@@ -156,7 +206,7 @@ class TransactionService {
       params: {
         'p_amount': amount,
         'p_source': source,
-        'p_external_ref': externalRef ?? 'MANUAL-${DateTime.now().millisecondsSinceEpoch}',
+        'p_external_ref': externalRef ?? '',
         'p_received_at': DateTime.now().toIso8601String(),
         'p_raw': {'notes': notes ?? ''},
       },

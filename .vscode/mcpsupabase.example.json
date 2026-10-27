@@ -1,0 +1,15 @@
+{
+    "mcpServers": {
+        "supabase-digiq": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@supabase/mcp-server-supabase@latest",
+                "--access-token",
+                "PASTE_YOUR_SUPABASE_PERSONAL_ACCESS_TOKEN_HERE",
+                "--project-ref",
+                "iqxoofrhhrqkgehuvrlb"
+            ]
+        }
+    }
+}

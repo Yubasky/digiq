@@ -77,11 +77,13 @@ void main() {
       expect(QrisService.verifyCrc16('000201010211'), isFalse);
     });
 
-    test('formatRupiah memformat angka ke format mata uang Indonesia yang tepat', () {
-      expect(QrisService.formatRupiah(10000), equals('Rp10.000'));
+    test('formatRupiah memformat angka ke format mata uang Indonesia yang tepat (positif, nol, negatif)', () {
+      expect(QrisService.formatRupiah(0), equals('Rp0'));
+      expect(QrisService.formatRupiah(100), equals('Rp100'));
       expect(QrisService.formatRupiah(10300), equals('Rp10.300'));
-      expect(QrisService.formatRupiah(1000000), equals('Rp1.000.000'));
-      expect(QrisService.formatRupiah(500), equals('Rp500'));
+      expect(QrisService.formatRupiah(1234567), equals('Rp1.234.567'));
+      expect(QrisService.formatRupiah(-100), equals('-Rp100'));
+      expect(QrisService.formatRupiah(-1234567), equals('-Rp1.234.567'));
     });
   });
 

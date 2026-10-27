@@ -89,6 +89,24 @@ CREATE TABLE IF NOT EXISTS public.app_settings (
 
 ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY;
 
+-- ┌────────────────────────────────────────────────────────┐
+-- │  3b. HELPER: admin_session_ok                          │
+-- │     Verifikasi apakah pemanggil adalah Admin dan AAL2  │
+-- └────────────────────────────────────────────────────────┘
+CREATE OR REPLACE FUNCTION public.admin_session_ok()
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+BEGIN
+  -- HANYA UNTUK DEVELOPMENT, KEMBALIKAN SEBELUM RILIS:
+  -- RETURN public.is_admin();
+  RETURN public.is_admin() AND COALESCE(auth.jwt() ->> 'aal', '') = 'aal2';
+END;
+$$;
+
 DROP POLICY IF EXISTS "settings_select" ON public.app_settings;
 DROP POLICY IF EXISTS "settings_write_admin_aal2" ON public.app_settings;
 DROP POLICY IF EXISTS "settings_select_admin" ON public.app_settings;
@@ -102,12 +120,8 @@ CREATE POLICY "settings_select"
 -- RLS: INSERT/UPDATE/DELETE hanya admin dengan AAL2
 CREATE POLICY "settings_write_admin_aal2"
   ON public.app_settings FOR ALL TO authenticated
-  USING (
-    public.is_admin() AND (auth.jwt()->>'aal') = 'aal2'
-  )
-  WITH CHECK (
-    public.is_admin() AND (auth.jwt()->>'aal') = 'aal2'
-  );
+  USING (public.admin_session_ok())
+  WITH CHECK (public.admin_session_ok());
 
 -- Seed awal konfigurasi QRIS proyek (kopi sat - NMID: ID1026516422080)
 INSERT INTO public.app_settings (key, value) VALUES
@@ -146,9 +160,7 @@ DROP POLICY IF EXISTS "mutations_insert_admin" ON public.payment_mutations;
 -- RLS: Hanya admin dengan AAL2 yang bisa SELECT
 CREATE POLICY "mutations_select_admin"
   ON public.payment_mutations FOR SELECT TO authenticated
-  USING (
-    public.is_admin() AND (auth.jwt()->>'aal') = 'aal2'
-  );
+  USING (public.admin_session_ok());
 
 -- Tidak ada policy INSERT/UPDATE/DELETE langsung dari klien; semua melalui RPC SECURITY DEFINER.
 
@@ -307,7 +319,8 @@ BEGIN
     END IF;
 
     v_total_amount := v_base_amount + v_unique_code;
-    v_trx_code     := '#TRX-' || to_char(now(), 'YYYYMMDD') || '-' || lpad((floor(random() * 9000) + 1000)::text, 4, '0');
+    -- Sequence TRX code: terurut, unik tanpa tabrakan birthday paradox
+    v_trx_code     := '#TRX-' || to_char(now(), 'YYYYMMDD') || '-' || lpad(nextval('public.trx_seq')::text, 6, '0');
 
     BEGIN
       INSERT INTO public.transactions (
@@ -428,15 +441,16 @@ AS $$
 DECLARE
   v_is_service_role BOOLEAN;
   v_is_admin_aal2   BOOLEAN;
+  v_external_ref    TEXT;
   v_mutation        public.payment_mutations%ROWTYPE;
   v_trx             public.transactions%ROWTYPE;
   v_expired_trx     public.transactions%ROWTYPE;
   v_notes           TEXT;
   v_verified_by_val TEXT;
 BEGIN
-  -- 1. Verifikasi Otorisasi: service_role ATAU (admin DAN aal2)
+  -- 1. Verifikasi Otorisasi: service_role ATAU admin_session_ok()
   v_is_service_role := (auth.role() = 'service_role');
-  v_is_admin_aal2   := (public.is_admin() AND COALESCE(auth.jwt()->>'aal', '') = 'aal2');
+  v_is_admin_aal2   := public.admin_session_ok();
 
   IF NOT (v_is_service_role OR v_is_admin_aal2) THEN
     RAISE EXCEPTION 'Akses ditolak: fungsi ini membutuhkan izin service_role atau admin AAL2'
@@ -446,7 +460,10 @@ BEGIN
   -- 2. Bersihkan transaksi kedaluwarsa
   PERFORM public.expire_pending_transactions();
 
-  -- 3. Idempoten: Simpan mutasi ke payment_mutations (ON CONFLICT DO NOTHING)
+  -- 3. Fallback external_ref: jika kosong, generate MAN-UUID agar tidak tabrakan di (source, external_ref)
+  v_external_ref := COALESCE(NULLIF(btrim(p_external_ref), ''), 'MAN-' || gen_random_uuid()::text);
+
+  -- 4. Idempoten: Simpan mutasi ke payment_mutations (ON CONFLICT DO NOTHING)
   INSERT INTO public.payment_mutations (
     source,
     external_ref,
@@ -458,7 +475,7 @@ BEGIN
   )
   VALUES (
     p_source,
-    p_external_ref,
+    v_external_ref,
     p_amount,
     COALESCE(p_received_at, now()),
     p_raw,
@@ -472,7 +489,7 @@ BEGIN
   IF v_mutation.id IS NULL THEN
     SELECT * INTO v_mutation
     FROM public.payment_mutations
-    WHERE source = p_source AND external_ref = p_external_ref;
+    WHERE source = p_source AND external_ref = v_external_ref;
 
     RETURN jsonb_build_object(
       'status',         'already_processed',
@@ -574,8 +591,8 @@ AS $$
 DECLARE
   v_trx public.transactions%ROWTYPE;
 BEGIN
-  -- Validasi Admin + AAL2
-  IF NOT (public.is_admin() AND COALESCE(auth.jwt()->>'aal', '') = 'aal2') THEN
+  -- Validasi Admin + AAL2 via admin_session_ok()
+  IF NOT public.admin_session_ok() THEN
     RAISE EXCEPTION 'Akses ditolak: hanya admin dengan verifikasi 2FA (AAL2) yang dapat mengubah status'
       USING ERRCODE = '42501';
   END IF;
@@ -684,7 +701,7 @@ STABLE
 SET search_path = public
 AS $$
 BEGIN
-  IF NOT (public.is_admin() AND COALESCE(auth.jwt()->>'aal', '') = 'aal2') THEN
+  IF NOT public.admin_session_ok() THEN
     RAISE EXCEPTION 'Akses ditolak: hanya admin AAL2' USING ERRCODE = '42501';
   END IF;
 
@@ -737,3 +754,66 @@ GRANT EXECUTE ON FUNCTION public.verify_payment_by_amount(NUMERIC, TEXT, TEXT, T
 GRANT EXECUTE ON FUNCTION public.admin_update_transaction_status(UUID, TEXT, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_qris_settings()                               TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION public.admin_list_mutations(BOOLEAN, INT, INT)           TO authenticated;
+
+-- ┌────────────────────────────────────────────────────────┐
+-- │  14. RPC: admin_today_stats                            │
+-- │      Statistik riil hari ini (Asia/Jakarta)            │
+-- └────────────────────────────────────────────────────────┘
+CREATE OR REPLACE FUNCTION public.admin_today_stats()
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+DECLARE
+  v_today_start TIMESTAMPTZ;
+  v_today_end   TIMESTAMPTZ;
+  v_omset       NUMERIC := 0;
+  v_success_cnt INT := 0;
+  v_pending_cnt INT := 0;
+  v_total_cnt   INT := 0;
+BEGIN
+  IF NOT public.admin_session_ok() THEN
+    RAISE EXCEPTION 'Akses ditolak: fungsi ini membutuhkan izin admin AAL2'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- Rentang hari ini berdasarkan zona waktu Asia/Jakarta (WIB)
+  v_today_start := date_trunc('day', now() AT TIME ZONE 'Asia/Jakarta') AT TIME ZONE 'Asia/Jakarta';
+  v_today_end   := v_today_start + INTERVAL '1 day';
+
+  -- Omset dan jumlah transaksi sukses yang dibuat hari ini
+  SELECT
+    COALESCE(SUM(total_amount), 0),
+    COUNT(*)
+  INTO v_omset, v_success_cnt
+  FROM public.transactions
+  WHERE status = 'success'
+    AND created_at >= v_today_start
+    AND created_at < v_today_end;
+
+  -- Transaksi pending aktif saat ini
+  SELECT COUNT(*)
+  INTO v_pending_cnt
+  FROM public.transactions
+  WHERE status = 'pending'
+    AND expired_at > now();
+
+  -- Total semua transaksi hari ini
+  SELECT COUNT(*)
+  INTO v_total_cnt
+  FROM public.transactions
+  WHERE created_at >= v_today_start
+    AND created_at < v_today_end;
+
+  RETURN jsonb_build_object(
+    'omset', v_omset,
+    'success_count', v_success_cnt,
+    'pending_count', v_pending_cnt,
+    'total_count', v_total_cnt
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.admin_today_stats() TO authenticated;

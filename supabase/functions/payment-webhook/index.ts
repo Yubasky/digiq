@@ -68,30 +68,35 @@ serve(async (req: Request) => {
   }
 
   try {
-    const rawBody = await req.text();
     const webhookSecret = Deno.env.get("WEBHOOK_SECRET");
+    if (!webhookSecret) {
+      return new Response(
+        JSON.stringify({ error: "Secret not configured" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
 
-    // 1. Verifikasi HMAC signature jika WEBHOOK_SECRET dikonfigurasi
-    if (webhookSecret) {
-      const signature =
-        req.headers.get("x-webhook-signature") ||
-        req.headers.get("x-signature") ||
-        "";
+    const rawBody = await req.text();
 
-      if (!signature) {
-        return new Response(
-          JSON.stringify({ error: "Missing x-webhook-signature header" }),
-          { status: 401, headers: { "Content-Type": "application/json" } }
-        );
-      }
+    // 1. Verifikasi HMAC signature wajib selalu jalan (constant-time)
+    const signature =
+      req.headers.get("x-webhook-signature") ||
+      req.headers.get("x-signature") ||
+      "";
 
-      const isValid = await verifyHmacSignature(webhookSecret, rawBody, signature);
-      if (!isValid) {
-        return new Response(
-          JSON.stringify({ error: "Invalid webhook signature" }),
-          { status: 401, headers: { "Content-Type": "application/json" } }
-        );
-      }
+    if (!signature) {
+      return new Response(
+        JSON.stringify({ error: "Missing x-webhook-signature header" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const isValid = await verifyHmacSignature(webhookSecret, rawBody, signature);
+    if (!isValid) {
+      return new Response(
+        JSON.stringify({ error: "Invalid webhook signature" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
     }
 
     // 2. Parse payload JSON

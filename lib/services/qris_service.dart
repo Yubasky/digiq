@@ -233,16 +233,18 @@ class QrisService {
 
   static void clearCache() => _cached = null;
 
-  /// Format Rupiah, contoh: 10300 -> "Rp10.300"
+  /// Format Rupiah, contoh: 10300 -> "Rp10.300", -100 -> "-Rp100"
   static String formatRupiah(num amount) {
-    final intPart = amount.toInt();
-    final str = intPart.toString();
+    final isNegative = amount < 0;
+    final absVal = amount.abs().toInt();
+    final str = absVal.toString();
     final reversed = str.split('').reversed.toList();
     final buf = StringBuffer();
     for (int i = 0; i < reversed.length; i++) {
       if (i > 0 && i % 3 == 0) buf.write('.');
       buf.write(reversed[i]);
     }
-    return 'Rp${buf.toString().split('').reversed.join('')}';
+    final formatted = buf.toString().split('').reversed.join('');
+    return isNegative ? '-Rp$formatted' : 'Rp$formatted';
   }
 }

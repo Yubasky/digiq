@@ -137,21 +137,3 @@ class QrisTransaction {
     );
   }
 }
-
-class TransactionStore {
-  static final List<QrisTransaction> _transactions = [];
-  static List<QrisTransaction> get transactions => _transactions;
-
-  static void addTransaction(QrisTransaction tx) =>
-      _transactions.insert(0, tx);
-
-  static void clear() => _transactions.clear();
-
-  static void syncFromModels(
-      List<TransactionModel> models, String customerName) {
-    _transactions
-      ..clear()
-      ..addAll(models
-          .map((m) => QrisTransaction.fromTransactionModel(m, customerName)));
-  }
-}

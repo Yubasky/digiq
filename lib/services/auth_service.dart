@@ -200,8 +200,49 @@ class AuthService {
     return profile?.role;
   }
 
-  /// Cek apakah user sedang login (selalu true jika ada sesi aktif).
-  static Future<bool> isAal2() async => _sb.auth.currentUser != null;
+  // ─── MFA / 2FA TOTP Helpers ─────────────────────────────────────────────────
+
+  /// Cek apakah sesi saat ini berstatus AAL2 (MFA terverifikasi).
+  static bool isSessionAal2() {
+    try {
+      final aal = _sb.auth.mfa.getAuthenticatorAssuranceLevel();
+      return aal.currentLevel == AuthenticatorAssuranceLevels.aal2;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Cek apakah pengguna saat ini AAL2 (asynchronous helper).
+  static Future<bool> isAal2() async => isSessionAal2();
+
+  /// Daftar faktor MFA yang terhubung pada akun saat ini.
+  static Future<AuthMFAListFactorsResponse> listFactors() async {
+    return await _sb.auth.mfa.listFactors();
+  }
+
+  /// Mendaftarkan faktor TOTP baru.
+  static Future<AuthMFAEnrollResponse> enrollTotp({String issuer = 'DigiQ'}) async {
+    return await _sb.auth.mfa.enroll(
+      factorType: FactorType.totp,
+      issuer: issuer,
+    );
+  }
+
+  /// Melakukan challenge dan verifikasi kode 6 digit TOTP untuk naik ke AAL2.
+  static Future<AuthMFAVerifyResponse> challengeAndVerifyTotp({
+    required String factorId,
+    required String code,
+  }) async {
+    return await _sb.auth.mfa.challengeAndVerify(
+      factorId: factorId,
+      code: code.trim(),
+    );
+  }
+
+  /// Menghapus faktor MFA yang belum selesai diverifikasi atau dibatalkan.
+  static Future<void> unenrollFactor(String factorId) async {
+    await _sb.auth.mfa.unenroll(factorId);
+  }
 
   // ─── Update profile ─────────────────────────────────────────────────────────
 

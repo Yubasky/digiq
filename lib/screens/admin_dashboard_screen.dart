@@ -24,28 +24,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
-  // Store financial state (dari stream Supabase)
+  // Store financial state (dari stream Supabase & RPC)
   List<TransactionModel> _trxModels = [];
-  List<ProductModel>     _productModels = [];
+  List<QrisTransaction>  _transactions = [];
+  List<TransactionModel> _pendingTrxModels = [];
+
+  List<ProductItem>      _products = [];
+
   StreamSubscription<List<TransactionModel>>? _trxSub;
   StreamSubscription<List<ProductModel>>?     _productSub;
 
-  double get _storeBalance => _trxModels
-      .where((t) => t.isSuccess)
-      .fold(0.0, (s, t) => s + t.totalAmount);
-  int get _todayTransactionCount => _trxModels.length;
+  // Realtime Today Stats (dari RPC admin_today_stats)
+  double _todayOmset = 0.0;
+  int _todaySuccessCount = 0;
+  int _todayPendingCount = 0;
+  int _todayTotalCount = 0;
+
+  double get _storeBalance => _todayOmset;
+  int get _todayTransactionCount => _todayTotalCount;
 
   // Real-time notification banner state
   QrisTransaction? _latestNotification;
   bool _showNotificationBanner = false;
-
-  // Legacy: wraps Supabase data for old widget code
-  List<ProductItem> get _products => _productModels
-      .map((m) => ProductItem.fromProductModel(m))
-      .toList();
-  List<QrisTransaction> get _transactions => _trxModels
-      .map((m) => QrisTransaction.fromTransactionModel(m, m.userId))
-      .toList();
 
   // Verify payment form
   final TextEditingController _verifyAmountCtrl = TextEditingController();
@@ -72,19 +72,46 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     super.initState();
     _startStreams();
     _loadAdminQrisSettings();
+    _refreshStats();
   }
 
   void _startStreams() {
     _trxSub = TransactionService.watchAllTransactionsForAdmin().listen((list) {
-      if (mounted) setState(() => _trxModels = list);
+      if (mounted) {
+        setState(() {
+          _trxModels = list;
+          _transactions = list
+              .map((m) => QrisTransaction.fromTransactionModel(m, m.userId))
+              .toList();
+          _pendingTrxModels = list.where((t) => t.isPending && !t.isExpired).toList();
+        });
+      }
+      _refreshStats();
     });
     _productSub = ProductService.watchProducts().listen((list) {
-      if (mounted) setState(() => _productModels = list);
+      if (mounted) {
+        setState(() {
+          _products = list.map((m) => ProductItem.fromProductModel(m)).toList();
+        });
+      }
     });
     _mutationSub = TransactionService.watchPaymentMutations().listen((list) {
       if (mounted) setState(() => _mutations = list);
     });
     TransactionService.expirePendingTransactions();
+  }
+
+  Future<void> _refreshStats() async {
+    try {
+      final stats = await TransactionService.getAdminTodayStats();
+      if (!mounted) return;
+      setState(() {
+        _todayOmset = (stats['omset'] as num?)?.toDouble() ?? 0.0;
+        _todaySuccessCount = (stats['success_count'] as num?)?.toInt() ?? 0;
+        _todayPendingCount = (stats['pending_count'] as num?)?.toInt() ?? 0;
+        _todayTotalCount = (stats['total_count'] as num?)?.toInt() ?? 0;
+      });
+    } catch (_) {}
   }
 
   Future<void> _loadAdminQrisSettings() async {
@@ -1213,8 +1240,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildTransactionsTab() {
-    final pendingList  = _trxModels.where((t) => t.isPending && !t.isExpired).toList();
-    final successList  = _trxModels.where((t) => t.isSuccess).toList();
+    final pendingList = _pendingTrxModels;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -1237,7 +1263,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     const Text('Total Pendapatan', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                     const SizedBox(height: 4),
                     Text(
-                      formatCurrency(_storeBalance),
+                      formatCurrency(_todayOmset),
                       style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.primaryDark),
                     ),
                   ],
@@ -1248,10 +1274,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     const Text('Pending', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                     const SizedBox(height: 4),
                     Text(
-                      '${pendingList.length} TRX',
+                      '$_todayPendingCount TRX',
                       style: TextStyle(
                         fontWeight: FontWeight.w800, fontSize: 16,
-                        color: pendingList.isNotEmpty ? AppColors.warning : AppColors.textPrimary,
+                        color: _todayPendingCount > 0 ? AppColors.warning : AppColors.textPrimary,
                       ),
                     ),
                   ],
@@ -1262,7 +1288,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     const Text('Total', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                     const SizedBox(height: 4),
                     Text(
-                      '$_todayTransactionCount TRX',
+                      '$_todayTotalCount TRX',
                       style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.textPrimary),
                     ),
                   ],
@@ -1379,7 +1405,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  '${successList.length} Sukses',
+                  '$_todaySuccessCount Sukses',
                   style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.success),
                 ),
               ),
@@ -1415,6 +1441,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Future<void> _doVerifyPayment() async {
+    if (_verifying) return;
     final amountStr = _verifyAmountCtrl.text.trim();
     if (amountStr.isEmpty) return;
     final amount = double.tryParse(amountStr);
@@ -1424,6 +1451,42 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       );
       return;
     }
+
+    final formatted = QrisService.formatRupiah(amount);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.help_outline_rounded, color: AppColors.primary),
+            SizedBox(width: 8),
+            Text('Konfirmasi Verifikasi', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          'Cocokkan nominal $formatted?',
+          style: const TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Batal', style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Ya, Cocokkan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
     setState(() { _verifying = true; _verifyResult = null; });
     try {
       final result = await TransactionService.verifyPaymentByAmount(
@@ -1431,6 +1494,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         note: _verifyNoteCtrl.text.trim(),
       );
       if (mounted) setState(() => _verifyResult = result);
+      _refreshStats();
     } catch (e) {
       if (mounted) {
         setState(() => _verifyResult = {

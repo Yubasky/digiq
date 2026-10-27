@@ -147,6 +147,9 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
         }
 
         if (profile.isAdmin) {
+          if (!AuthService.isSessionAal2()) {
+            return const LoginScreen();
+          }
           return const AdminDashboardScreen();
         }
         return CustomerDashboardScreen(profile: profile);
