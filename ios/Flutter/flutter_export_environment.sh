@@ -1,8 +1,8 @@
 #!/bin/sh
 # This is a generated file; do not edit or check into version control.
-export "FLUTTER_ROOT=D:\DATA\SOFWARE\flutter\flutter"
-export "FLUTTER_APPLICATION_PATH=D:\PROJEK FAN DEV\digiq"
-export "FLUTTER_FRAMEWORK_SWIFT_PACKAGE_PATH=D:\PROJEK FAN DEV\digiq\ios\Flutter\ephemeral\Packages\.packages\FlutterFramework"
+export "FLUTTER_ROOT=C:\Users\Administrator\Documents\digiq\flutter"
+export "FLUTTER_APPLICATION_PATH=C:\Users\Administrator\Documents\digiq"
+export "FLUTTER_FRAMEWORK_SWIFT_PACKAGE_PATH=C:\Users\Administrator\Documents\digiq\ios\Flutter\ephemeral\Packages\.packages\FlutterFramework"
 export "COCOAPODS_PARALLEL_CODE_SIGN=true"
 export "FLUTTER_TARGET=lib\main.dart"
 export "FLUTTER_BUILD_DIR=build"
