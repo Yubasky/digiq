@@ -10,6 +10,7 @@ import 'admin_dashboard_screen.dart';
 import 'customer_dashboard_screen.dart';
 import 'register_screen.dart';
 import 'auth/email_verification_screen.dart';
+import 'auth/forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -480,16 +481,10 @@ class _LoginScreenState extends State<LoginScreen>
                                     const Spacer(),
                                     TextButton(
                                       onPressed: () {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: const Text(
-                                                'Fitur lupa password akan segera hadir.'),
-                                            backgroundColor: AppColors.primary,
-                                            behavior: SnackBarBehavior.floating,
-                                            shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(12)),
-                                            margin: const EdgeInsets.all(16),
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                const ForgotPasswordScreen(),
                                           ),
                                         );
                                       },

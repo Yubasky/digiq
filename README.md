@@ -328,3 +328,67 @@ Detail desain teknis dan catatan audit tersimpan di folder `tasks/`:
 - **Rose**: `#E11D48` (Badge QRIS & status bahaya/cancel)
 - **Emerald**: `#10B981` (Status sukses & approved)
 
+---
+
+## 📧 Deployment → Autentikasi Email (Supabase)
+
+### a) Template Email: Konfirmasi Pendaftaran (*Confirm signup*)
+
+Edit di Supabase Dashboard → **Authentication → Email Templates → Confirm signup**.  
+Template tidak bisa diubah dari kode; harus dilakukan manual.
+
+```html
+<h2>Selamat Datang di DigiQ!</h2>
+<p>Terima kasih telah mendaftar. Klik tombol di bawah untuk mengaktifkan akun Anda.</p>
+<p>
+  <a href="{{ .SiteURL }}/?token_hash={{ .TokenHash }}&type=email"
+     style="background:#06ACDC;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">
+    Aktifkan Akun Saya
+  </a>
+</p>
+<p>Tautan ini hanya berlaku sekali dan akan kedaluwarsa dalam 24 jam.</p>
+<p>Jika Anda tidak mendaftar di DigiQ, abaikan email ini.</p>
+```
+
+### b) Template Email: Reset Kata Sandi (*Reset Password*)
+
+Edit di Supabase Dashboard → **Authentication → Email Templates → Reset Password**.
+
+```html
+<h2>Atur Ulang Kata Sandi DigiQ</h2>
+<p>Kami menerima permintaan untuk mengatur ulang kata sandi akun Anda.</p>
+<p>
+  <a href="{{ .SiteURL }}/?token_hash={{ .TokenHash }}&type=recovery"
+     style="background:#06ACDC;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">
+    Atur Ulang Kata Sandi
+  </a>
+</p>
+<p>Tautan ini hanya berlaku sekali dan akan kedaluwarsa dalam 1 jam.</p>
+<p>Jika Anda tidak meminta ini, abaikan email ini — kata sandi Anda aman.</p>
+```
+
+### c) Konfigurasi Wajib di Supabase Dashboard
+
+Masuk ke **Authentication → URL Configuration** dan isi:
+
+| Field | Nilai |
+|-------|-------|
+| **Site URL** | `https://enikzrad.web.id` |
+| **Redirect URLs** | `https://enikzrad.web.id/**` |
+| | `digiq://auth-callback` |
+| | `digiq://login-callback` |
+
+### d) Perintah Build
+
+```bash
+flutter build web --dart-define=PUBLIC_SITE_URL=https://enikzrad.web.id \
+                  --dart-define=SUPABASE_URL=https://xxxx.supabase.co \
+                  --dart-define=SUPABASE_ANON_KEY=eyJhbGc...
+```
+
+### e) Catatan
+
+- Template email **hanya bisa diedit di Supabase Dashboard**, tidak dari kode.
+- Link menggunakan `token_hash` → bisa dibuka di browser berbeda (berbeda dari PKCE `code`).
+- `PUBLIC_SITE_URL` tanpa trailing slash — ditambah otomatis oleh `kAuthRedirectUri`.
+- Jangan commit `SUPABASE_URL` / `SUPABASE_ANON_KEY` ke repo; gunakan `.env`.

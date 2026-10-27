@@ -1,21 +1,29 @@
 // lib/screens/auth_gate_screen.dart
 //
-// AuthGate mendengarkan onAuthStateChange dari Supabase dan mendeteksi deep link.
+// AuthGate mendengarkan onAuthStateChange dari Supabase dan mendeteksi token
+// dari link email (token_hash + type) langsung dari Uri.base.queryParameters
+// saat startup di web.
+//
 // Alur:
+// - Startup web dengan token_hash & type → verifyOtp → sukses/error state
+// - type=recovery sukses → SetNewPasswordScreen (flag isPasswordRecovery aktif)
 // - Ada error deep link (misal otp_expired) → EmailVerificationScreen(state: error)
-// - Verifikasi email sukses via deep link → EmailVerificationScreen(state: verified, 3s countdown)
+// - Verifikasi email sukses → EmailVerificationScreen(state: verified, 3s countdown)
 // - Tidak ada sesi → LoginScreen
 // - Sesi aktif role customer → CustomerDashboardScreen
 // - Sesi aktif role admin    → AdminDashboardScreen
 
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
 import '../services/deep_link_auth_handler.dart';
 import '../services/supabase_config.dart';
+import '../services/web_url_cleaner.dart';
 import '../models/profile_model.dart';
 import 'auth/email_verification_screen.dart';
+import 'auth/set_new_password_screen.dart';
 import 'login_screen.dart';
 import 'customer_dashboard_screen.dart';
 import 'admin_dashboard_screen.dart';
@@ -36,32 +44,108 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
   String? _deepLinkError;
   bool _showVerifiedScreen = false;
 
+  /// Flag saat alur recovery aktif: cegah routing ke dashboard.
+  bool _isPasswordRecovery = false;
+
+  /// Guard: token hanya diproses sekali, karena token_hash sekali pakai.
+  bool _tokenProcessed = false;
+
   @override
   void initState() {
     super.initState();
     _session = SupabaseConfig.supabase.auth.currentSession;
     _isLoading = false;
 
-    // Cek apakah ada error atau verifikasi yang sudah tertangkap saat deep link pertama
-    if (DeepLinkAuthHandler.pendingErrorMessage != null) {
-      _deepLinkError = DeepLinkAuthHandler.pendingErrorMessage;
-      DeepLinkAuthHandler.pendingErrorMessage = null;
-    } else if (DeepLinkAuthHandler.isVerificationDeepLink && _session != null) {
-      _showVerifiedScreen = true;
-      DeepLinkAuthHandler.isVerificationDeepLink = false;
+    // ── Deteksi token_hash dari URL saat startup (web only) ──────────────────
+    // Hash-URL strategy: query ada SEBELUM '#', bisa dibaca dari Uri.base.queryParameters.
+    if (kIsWeb && !_tokenProcessed) {
+      final uri = Uri.base;
+      final query = uri.queryParameters;
+      // Fallback: beberapa konfigurasi meletakkan params di fragment
+      final fragment = Uri.splitQueryString(uri.fragment);
+      final tokenHash = query['token_hash'] ?? fragment['token_hash'];
+      final type = query['type'] ?? fragment['type'];
+
+      if (tokenHash != null && tokenHash.isNotEmpty) {
+        _tokenProcessed = true;
+        // Bersihkan URL sebelum proses async agar token tidak tersimpan di history
+        removeTokensFromUrl(['token_hash', 'type']);
+        _processToken(tokenHash, type);
+      }
+    }
+
+    // ── Deep link yang sudah tertangkap sebelum initState ────────────────────
+    if (!_tokenProcessed) {
+      if (DeepLinkAuthHandler.pendingErrorMessage != null) {
+        _deepLinkError = DeepLinkAuthHandler.pendingErrorMessage;
+        DeepLinkAuthHandler.pendingErrorMessage = null;
+      } else if (DeepLinkAuthHandler.isVerificationDeepLink && _session != null) {
+        _showVerifiedScreen = true;
+        DeepLinkAuthHandler.isVerificationDeepLink = false;
+      }
     }
 
     _listenAuthChanges();
     _listenDeepLinks();
   }
 
+  /// Verifikasi token dari URL, kemudian update state sesuai hasilnya.
+  Future<void> _processToken(String tokenHash, String? type) async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+
+    final result = await AuthService.verifyOtp(
+      tokenHash: tokenHash,
+      type: type ?? '',
+    );
+
+    if (!mounted) return;
+
+    if (result.success) {
+      // Cek apakah ini alur recovery
+      final isRecovery = type?.toLowerCase() == 'recovery';
+      setState(() {
+        _isLoading = false;
+        if (isRecovery) {
+          _isPasswordRecovery = true;
+          _showVerifiedScreen = false;
+        } else {
+          _showVerifiedScreen = true;
+          _isPasswordRecovery = false;
+        }
+        _deepLinkError = null;
+        // Perbarui sesi setelah verifyOTP membuat sesi baru
+        _session = SupabaseConfig.supabase.auth.currentSession;
+      });
+    } else {
+      setState(() {
+        _isLoading = false;
+        _deepLinkError = result.message;
+        _showVerifiedScreen = false;
+      });
+    }
+  }
+
   void _listenAuthChanges() {
     _authSub = AuthService.authStateChanges.listen((data) {
       if (!mounted) return;
       final session = data.session;
+      final event = data.event;
 
-      // Jika aplikasi terbuka dari deep link verifikasi email baru
-      if (DeepLinkAuthHandler.isVerificationDeepLink && session != null) {
+      // Event passwordRecovery dikirim Supabase setelah token recovery valid
+      if (event == AuthChangeEvent.passwordRecovery) {
+        setState(() {
+          _session = session;
+          _isPasswordRecovery = true;
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // Verifikasi email sukses dari deep link sebelum tokenProcessed
+      if (!_tokenProcessed &&
+          DeepLinkAuthHandler.isVerificationDeepLink &&
+          session != null) {
         DeepLinkAuthHandler.isVerificationDeepLink = false;
         setState(() {
           _session = session;
@@ -106,7 +190,22 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Tampilkan layar error verifikasi jika deep link kedaluwarsa / invalid
+    // 0. Loading saat memproses token
+    if (_isLoading) {
+      return const _LoadingPage();
+    }
+
+    // 1. Alur recovery aktif → wajib set password baru, blokir dashboard
+    if (_isPasswordRecovery) {
+      return SetNewPasswordScreen(
+        onDone: () {
+          // Setelah password diset & signOut, reset flag dan kembali ke login
+          if (mounted) setState(() => _isPasswordRecovery = false);
+        },
+      );
+    }
+
+    // 2. Tampilkan layar error verifikasi jika deep link kedaluwarsa / invalid
     if (_deepLinkError != null) {
       return EmailVerificationScreen(
         initialStatus: VerificationStatus.error,
@@ -114,17 +213,12 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
       );
     }
 
-    // 2. Tampilkan layar sukses verifikasi email jika baru kembali dari Gmail
+    // 3. Tampilkan layar sukses verifikasi email
     if (_showVerifiedScreen) {
       return EmailVerificationScreen(
         initialStatus: VerificationStatus.verified,
         email: _session?.user.email,
       );
-    }
-
-    // 3. Loading state awal
-    if (_isLoading) {
-      return const _LoadingPage();
     }
 
     // 4. Tidak ada sesi login

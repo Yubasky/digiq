@@ -11,6 +11,7 @@
 //  3b. Jika belum (customer baru) → enroll TOTP → tampilkan QR → verify → aal2
 //  4. Admin WAJIB aal2; jika tidak, aksi admin ditolak di server.
 
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'supabase_config.dart';
@@ -44,9 +45,18 @@ class AuthResult {
 class AuthService {
   static SupabaseClient get _sb => SupabaseConfig.supabase;
 
-  /// Default redirect URI: Web menggunakan origin host (misal http://localhost:9000/), mobile menggunakan scheme digiq://auth-callback
-  static String get kAuthRedirectUri =>
-      kIsWeb ? '${Uri.base.origin}/' : 'digiq://auth-callback';
+  // ─── Redirect URI ────────────────────────────────────────────────────────────
+
+  /// Default redirect URI.
+  /// Web: PUBLIC_SITE_URL (dari --dart-define) atau Uri.base.origin, selalu berakhiran '/'.
+  /// Mobile: digiq://auth-callback (custom scheme).
+  static String get kAuthRedirectUri {
+    if (!kIsWeb) return 'digiq://auth-callback';
+    const site = String.fromEnvironment('PUBLIC_SITE_URL');
+    final base = site.isNotEmpty ? site : Uri.base.origin;
+    return base.endsWith('/') ? base : '$base/';
+  }
+
   static String get kAuthCallbackUrl => kAuthRedirectUri;
 
   // ─── Sign Up ────────────────────────────────────────────────────────────────
@@ -108,12 +118,80 @@ class AuthService {
 
       return const AuthResult(
         success: true,
-        message: 'Email verifikasi baru berhasil dikirim. Periksa kotak masuk atau spam di Gmail Anda.',
+        message:
+            'Email verifikasi baru berhasil dikirim. Periksa kotak masuk atau spam di Gmail Anda.',
       );
     } on AuthException catch (e) {
       return AuthResult(success: false, message: _translateAuthError(e.message));
     } catch (e) {
-      return AuthResult(success: false, message: 'Gagal mengirim ulang email verifikasi: $e');
+      return AuthResult(
+          success: false, message: 'Gagal mengirim ulang email verifikasi: $e');
+    }
+  }
+
+  // ─── Reset Password ──────────────────────────────────────────────────────────
+
+  /// Kirim email reset password. Pesan sukses selalu netral agar tidak
+  /// membocorkan apakah email terdaftar (anti account-enumeration).
+  static Future<AuthResult> resetPassword(String email) async {
+    try {
+      await _sb.auth.resetPasswordForEmail(
+        email.trim(),
+        redirectTo: kAuthRedirectUri,
+      );
+      return const AuthResult(
+        success: true,
+        message:
+            'Jika email terdaftar, tautan reset kata sandi telah dikirim. Silakan periksa kotak masuk atau folder spam Anda.',
+      );
+    } on AuthException catch (e) {
+      return AuthResult(success: false, message: _translateAuthError(e.message));
+    } catch (e) {
+      return AuthResult(success: false, message: 'Terjadi kesalahan jaringan: $e');
+    }
+  }
+
+  // ─── Map OTP type string → OtpType ──────────────────────────────────────────
+
+  /// Petakan string type dari URL ke OtpType Supabase.
+  /// Kembalikan null jika tidak dikenal (bukan null-safe crash — caller harus cek).
+  static OtpType? mapOtpType(String? t) {
+    switch (t?.toLowerCase()) {
+      case 'email':
+      case 'signup':
+        return OtpType.email;
+      case 'recovery':
+        return OtpType.recovery;
+      case 'magiclink':
+        return OtpType.magiclink;
+      default:
+        return null;
+    }
+  }
+
+  // ─── Verify OTP (token_hash flow) ───────────────────────────────────────────
+
+  /// Verifikasi token_hash yang datang dari link email.
+  /// Kembalikan AuthResult.success = false dengan pesan Indonesia jika gagal.
+  static Future<AuthResult> verifyOtp({
+    required String tokenHash,
+    required String type,
+  }) async {
+    final otpType = mapOtpType(type);
+    if (otpType == null) {
+      return const AuthResult(
+        success: false,
+        message: 'Jenis tautan tidak dikenal. Silakan minta tautan baru.',
+      );
+    }
+    try {
+      await _sb.auth.verifyOTP(tokenHash: tokenHash, type: otpType);
+      return const AuthResult(success: true);
+    } on AuthException catch (e) {
+      return AuthResult(success: false, message: _translateAuthError(e.message));
+    } catch (e) {
+      return AuthResult(
+          success: false, message: 'Gagal memverifikasi tautan: $e');
     }
   }
 
@@ -163,14 +241,16 @@ class AuthService {
   static Future<AuthResult> signInStep1({
     required String email,
     required String password,
-  }) => signIn(email: email, password: password);
+  }) =>
+      signIn(email: email, password: password);
 
   /// Login via Google / Gmail OAuth dari Supabase.
+  /// Web: gunakan kAuthRedirectUri. Mobile: scheme khusus.
   static Future<bool> signInWithGoogle() async {
     try {
       return await _sb.auth.signInWithOAuth(
         OAuthProvider.google,
-        redirectTo: 'digiq://login-callback',
+        redirectTo: kIsWeb ? kAuthRedirectUri : 'digiq://login-callback',
       );
     } catch (_) {
       return false;
@@ -184,11 +264,7 @@ class AuthService {
     final uid = _sb.auth.currentUser?.id;
     if (uid == null) return null;
     try {
-      final data = await _sb
-          .from('profiles')
-          .select()
-          .eq('id', uid)
-          .single();
+      final data = await _sb.from('profiles').select().eq('id', uid).single();
       return ProfileModel.fromMap(data);
     } catch (_) {
       return null;
@@ -273,7 +349,7 @@ class AuthService {
     }
   }
 
-  /// Ganti password.
+  /// Ganti password (dipakai di SetNewPasswordScreen setelah verifyOTP recovery).
   static Future<AuthResult> changePassword(String newPassword) async {
     try {
       await _sb.auth.updateUser(UserAttributes(password: newPassword));
@@ -294,10 +370,11 @@ class AuthService {
       final storagePath = '$uid/avatar.jpg';
 
       await _sb.storage.from('avatars').uploadBinary(
-        storagePath,
-        Uint8List.fromList(bytes),
-        fileOptions: const FileOptions(upsert: true, contentType: 'image/jpeg'),
-      );
+            storagePath,
+            Uint8List.fromList(bytes),
+            fileOptions:
+                const FileOptions(upsert: true, contentType: 'image/jpeg'),
+          );
 
       return _sb.storage.from('avatars').getPublicUrl(storagePath);
     } catch (_) {
@@ -313,8 +390,7 @@ class AuthService {
 
   // ─── Auth state stream ───────────────────────────────────────────────────────
 
-  static Stream<AuthState> get authStateChanges =>
-      _sb.auth.onAuthStateChange;
+  static Stream<AuthState> get authStateChanges => _sb.auth.onAuthStateChange;
 
   // ─── Terjemahan pesan error ──────────────────────────────────────────────────
 
@@ -335,6 +411,14 @@ class AuthService {
     if (lower.contains('access_denied') || lower.contains('access denied')) {
       return 'Akses tautan verifikasi ditolak atau tautan sudah digunakan.';
     }
+    // Token sudah dipakai / tidak valid (termasuk otp_disabled, bad_otp)
+    if (lower.contains('otp_disabled') ||
+        lower.contains('bad_otp') ||
+        lower.contains('invalid otp') ||
+        lower.contains('token not found') ||
+        lower.contains('invalid token')) {
+      return 'Tautan tidak valid atau sudah digunakan. Silakan minta tautan baru.';
+    }
     if (lower.contains('invalid login credentials') ||
         lower.contains('invalid credentials')) {
       return 'Email atau password salah.';
@@ -346,8 +430,10 @@ class AuthService {
         lower.contains('already been registered')) {
       return 'Email sudah terdaftar. Silakan login.';
     }
-    if (lower.contains('password should be at least')) {
-      return 'Password minimal 6 karakter.';
+    if (lower.contains('password should be at least') ||
+        lower.contains('password too short') ||
+        lower.contains('weak password')) {
+      return 'Password terlalu lemah. Gunakan minimal 8 karakter.';
     }
     if (lower.contains('invalid totp') || lower.contains('mfa')) {
       return 'Kode autentikator tidak valid. Coba lagi.';
@@ -360,4 +446,3 @@ class AuthService {
 
   static String _translateAuthError(String msg) => translateAuthError(msg);
 }
-
