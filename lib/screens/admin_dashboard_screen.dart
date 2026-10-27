@@ -1,6 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../models/product_model.dart';
 import '../models/transaction_model.dart';
+import '../services/product_service.dart';
+import '../services/qris_service.dart';
+import '../services/transaction_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/add_product_dialog.dart';
 import 'login_screen.dart';
@@ -18,35 +24,150 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
-  // Store financial state
-  double get _storeBalance => _transactions.fold(3850000.0, (sum, t) => sum + t.totalAmount);
-  int get _todayTransactionCount => 25 + _transactions.length;
+  // Store financial state (dari stream Supabase)
+  List<TransactionModel> _trxModels = [];
+  List<ProductModel>     _productModels = [];
+  StreamSubscription<List<TransactionModel>>? _trxSub;
+  StreamSubscription<List<ProductModel>>?     _productSub;
+
+  double get _storeBalance => _trxModels
+      .where((t) => t.isSuccess)
+      .fold(0.0, (s, t) => s + t.totalAmount);
+  int get _todayTransactionCount => _trxModels.length;
 
   // Real-time notification banner state
   QrisTransaction? _latestNotification;
   bool _showNotificationBanner = false;
 
-  // Initial Digital Products for Indonesian market
-  late List<ProductItem> _products;
+  // Legacy: wraps Supabase data for old widget code
+  List<ProductItem> get _products => _productModels
+      .map((m) => ProductItem.fromProductModel(m))
+      .toList();
+  List<QrisTransaction> get _transactions => _trxModels
+      .map((m) => QrisTransaction.fromTransactionModel(m, m.userId))
+      .toList();
 
-  // Transaction history
-  late List<QrisTransaction> _transactions;
+  // Verify payment form
+  final TextEditingController _verifyAmountCtrl = TextEditingController();
+  final TextEditingController _verifyNoteCtrl   = TextEditingController();
+  bool _verifying = false;
+  Map<String, dynamic>? _verifyResult;
+
+  // Mutasi Pembayaran Realtime
+  List<PaymentMutationModel> _mutations = [];
+  StreamSubscription<List<PaymentMutationModel>>? _mutationSub;
+
+  // Pengaturan QRIS & Kode Unik
+  final TextEditingController _qrisPayloadCtrl = TextEditingController();
+  final TextEditingController _qrisMinCodeCtrl = TextEditingController();
+  final TextEditingController _qrisMaxCodeCtrl = TextEditingController();
+  final TextEditingController _qrisTtlCtrl     = TextEditingController();
+  final TextEditingController _qrisMerchantCtrl = TextEditingController();
+  final TextEditingController _qrisNmidCtrl    = TextEditingController();
+  bool _savingSettings = false;
+  QrisSettings? _currentSettings;
 
   @override
   void initState() {
     super.initState();
-    _initializeData();
+    _startStreams();
+    _loadAdminQrisSettings();
+  }
+
+  void _startStreams() {
+    _trxSub = TransactionService.watchAllTransactionsForAdmin().listen((list) {
+      if (mounted) setState(() => _trxModels = list);
+    });
+    _productSub = ProductService.watchProducts().listen((list) {
+      if (mounted) setState(() => _productModels = list);
+    });
+    _mutationSub = TransactionService.watchPaymentMutations().listen((list) {
+      if (mounted) setState(() => _mutations = list);
+    });
+    TransactionService.expirePendingTransactions();
+  }
+
+  Future<void> _loadAdminQrisSettings() async {
+    final s = await QrisService.loadSettings(forceRefresh: true);
+    if (!mounted) return;
+    setState(() {
+      _currentSettings = s;
+      _qrisPayloadCtrl.text = s.staticPayload;
+      _qrisMinCodeCtrl.text = s.uniqueCodeMin.toString();
+      _qrisMaxCodeCtrl.text = s.uniqueCodeMax.toString();
+      _qrisTtlCtrl.text = s.pendingTtlMinutes.toString();
+      _qrisMerchantCtrl.text = s.merchantName;
+      _qrisNmidCtrl.text = s.nmid;
+    });
+  }
+
+  Future<void> _saveAdminQrisSettings() async {
+    final payload = _qrisPayloadCtrl.text.trim();
+    if (payload.isNotEmpty && !QrisService.verifyCrc16(payload)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('CRC16 QRIS tidak valid! Pastikan string EMVCo lengkap beserta tag 63.'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final minCode = int.tryParse(_qrisMinCodeCtrl.text.trim()) ?? 1;
+    final maxCode = int.tryParse(_qrisMaxCodeCtrl.text.trim()) ?? 300;
+    final ttl = int.tryParse(_qrisTtlCtrl.text.trim()) ?? 15;
+
+    setState(() => _savingSettings = true);
+    try {
+      await TransactionService.updateQrisSettings(
+        staticPayload: payload.isNotEmpty ? payload : null,
+        uniqueCodeMin: minCode,
+        uniqueCodeMax: maxCode,
+        pendingTtlMinutes: ttl,
+        merchantName: _qrisMerchantCtrl.text.trim(),
+        nmid: _qrisNmidCtrl.text.trim(),
+      );
+      await _loadAdminQrisSettings();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✓ Pengaturan QRIS & Kode Unik berhasil diperbarui'),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal menyimpan: ${e.toString().replaceAll('Exception:', '').trim()}'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _savingSettings = false);
+    }
   }
 
   @override
   void dispose() {
+    _trxSub?.cancel();
+    _productSub?.cancel();
+    _mutationSub?.cancel();
     _searchController.dispose();
+    _verifyAmountCtrl.dispose();
+    _verifyNoteCtrl.dispose();
+    _qrisPayloadCtrl.dispose();
+    _qrisMinCodeCtrl.dispose();
+    _qrisMaxCodeCtrl.dispose();
+    _qrisTtlCtrl.dispose();
+    _qrisMerchantCtrl.dispose();
+    _qrisNmidCtrl.dispose();
     super.dispose();
-  }
-
-  void _initializeData() {
-    _products = ProductStore.products;
-    _transactions = TransactionStore.transactions;
   }
 
 
@@ -54,7 +175,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   void _addNewProduct(ProductItem item) {
     setState(() {
       ProductStore.addProduct(item);
-      _products = ProductStore.products;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -69,7 +189,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   void _updateProduct(ProductItem item) {
     setState(() {
       ProductStore.updateProduct(item);
-      _products = ProductStore.products;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -84,7 +203,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   void _toggleProductStatus(String id) {
     setState(() {
       ProductStore.toggleStatus(id);
-      _products = ProductStore.products;
     });
   }
 
@@ -106,7 +224,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               Navigator.of(ctx).pop();
               setState(() {
                 ProductStore.deleteProduct(id);
-                _products = ProductStore.products;
               });
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -1096,6 +1213,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildTransactionsTab() {
+    final pendingList  = _trxModels.where((t) => t.isPending && !t.isExpired).toList();
+    final successList  = _trxModels.where((t) => t.isSuccess).toList();
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -1125,7 +1245,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 Container(height: 30, width: 1, color: AppColors.cardBorder),
                 Column(
                   children: [
-                    const Text('Total Transaksi', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                    const Text('Pending', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${pendingList.length} TRX',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800, fontSize: 16,
+                        color: pendingList.isNotEmpty ? AppColors.warning : AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+                Container(height: 30, width: 1, color: AppColors.cardBorder),
+                Column(
+                  children: [
+                    const Text('Total', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                     const SizedBox(height: 4),
                     Text(
                       '$_todayTransactionCount TRX',
@@ -1139,13 +1273,105 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
           const SizedBox(height: 18),
 
+          // ── Verifikasi Pembayaran Manual ──────────────────────────────────────
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryLight,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primaryDark, size: 18),
+                    ),
+                    const SizedBox(width: 10),
+                    const Text('Verifikasi Pembayaran QRIS',
+                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Masukkan nominal transfer yang masuk persis sesuai mutasi rekening:',
+                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.4),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _verifyAmountCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9]'))],
+                        decoration: InputDecoration(
+                          hintText: 'Nominal (misal: 10300)',
+                          prefixText: 'Rp ',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: _verifying ? null : _doVerifyPayment,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: _verifying
+                          ? const SizedBox(width: 18, height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Text('Cocokkan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _verifyNoteCtrl,
+                  decoration: InputDecoration(
+                    hintText: 'Catatan (opsional)',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    isDense: true,
+                  ),
+                ),
+                if (_verifyResult != null) ..._buildVerifyResult(),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 18),
+
+          // ── Mutasi Unmatched (Uang Masuk Belum Tercocokkan) ───────────────────
+          _buildUnmatchedMutationsSection(),
+
+          const SizedBox(height: 18),
+
+          // ── Transaksi Pending (butuh perhatian) ───────────────────────────────
+          if (pendingList.isNotEmpty) ...[
+            const Text('Pending Aktif',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+            const SizedBox(height: 10),
+            ...pendingList.map((t) => _buildTrxCard(t, isPending: true)),
+            const SizedBox(height: 18),
+          ],
+
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Riwayat Transaksi QRIS',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-              ),
+              const Text('Riwayat Transaksi',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
@@ -1153,7 +1379,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  '${_transactions.length} Transaksi',
+                  '${successList.length} Sukses',
                   style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.success),
                 ),
               ),
@@ -1162,88 +1388,323 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
           const SizedBox(height: 12),
 
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _transactions.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 10),
-            itemBuilder: (context, idx) {
-              final trx = _transactions[idx];
-              return Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.cardBorder),
-                ),
+          if (_trxModels.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
                 child: Column(
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          trx.id,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.textSecondary),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: AppColors.successLight,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Text(
-                            'LUNAS - QRIS DANA',
-                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.success),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 16),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryLight,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(Icons.receipt_long_rounded, color: AppColors.primaryDark),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                trx.productName,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                              ),
-                              Text(
-                                'Pelanggan: ${trx.customerName}',
-                                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Text(
-                          formatCurrency(trx.totalAmount),
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 15,
-                            color: AppColors.primaryDark,
-                          ),
-                        ),
-                      ],
-                    ),
+                    Icon(Icons.receipt_long_rounded, size: 48, color: Colors.grey.shade300),
+                    const SizedBox(height: 8),
+                    Text('Belum ada transaksi', style: TextStyle(color: Colors.grey.shade500)),
                   ],
                 ),
-              );
-            },
-          ),
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _trxModels.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              itemBuilder: (_, i) => _buildTrxCard(_trxModels[i]),
+            ),
         ],
       ),
     );
   }
+
+  Future<void> _doVerifyPayment() async {
+    final amountStr = _verifyAmountCtrl.text.trim();
+    if (amountStr.isEmpty) return;
+    final amount = double.tryParse(amountStr);
+    if (amount == null || amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nominal tidak valid'), behavior: SnackBarBehavior.floating),
+      );
+      return;
+    }
+    setState(() { _verifying = true; _verifyResult = null; });
+    try {
+      final result = await TransactionService.verifyPaymentByAmount(
+        amount: amount,
+        note: _verifyNoteCtrl.text.trim(),
+      );
+      if (mounted) setState(() => _verifyResult = result);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _verifyResult = {
+          'status': 'error',
+          'message': e.toString().replaceAll('Exception:', '').trim(),
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _verifying = false);
+    }
+  }
+
+  List<Widget> _buildVerifyResult() {
+    final r = _verifyResult!;
+    final status = r['status'] as String? ?? '';
+    Color bg; IconData icon; String title; String? subtitle;
+
+    if (status == 'matched') {
+      bg    = AppColors.successLight;
+      icon  = Icons.check_circle_rounded;
+      title = 'Cocok! Transaksi ${r['trx_code']} ditandai sukses.';
+      subtitle = 'Total: Rp${r['total_amount']}';
+    } else if (status == 'unmatched') {
+      bg    = Colors.orange.shade50;
+      icon  = Icons.search_off_rounded;
+      title = 'Tidak ditemukan transaksi pending.';
+      subtitle = r['message']?.toString();
+    } else if (status == 'already_processed') {
+      bg    = Colors.blue.shade50;
+      icon  = Icons.replay_rounded;
+      title = 'Sudah diproses sebelumnya.';
+      subtitle = null;
+    } else {
+      bg    = Colors.red.shade50;
+      icon  = Icons.error_outline_rounded;
+      title = 'Terjadi kesalahan.';
+      subtitle = r['message']?.toString();
+    }
+
+    return [
+      const SizedBox(height: 12),
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: status == 'matched' ? AppColors.success : AppColors.warning, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                  if (subtitle != null)
+                    Text(subtitle, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  Widget _buildTrxCard(TransactionModel t, {bool isPending = false}) {
+    final statusColor = t.isSuccess
+        ? AppColors.success
+        : t.isPending
+            ? AppColors.warning
+            : AppColors.error;
+    final statusText = t.isSuccess ? 'SUKSES' : t.isPending ? 'PENDING' : 'GAGAL';
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isPending
+              ? AppColors.warning.withValues(alpha: 0.5)
+              : AppColors.cardBorder,
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  t.trxCode,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12,
+                      color: AppColors.textSecondary),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  statusText,
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: statusColor),
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 14),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.receipt_long_rounded, color: AppColors.primaryDark),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      t.productName ?? t.productId,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    Text(
+                      'ID User: ${t.userId.substring(0, 8)}...',
+                      style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                    ),
+                    if (t.hasUniqueCode)
+                      Text(
+                        'Kode Unik: +${t.uniqueCode}',
+                        style: const TextStyle(fontSize: 11, color: AppColors.primary),
+                      ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (isPending && t.hasUniqueCode) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryLight,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            formatCurrency(t.totalAmount),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 15,
+                              color: AppColors.primaryDark,
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '+${t.uniqueCode.toString().padLeft(3, '0')}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Base: ${formatCurrency(t.baseAmount)}',
+                      style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                    ),
+                  ] else ...[
+                    Text(
+                      formatCurrency(t.totalAmount),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 15,
+                        color: AppColors.primaryDark,
+                      ),
+                    ),
+                    if (t.baseAmount != t.totalAmount)
+                      Text(
+                        '(${formatCurrency(t.baseAmount)} + ${t.uniqueCode})',
+                        style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                      ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+          if (isPending) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _adminApproveReject(t, 'success'),
+                    icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
+                    label: const Text('Approve', style: TextStyle(fontSize: 12)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.success,
+                      side: const BorderSide(color: AppColors.success),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _adminApproveReject(t, 'failed'),
+                    icon: const Icon(Icons.cancel_outlined, size: 16),
+                    label: const Text('Reject', style: TextStyle(fontSize: 12)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.error,
+                      side: const BorderSide(color: AppColors.error),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _adminApproveReject(TransactionModel t, String status) async {
+    try {
+      await TransactionService.updateTransactionStatus(trxId: t.id, status: status);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(status == 'success'
+                ? '✓ Transaksi ${t.trxCode} disetujui'
+                : '✗ Transaksi ${t.trxCode} ditolak'),
+            backgroundColor: status == 'success' ? AppColors.success : AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception:', '').trim()),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
 
   Widget _buildStoreSettingsTab() {
     return SingleChildScrollView(
@@ -1301,17 +1762,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
           const SizedBox(height: 16),
 
-          // Settings options
-          _buildSettingsTile(
-            icon: Icons.qr_code_rounded,
-            title: 'Pengaturan QRIS Merchant',
-            subtitle: 'ID: ID102026889901 • Status Aktif & Terverifikasi',
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('QRIS Toko Resmi DigiQ aktif dan terintegrasi.')),
-              );
-            },
-          ),
+          // Pengaturan QRIS Merchant & Kode Unik
+          _buildQrisSettingsCard(),
           _buildSettingsTile(
             icon: Icons.support_agent_rounded,
             title: 'Hubungi Customer Support Toko',
@@ -1370,6 +1822,504 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
           onTap: onTap,
         ),
+      ),
+    );
+  }
+
+  Widget _buildUnmatchedMutationsSection() {
+    final unmatched = _mutations.where((m) => m.isUnmatched).toList();
+    if (unmatched.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.warningLight.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.warning,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 16),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Mutasi Masuk Belum Terverifikasi (Unmatched)',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF78350F)),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.warning,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${unmatched.length}',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Mutasi uang masuk berikut tidak menemukan transaksi pending yang cocok secara otomatis. Admin dapat menghubungkan manual ke transaksi atau mengabaikannya:',
+            style: TextStyle(fontSize: 11, color: Color(0xFF92400E), height: 1.3),
+          ),
+          const SizedBox(height: 12),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: unmatched.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 8),
+            itemBuilder: (_, i) {
+              final m = unmatched[i];
+              return Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.cardBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          formatCurrency(m.amount),
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: AppColors.primaryDark),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            m.source.toUpperCase(),
+                            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Ref: ${m.externalRef}',
+                      style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                    ),
+                    if (m.notes != null && m.notes!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          m.notes!,
+                          style: const TextStyle(fontSize: 10.5, fontStyle: FontStyle.italic, color: AppColors.warning),
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () async {
+                            try {
+                              await TransactionService.ignoreMutation(m.id);
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Mutasi diabaikan')),
+                                );
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Gagal: $e')),
+                                );
+                              }
+                            }
+                          },
+                          child: const Text('Abaikan', style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: () => _showLinkMutationDialog(m),
+                          icon: const Icon(Icons.link_rounded, size: 14),
+                          label: const Text('Hubungkan & Approve', style: TextStyle(fontSize: 11)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLinkMutationDialog(PaymentMutationModel mutation) {
+    final pendingList = _trxModels.where((t) => t.isPending).toList();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.link_rounded, color: AppColors.primary),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text('Hubungkan Mutasi', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Nominal Mutasi: ${formatCurrency(mutation.amount)} (Ref: ${mutation.externalRef})',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Pilih transaksi pending yang sesuai untuk diverifikasi:',
+                style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 12),
+              if (pendingList.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Center(
+                    child: Text('Tidak ada transaksi pending yang aktif.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  ),
+                )
+              else
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 250),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: pendingList.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder: (context, i) {
+                      final trx = pendingList[i];
+                      return InkWell(
+                        onTap: () async {
+                          Navigator.pop(ctx);
+                          try {
+                            await TransactionService.linkMutationToTransaction(
+                              mutationId: mutation.id,
+                              trxId: trx.id,
+                            );
+                            if (mounted) {
+                              ScaffoldMessenger.of(this.context).showSnackBar(
+                                SnackBar(
+                                  content: Text('✓ Mutasi berhasil dihubungkan ke ${trx.trxCode} dan disetujui!'),
+                                  backgroundColor: AppColors.success,
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(this.context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Gagal menghubungkan: ${e.toString().replaceAll('Exception:', '').trim()}'),
+                                  backgroundColor: AppColors.error,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppColors.cardBorder),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(trx.trxCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                    Text(trx.productName ?? trx.productId, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                                  ],
+                                ),
+                              ),
+                              Text(
+                                formatCurrency(trx.totalAmount),
+                                style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.primaryDark, fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQrisSettingsCard() {
+    final activePayload = _qrisPayloadCtrl.text.trim().isNotEmpty
+        ? _qrisPayloadCtrl.text.trim()
+        : (_currentSettings?.staticPayload ?? kDefaultStaticQrisPayload);
+    final isValidCrc = QrisService.verifyCrc16(activePayload);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.qr_code_2_rounded, color: AppColors.primaryDark, size: 20),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Pengaturan QRIS & Kode Unik',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: isValidCrc ? AppColors.successLight : AppColors.errorLight,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  isValidCrc ? 'CRC16 VALID' : 'CRC16 INVALID',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.bold,
+                    color: isValidCrc ? AppColors.success : AppColors.error,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Preview QRIS Aktif (kopi sat - ID1026516422080)
+          Center(
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.cardBorder),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    _qrisMerchantCtrl.text.isNotEmpty ? _qrisMerchantCtrl.text : 'kopi sat',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                  Text(
+                    'NMID: ${_qrisNmidCtrl.text.isNotEmpty ? _qrisNmidCtrl.text : 'ID1026516422080'} • A01',
+                    style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 8),
+                  QrImageView(
+                    data: activePayload,
+                    version: QrVersions.auto,
+                    size: 140,
+                    backgroundColor: Colors.white,
+                    errorCorrectionLevel: QrErrorCorrectLevel.M,
+                  ),
+                  const SizedBox(height: 4),
+                  const Text('Preview QRIS Statis Merchant', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+          const Text('Raw String EMVCo QRIS Statis:', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _qrisPayloadCtrl,
+            maxLines: 3,
+            style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+            decoration: InputDecoration(
+              hintText: '000201010211...',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              contentPadding: const EdgeInsets.all(10),
+              isDense: true,
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Merchant Name:', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: _qrisMerchantCtrl,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        isDense: true,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('NMID:', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: _qrisNmidCtrl,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        isDense: true,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Kode Min:', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: _qrisMinCodeCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        isDense: true,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Kode Max:', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: _qrisMaxCodeCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        isDense: true,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('TTL (Menit):', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: _qrisTtlCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        isDense: true,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _savingSettings ? null : _saveAdminQrisSettings,
+              icon: _savingSettings
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.save_rounded, size: 16),
+              label: const Text('Simpan Pengaturan QRIS', style: TextStyle(fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

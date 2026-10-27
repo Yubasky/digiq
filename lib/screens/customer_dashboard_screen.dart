@@ -157,186 +157,74 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
 
   void _openCheckout() {
     if (_cart.isEmpty) return;
-    _openQrisPayment();
+    // Untuk cart multi-item: beli produk pertama
+    // (single product per transaksi sesuai desain RPC)
+    final first = _cart.first;
+    _openDirectQrisPayment(first.product);
   }
 
-  void _openQrisPayment() {
-    final double grandTotal = _cartGrandTotal > 0 ? _cartGrandTotal : 50000;
-    final double baseAmount = _cartTotal > 0 ? _cartTotal : 50000;
-    final double feeAmount = _cartFee;
-    final String prodSummary = _cart.isNotEmpty
-        ? _cart.map((c) => '${c.product.name} (x${c.qty})').join(', ')
-        : 'Akun Digital DigiQ';
-
+  Future<void> _openQrisPayment(ProductItem product, {String targetNumber = ''}) async {
+    // Tampilkan loading
+    if (!mounted) return;
     showDialog(
       context: context,
-      barrierDismissible: true,
-      builder: (_) => QrisModal(
-        currentBalance: 999999,
-        initialAmount: grandTotal,
-        initialCustomerName: widget.profile.fullName,
-        initialProductName: prodSummary,
-        baseAmount: baseAmount,
-        feeAmount: feeAmount,
-        onPaymentSimulated: (amount, customerName, productName) {
-          final tx = QrisTransaction(
-            id: 'TRX-${DateTime.now().millisecondsSinceEpoch}',
-            customerName: customerName,
-            productName: prodSummary,
-            baseAmount: baseAmount,
-            feeAmount: feeAmount,
-            totalAmount: amount,
-            timestamp: DateTime.now(),
-            status: 'SUCCESS',
-          );
-          // Stok dikelola di server oleh RPC; tidak perlu diupdate lokal
-          setState(() {
-            _transactions.insert(0, tx);
-            _cart.clear();
-          });
-          _showPaymentSuccess(tx);
-        },
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Text('Membuat transaksi...'),
+          ],
+        ),
       ),
     );
+
+    try {
+      final trx = await TransactionService.createTransaction(
+        productId: product.id,
+        targetNumber: targetNumber,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(); // tutup loading
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => QrisModal(
+          transaction: trx,
+          onSuccess: () {
+            setState(() => _cart.clear());
+            setState(() => _currentTab = 2); // buka riwayat
+          },
+          onCancelled: () {
+            // transaksi dibatalkan/expired — tidak perlu aksi
+          },
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop(); // tutup loading
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().replaceAll('Exception:', '').trim(),
+            style: const TextStyle(color: Colors.white),
+          ),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
+
 
   void _openDirectQrisPayment(ProductItem product) {
-    final double baseAmount = product.price;
-    final double feeAmount = baseAmount * 0.007;
-    final double grandTotal = baseAmount + feeAmount;
-    final String prodSummary = product.name;
-
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (_) => QrisModal(
-        currentBalance: 999999,
-        initialAmount: grandTotal,
-        initialCustomerName: widget.profile.fullName,
-        initialProductName: prodSummary,
-        baseAmount: baseAmount,
-        feeAmount: feeAmount,
-        onPaymentSimulated: (amount, customerName, productName) {
-          final tx = QrisTransaction(
-            id: 'TRX-${DateTime.now().millisecondsSinceEpoch}',
-            customerName: customerName,
-            productName: prodSummary,
-            baseAmount: baseAmount,
-            feeAmount: feeAmount,
-            totalAmount: amount,
-            timestamp: DateTime.now(),
-            status: 'SUCCESS',
-          );
-          // Stok dikelola di server
-          setState(() {
-            _transactions.insert(0, tx);
-          });
-          _showPaymentSuccess(tx);
-        },
-      ),
-    );
+    _openQrisPayment(product);
   }
 
-  void _showPaymentSuccess(QrisTransaction tx) {
-    showDialog(
-      context: context,
-      builder: (_) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: AppColors.successLight,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.check_circle_rounded,
-                    color: AppColors.success, size: 44),
-              ),
-              const SizedBox(height: 16),
-              const Text('Pembayaran Berhasil!',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  )),
-              const SizedBox(height: 6),
-              Text(
-                formatCurrency(tx.totalAmount),
-                style: const TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'ID: ${tx.id}',
-                style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
-              ),
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.background,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    _infoRow('Produk', tx.productName),
-                    const SizedBox(height: 6),
-                    _infoRow('Nama', tx.customerName),
-                    const SizedBox(height: 6),
-                    _infoRow('Biaya Admin',
-                        formatCurrency(tx.feeAmount), color: AppColors.textMuted),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    setState(() => _currentTab = 2); // go to history
-                  },
-                  child: const Text('Lihat Riwayat'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
-  Widget _infoRow(String label, String value, {Color? color}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label,
-            style: const TextStyle(
-                fontSize: 12.5, color: AppColors.textSecondary)),
-        Expanded(
-          child: Text(
-            value,
-            textAlign: TextAlign.right,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              color: color ?? AppColors.textPrimary,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 
   // ─── Build ──────────────────────────────────────────────────────────────────
 
@@ -787,7 +675,13 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                   ),
                 ),
                 GestureDetector(
-                  onTap: _openQrisPayment,
+                  onTap: () {
+                    if (_products.isNotEmpty) {
+                      _openDirectQrisPayment(ProductItem.fromProductModel(_products.first));
+                    } else {
+                      setState(() => _currentTab = 1);
+                    }
+                  },
                   child: Container(
                     width: 64,
                     height: 64,

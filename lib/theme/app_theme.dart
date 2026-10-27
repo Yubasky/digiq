@@ -24,6 +24,8 @@ class AppColors {
   static const Color warning = Color(0xFFF59E0B);
   static const Color warningLight = Color(0xFFFEF3C7);
   static const Color danger = Color(0xFFEF4444);
+  static const Color error = Color(0xFFE11D48);     // Rose — sesuai desain DigiQ
+  static const Color errorLight = Color(0xFFFFE4E6);
   static const Color qrisOrange = Color(0xFFE11D48);
 
   // Gradients

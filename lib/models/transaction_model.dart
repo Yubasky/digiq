@@ -1,16 +1,24 @@
 // lib/models/transaction_model.dart
 // Model Supabase TransactionModel + legacy QrisTransaction & TransactionStore.
 
+export 'payment_mutation_model.dart';
+
 class TransactionModel {
   final String id;
   final String trxCode;
   final String userId;
   final String productId;
   final String targetNumber;
-  final double amount;
-  final String status; // 'pending' | 'success' | 'failed'
-  final String? qrisPayload;
+  final double amount;       // base_amount (harga produk)
+  final double baseAmount;   // sama dengan amount, untuk keterbacaan
+  final int uniqueCode;      // kode unik 1-300 (0 = transaksi lama)
+  final double totalAmount;  // base_amount + unique_code = yang harus dibayar
+  final String status;       // 'pending' | 'success' | 'failed'
+  final String? qrisPayload; // payload QRIS statis dari server
   final DateTime? expiredAt;
+  final DateTime? paidAt;
+  final String? verifiedBy;       // UUID admin yang verifikasi
+  final String? matchedMutationId; // UUID payment_mutations
   final DateTime createdAt;
 
   // Join fields (nullable — dari query with join)
@@ -24,19 +32,27 @@ class TransactionModel {
     required this.productId,
     required this.targetNumber,
     required this.amount,
+    double? baseAmount,
+    int? uniqueCode,
+    double? totalAmount,
     required this.status,
     this.qrisPayload,
     this.expiredAt,
+    this.paidAt,
+    this.verifiedBy,
+    this.matchedMutationId,
     required this.createdAt,
     this.productName,
     this.productCategory,
-  });
+  })  : baseAmount  = baseAmount  ?? amount,
+        uniqueCode  = uniqueCode  ?? 0,
+        totalAmount = totalAmount ?? amount;
 
   bool get isPending => status == 'pending';
   bool get isSuccess => status == 'success';
-  bool get isFailed => status == 'failed';
+  bool get isFailed  => status == 'failed';
 
-  /// Apakah QRIS sudah kedaluwarsa berdasarkan waktu lokal.
+  /// Apakah sudah kedaluwarsa berdasarkan waktu lokal.
   bool get isExpired =>
       expiredAt != null && DateTime.now().isAfter(expiredAt!);
 
@@ -47,23 +63,35 @@ class TransactionModel {
     return diff.isNegative ? null : diff;
   }
 
+  /// Apakah transaksi ini menggunakan sistem kode unik baru.
+  bool get hasUniqueCode => uniqueCode > 0;
+
   factory TransactionModel.fromMap(Map<String, dynamic> m) {
     final prodMap = m['products'] as Map<String, dynamic>?;
+    final amountVal = ((m['amount'] as num?) ?? 0).toDouble();
     return TransactionModel(
-      id: m['id'] as String,
-      trxCode: (m['trx_code'] as String?) ?? '',
-      userId: m['user_id'] as String,
-      productId: m['product_id'] as String,
+      id:           m['id'] as String,
+      trxCode:      (m['trx_code'] as String?) ?? '',
+      userId:       m['user_id'] as String,
+      productId:    m['product_id'] as String,
       targetNumber: (m['target_number'] as String?) ?? '',
-      amount: ((m['amount'] as num?) ?? 0).toDouble(),
-      status: (m['status'] as String?) ?? 'pending',
-      qrisPayload: m['qris_payload'] as String?,
+      amount:       amountVal,
+      baseAmount:   ((m['base_amount'] as num?) ?? amountVal).toDouble(),
+      uniqueCode:   (m['unique_code'] as int?) ?? 0,
+      totalAmount:  ((m['total_amount'] as num?) ?? amountVal).toDouble(),
+      status:       (m['status'] as String?) ?? 'pending',
+      qrisPayload:  m['qris_payload'] as String?,
       expiredAt: m['expired_at'] == null
           ? null
           : DateTime.parse(m['expired_at'] as String),
+      paidAt: m['paid_at'] == null
+          ? null
+          : DateTime.parse(m['paid_at'] as String),
+      verifiedBy:        m['verified_by'] as String?,
+      matchedMutationId: m['matched_mutation_id'] as String?,
       createdAt: DateTime.parse(
           (m['created_at'] as String?) ?? DateTime.now().toIso8601String()),
-      productName: prodMap?['name'] as String?,
+      productName:     prodMap?['name'] as String?,
       productCategory: prodMap?['category'] as String?,
     );
   }
@@ -98,14 +126,14 @@ class QrisTransaction {
   factory QrisTransaction.fromTransactionModel(
       TransactionModel m, String customerName) {
     return QrisTransaction(
-      id: m.trxCode,
+      id:           m.trxCode,
       customerName: customerName,
-      productName: m.productName ?? m.productId,
-      baseAmount: m.amount,
-      feeAmount: 0,
-      totalAmount: m.amount,
-      timestamp: m.createdAt,
-      status: m.status.toUpperCase(),
+      productName:  m.productName ?? m.productId,
+      baseAmount:   m.baseAmount,
+      feeAmount:    m.uniqueCode.toDouble(), // kode unik sebagai "biaya unik"
+      totalAmount:  m.totalAmount,
+      timestamp:    m.createdAt,
+      status:       m.status.toUpperCase(),
     );
   }
 }
