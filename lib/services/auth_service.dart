@@ -11,7 +11,7 @@
 //  3b. Jika belum (customer baru) → enroll TOTP → tampilkan QR → verify → aal2
 //  4. Admin WAJIB aal2; jika tidak, aksi admin ditolak di server.
 
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'supabase_config.dart';
 import '../models/profile_model.dart';
@@ -44,9 +44,10 @@ class AuthResult {
 class AuthService {
   static SupabaseClient get _sb => SupabaseConfig.supabase;
 
-  /// Default redirect URI custom scheme untuk verifikasi email PKCE & deep link Supabase
-  static const String kAuthRedirectUri = 'digiq://auth-callback';
-  static const String kAuthCallbackUrl = kAuthRedirectUri;
+  /// Default redirect URI: Web menggunakan origin host (misal http://localhost:9000/), mobile menggunakan scheme digiq://auth-callback
+  static String get kAuthRedirectUri =>
+      kIsWeb ? '${Uri.base.origin}/' : 'digiq://auth-callback';
+  static String get kAuthCallbackUrl => kAuthRedirectUri;
 
   // ─── Sign Up ────────────────────────────────────────────────────────────────
 

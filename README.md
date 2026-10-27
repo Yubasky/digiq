@@ -133,6 +133,30 @@ Sistem pendaftaran pengguna DigiQ dilengkapi verifikasi email PKCE via Gmail den
 
 ---
 
+## 🌐 Menjalankan Aplikasi pada Port 9000
+
+Proyek DigiQ telah dikonfigurasikan secara permanen agar dapat berjalan dan di-serve di **Port 9000** (`http://localhost:9000`):
+
+### 1. Menjalankan via Terminal (Chrome Web)
+```powershell
+flutter run -d chrome --web-port=9000 --dart-define=SUPABASE_URL=https://iqxoofrhhrqkgehuvrlb.supabase.co --dart-define=SUPABASE_ANON_KEY=sb_publishable_ICrxKBqQHJIt95kBowuW3Q_tkvgtP6L
+```
+Atau menggunakan skrip praktis:
+- **PowerShell**: `.\run_web.ps1`
+- **Command Prompt / Double Click**: `run_web.bat`
+
+### 2. Menjalankan via VS Code
+- Tekan **F5** (Run & Debug ➔ **DigiQ (Development)**) dengan target browser Chrome.
+- Atau tekan `Ctrl+Shift+B` (atau menu **Terminal** ➔ **Run Task...** ➔ **Run DigiQ Web (Port 9000)**).
+
+### 3. Konfigurasi Redirect URLs di Supabase
+URL port 9000 telah terdaftar di Supabase Auth (`site_url` & `uri_allow_list`):
+- `http://localhost:9000` & `http://localhost:9000/**`
+- `http://127.0.0.1:9000` & `http://127.0.0.1:9000/**`
+- `digiq://*`
+
+---
+
 ## 🧪 Panduan Pengujian & Audit
 
 Proyek telah melalui audit keamanan ketat dan pengujian 100% lulus:
