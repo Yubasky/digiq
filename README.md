@@ -97,6 +97,23 @@ Edge Function menerima notifikasi uang masuk dari forwarder notifikasi/mutasi ba
 
 ---
 
+## 📧 Setup Verifikasi Email & Deep Link Redirect (Gmail - 100% Pure Dart)
+
+Sistem pendaftaran pengguna DigiQ dilengkapi verifikasi email PKCE via Gmail dengan penukaran token dan tampilan konfirmasi 100% murni Flutter Dart Widgets:
+
+1. **Atur Redirect URLs di Supabase Dashboard**:
+   - Buka **Authentication** ➔ **URL Configuration**.
+   - Tambahkan URL berikut di daftar **Redirect URLs**:
+     * `digiq://auth-callback` (Wajib untuk custom scheme deep link APK DigiQ)
+     * `digiq://login-callback` (Untuk login OAuth Google)
+2. **Alur Kerja Murni Dart**:
+   - Ketika tautan aktivasi di Gmail diklik, Android langsung memicu custom scheme `digiq://auth-callback`.
+   - SDK `supabase_flutter` menukar PKCE code menjadi sesi aktif di dalam APK.
+   - Layar konfirmasi [`EmailVerificationScreen`](file:///d:/PROJEK%20FAN%20DEV/digiq/lib/screens/auth/email_verification_screen.dart) menampilkan status sukses (`VerificationStatus.verified`) dengan ikon centang Emerald `#10B981` dan countdown 3 detik otomatis menuju Beranda.
+   - Tidak diperlukan hosting file HTML perantara atau template eksternal.
+
+---
+
 ## 🧪 Panduan Pengujian & Audit
 
 Proyek telah melalui audit keamanan ketat dan pengujian 100% lulus:
@@ -132,6 +149,7 @@ Detail desain teknis dan catatan audit tersimpan di folder `tasks/`:
 - [`tasks/05-live-chat.md`](file:///d:/PROJEK%20FAN%20DEV/digiq/tasks/05-live-chat.md) — Fitur chat realtime customer-admin
 - [`tasks/06-qris-static-unique-code.md`](file:///d:/PROJEK%20FAN%20DEV/digiq/tasks/06-qris-static-unique-code.md) — Sistem QRIS `kopi sat` & verifikasi mandiri
 - [`tasks/07-audit-testing.md`](file:///d:/PROJEK%20FAN%20DEV/digiq/tasks/07-audit-testing.md) — Laporan audit keamanan & skenario pengujian
+- [`tasks/08-email-verification-deeplink.md`](file:///d:/PROJEK%20FAN%20DEV/digiq/tasks/08-email-verification-deeplink.md) — Verifikasi email Gmail, deep link APK, & web bridge
 - [`tasks/README.md`](file:///d:/PROJEK%20FAN%20DEV/digiq/tasks/README.md) — Indeks tabel seluruh tugas proyek
 
 ---
@@ -140,3 +158,4 @@ Detail desain teknis dan catatan audit tersimpan di folder `tasks/`:
 - **Primary Cyan**: `#06ACDC` (Aksen utama DigiQ)
 - **Rose**: `#E11D48` (Badge QRIS & status bahaya/cancel)
 - **Emerald**: `#10B981` (Status sukses & approved)
+

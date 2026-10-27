@@ -44,19 +44,26 @@ class AuthResult {
 class AuthService {
   static SupabaseClient get _sb => SupabaseConfig.supabase;
 
+  /// Default redirect URI custom scheme untuk verifikasi email PKCE & deep link Supabase
+  static const String kAuthRedirectUri = 'digiq://auth-callback';
+  static const String kAuthCallbackUrl = kAuthRedirectUri;
+
   // ─── Sign Up ────────────────────────────────────────────────────────────────
 
-  /// Daftar akun baru. Setelah sukses, profil dibuat otomatis via trigger DB.
+  /// Daftar akun baru dengan emailRedirectTo custom scheme digiq://auth-callback.
+  /// Setelah sukses, profil dibuat otomatis via trigger DB.
   static Future<AuthResult> signUp({
     required String email,
     required String password,
     required String fullName,
     required String phone,
+    String? emailRedirectTo,
   }) async {
     try {
       final res = await _sb.auth.signUp(
         email: email.trim(),
         password: password,
+        emailRedirectTo: emailRedirectTo ?? kAuthRedirectUri,
         data: {
           'full_name': fullName.trim(),
           'phone': phone.trim(),
@@ -83,6 +90,40 @@ class AuthService {
       return AuthResult(success: false, message: 'Terjadi kesalahan: $e');
     }
   }
+
+  // ─── Resend Verification Email ──────────────────────────────────────────────
+
+  /// Kirim ulang email aktivasi/verifikasi pendaftaran dengan rate limit handling.
+  static Future<AuthResult> resendVerificationEmail(
+    String email, {
+    String? emailRedirectTo,
+  }) async {
+    try {
+      await _sb.auth.resend(
+        type: OtpType.signup,
+        email: email.trim(),
+        emailRedirectTo: emailRedirectTo ?? kAuthRedirectUri,
+      );
+
+      return const AuthResult(
+        success: true,
+        message: 'Email verifikasi baru berhasil dikirim. Periksa kotak masuk atau spam di Gmail Anda.',
+      );
+    } on AuthException catch (e) {
+      return AuthResult(success: false, message: _translateAuthError(e.message));
+    } catch (e) {
+      return AuthResult(success: false, message: 'Gagal mengirim ulang email verifikasi: $e');
+    }
+  }
+
+  /// Cek apakah pengguna saat ini sudah mengonfirmasi email
+  static bool get isCurrentUserEmailVerified {
+    final user = _sb.auth.currentUser;
+    return user != null && user.emailConfirmedAt != null;
+  }
+
+  /// Dapatkan email user yang sedang login atau sesi aktif
+  static String? get currentUserEmail => _sb.auth.currentUser?.email;
 
   // ─── Sign In (Email & Password Langsung) ────────────────────────────────────
 
@@ -235,14 +276,29 @@ class AuthService {
 
   // ─── Terjemahan pesan error ──────────────────────────────────────────────────
 
-  static String _translateAuthError(String msg) {
+  /// Menerjemahkan pesan error Supabase Auth ke Bahasa Indonesia yang ramah.
+  static String translateAuthError(String msg) {
     final lower = msg.toLowerCase();
+    if (lower.contains('over_email_send_rate_limit') ||
+        lower.contains('rate limit') ||
+        lower.contains('for security purposes, you can only request')) {
+      return 'Terlalu banyak permintaan pengiriman email. Harap tunggu beberapa saat sebelum mencoba lagi.';
+    }
+    if (lower.contains('otp_expired') ||
+        lower.contains('token has expired') ||
+        lower.contains('email link is invalid or has expired') ||
+        lower.contains('token is expired')) {
+      return 'Tautan verifikasi sudah kedaluwarsa. Silakan kirim ulang email verifikasi baru.';
+    }
+    if (lower.contains('access_denied') || lower.contains('access denied')) {
+      return 'Akses tautan verifikasi ditolak atau tautan sudah digunakan.';
+    }
     if (lower.contains('invalid login credentials') ||
         lower.contains('invalid credentials')) {
       return 'Email atau password salah.';
     }
     if (lower.contains('email not confirmed')) {
-      return 'Email belum diverifikasi. Cek kotak masuk Anda.';
+      return 'Email belum diverifikasi. Cek kotak masuk atau spam di Gmail Anda.';
     }
     if (lower.contains('user already registered') ||
         lower.contains('already been registered')) {
@@ -254,13 +310,12 @@ class AuthService {
     if (lower.contains('invalid totp') || lower.contains('mfa')) {
       return 'Kode autentikator tidak valid. Coba lagi.';
     }
-    if (lower.contains('token has expired') || lower.contains('refresh')) {
-      return 'Sesi kedaluwarsa. Silakan login ulang.';
-    }
     if (lower.contains('network') || lower.contains('connection')) {
       return 'Koneksi internet bermasalah. Periksa jaringan Anda.';
     }
     return msg;
   }
+
+  static String _translateAuthError(String msg) => translateAuthError(msg);
 }
 

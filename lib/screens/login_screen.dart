@@ -5,6 +5,7 @@ import '../theme/app_theme.dart';
 import 'admin_dashboard_screen.dart';
 import 'customer_dashboard_screen.dart';
 import 'register_screen.dart';
+import 'auth/email_verification_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -65,7 +66,33 @@ class _LoginScreenState extends State<LoginScreen>
     setState(() => _isLoading = false);
 
     if (!result.success) {
-      _showError(result.message ?? 'Login gagal.');
+      final msg = result.message ?? 'Login gagal.';
+      if (msg.toLowerCase().contains('belum diverifikasi')) {
+        final emailInput = _identifierController.text.trim();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(msg),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.all(16),
+          action: SnackBarAction(
+            label: 'Verifikasi',
+            textColor: Colors.white,
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => EmailVerificationScreen(
+                    email: emailInput.contains('@') ? emailInput : null,
+                    initialStatus: VerificationStatus.waiting,
+                  ),
+                ),
+              );
+            },
+          ),
+        ));
+      } else {
+        _showError(msg);
+      }
       return;
     }
 

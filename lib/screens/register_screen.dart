@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import 'auth/email_verification_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -66,8 +67,9 @@ class _RegisterScreenState extends State<RegisterScreen>
 
     setState(() => _isLoading = true);
 
+    final registeredEmail = _emailController.text.trim();
     final result = await AuthService.signUp(
-      email: _emailController.text.trim(),
+      email: registeredEmail,
       password: _passwordController.text,
       fullName: _nameController.text.trim(),
       phone: _phoneController.text.trim(),
@@ -81,12 +83,15 @@ class _RegisterScreenState extends State<RegisterScreen>
       return;
     }
 
-    _showSnack(
-      'Akun berhasil dibuat! Cek email untuk verifikasi, lalu login.',
-      isError: false,
+    // Arahkan langsung ke layar verifikasi email (status waiting)
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => EmailVerificationScreen(
+          email: registeredEmail,
+          initialStatus: VerificationStatus.waiting,
+        ),
+      ),
     );
-    await Future<void>.delayed(const Duration(milliseconds: 800));
-    if (mounted) Navigator.of(context).pop();
   }
 
   void _showSnack(String msg, {required bool isError}) {

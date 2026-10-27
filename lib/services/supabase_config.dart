@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'deep_link_auth_handler.dart';
 
 /// Inisialisasi Supabase dari dart-define (tidak di-hardcode).
 /// Jalankan dengan:
@@ -34,6 +35,8 @@ class SupabaseConfig {
       publishableKey: _anonKey,
       authOptions: const FlutterAuthClientOptions(
         authFlowType: AuthFlowType.pkce,
+        detectSessionInUri: true,
+        detectSessionInUriPredicate: DeepLinkAuthHandler.handleDetectSessionInUri,
       ),
     );
   }

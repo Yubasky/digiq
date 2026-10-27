@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'services/supabase_config.dart';
+import 'services/deep_link_auth_handler.dart';
 import 'theme/app_theme.dart';
 import 'screens/auth_gate_screen.dart';
 
@@ -17,6 +18,7 @@ class DigiQApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: DeepLinkAuthHandler.navigatorKey,
       title: 'DigiQ - Digital Store & QRIS',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
