@@ -133,27 +133,153 @@ Sistem pendaftaran pengguna DigiQ dilengkapi verifikasi email PKCE via Gmail den
 
 ---
 
-## 🌐 Menjalankan Aplikasi pada Port 9000
+---
 
-Proyek DigiQ telah dikonfigurasikan secara permanen agar dapat berjalan dan di-serve di **Port 9000** (`http://localhost:9000`):
+## 🌐 Deployment via Cloudflare Zero Trust Tunnel (Port 9000)
 
-### 1. Menjalankan via Terminal (Chrome Web)
-```powershell
-flutter run -d chrome --web-port=9000 --dart-define=SUPABASE_URL=https://iqxoofrhhrqkgehuvrlb.supabase.co --dart-define=SUPABASE_ANON_KEY=sb_publishable_ICrxKBqQHJIt95kBowuW3Q_tkvgtP6L
+Proyek DigiQ dirancang untuk disajikan secara cepat dan aman di domain publik **`https://enikzrad.web.id`** menggunakan arsitektur **Release Build Flutter Web + SPA Server (Python 3/ThreadingHTTPServer)** di port `9000`, yang diteruskan melalui **Cloudflare Zero Trust Tunnel (`cloudflared`)**.
+
 ```
-Atau menggunakan skrip praktis:
-- **PowerShell**: `.\run_web.ps1`
-- **Command Prompt / Double Click**: `run_web.bat`
+[Customer Browser] ──HTTPS──> [Cloudflare Edge: https://enikzrad.web.id]
+                                      │ (cloudflared encrypted tunnel)
+                                      ▼
+                        [Server Lokal: http://127.0.0.1:9000]
+                                      │
+                         [scripts/spa_server.py]
+                                      │
+                           [build/web/ (Release)]
+```
 
-### 2. Menjalankan via VS Code
-- Tekan **F5** (Run & Debug ➔ **DigiQ (Development)**) dengan target browser Chrome.
-- Atau tekan `Ctrl+Shift+B` (atau menu **Terminal** ➔ **Run Task...** ➔ **Run DigiQ Web (Port 9000)**).
+### 1. Prasyarat & Konfigurasi Lingkungan (`.env`)
+Salin file template `.env.example` menjadi `.env` di root proyek:
+```bash
+cp .env.example .env
+```
+Isi konfigurasi di dalam file `.env`:
+```env
+HOST=0.0.0.0
+PORT=9000
+PUBLIC_SITE_URL=https://enikzrad.web.id
+SUPABASE_URL=https://YOUR_PROJECT_ID.supabase.co
+SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+```
+> [!IMPORTANT]
+> - Nilai `SUPABASE_ANON_KEY` aman di-embed ke build web karena hak akses data dibatasi oleh Row Level Security (RLS) di database PostgreSQL.
+> - **DILARANG KERAS** memasukkan `service_role_key` ke `.env` atau `--dart-define` karena seluruh kode JS di browser dapat dibaca oleh publik!
+> - File `.env` dan `.env.local` telah otomatis dilindungi di `.gitignore`.
 
-### 3. Konfigurasi Redirect URLs di Supabase
-URL port 9000 telah terdaftar di Supabase Auth (`site_url` & `uri_allow_list`):
-- `http://localhost:9000` & `http://localhost:9000/**`
-- `http://127.0.0.1:9000` & `http://127.0.0.1:9000/**`
-- `digiq://*`
+---
+
+### 2. Menjalankan Server Produksi (`serve_prod_9000`)
+Script otomatisasi ini membaca `.env`, melakukan `flutter pub get`, mengompilasi `flutter build web --release --no-web-resources-cdn`, membersihkan proses lama di port 9000 secara aman, dan menyajikan SPA server:
+
+- **Linux / Ubuntu / WSL / macOS:**
+  ```bash
+  chmod +x scripts/*.sh
+  ./scripts/serve_prod_9000.sh
+  ```
+  *Opsi lewati kompilasi jika build sudah siap:*
+  ```bash
+  ./scripts/serve_prod_9000.sh --skip-build
+  ```
+
+- **Windows (PowerShell):**
+  ```powershell
+  .\scripts\serve_prod_9000.ps1
+  ```
+  *Opsi lewati kompilasi:*
+  ```powershell
+  .\scripts\serve_prod_9000.ps1 -SkipBuild
+  ```
+  *(Jika execution policy diblokir, jalankan: `powershell -ExecutionPolicy Bypass -File .\scripts\serve_prod_9000.ps1`)*
+
+- **Mode Development (Hanya untuk Uji Coba Lokal/LAN):**
+  ```bash
+  ./scripts/dev_9000.sh       # Linux/macOS
+  .\scripts\dev_9000.ps1     # Windows
+  ```
+  > [!WARNING]
+  > Mode development (`flutter run -d web-server`) menggunakan websocket devtools dan validasi host header yang tidak kompatibel dengan domain publik Cloudflare. Untuk akses via domain `https://enikzrad.web.id`, **WAJIB** gunakan `serve_prod_9000`.
+
+---
+
+### 3. Konfigurasi Cloudflare Zero Trust Tunnel
+1. **Prasyarat DNS:** Pastikan nameserver domain `enikzrad.web.id` di registrar domain sudah diarahkan ke Cloudflare Nameserver.
+2. **Setup Public Hostname di Cloudflare Zero Trust Dashboard:**
+   - Buka **Zero Trust Dashboard** ➔ **Networks** ➔ **Tunnels**.
+   - Pilih Tunnel Anda (misal `digiq-tunnel`), buka tab **Public Hostname**, lalu klik **Add a public hostname**.
+   - **Subdomain / Domain:** `enikzrad.web.id` (kosongkan subdomain jika root).
+   - **Service Type:** `HTTP`
+   - **URL:** `127.0.0.1:9000` *(Gunakan `127.0.0.1` dan BUKAN `localhost` untuk mencegah masalah resolusi IPv6 `[::1]`)*.
+3. **Pengaturan Cloudflare yang Disarankan:**
+   - **Speed / Optimization:** Matikan **Rocket Loader** dan **Auto Minify (JS/HTML)** untuk hostname ini karena dapat merusak runtime Flutter WASM/CanvasKit.
+   - **Purge Cache:** Lakukan **Purge Everything** di Cloudflare Dashboard setiap kali merilis build baru agar aset SPA customer terbarui.
+   - **Cloudflare Access:** Jika menggunakan Access Policy, pastikan route `/auth-callback` atau deep link tidak diblokir untuk pengguna publik.
+
+---
+
+### 4. Checklist Supabase Dashboard (Authentication)
+Buka menu **Authentication** ➔ **URL Configuration** pada Supabase Dashboard:
+1. **Site URL:**
+   `https://enikzrad.web.id`
+2. **Redirect URLs:**
+   Tambahkan baris berikut:
+   - `https://enikzrad.web.id/**`
+   - `http://localhost:*/**` (pengembangan lokal)
+   - `http://127.0.0.1:*/**` (pengembangan lokal)
+   - `digiq://*` (deep link APK Android/iOS)
+3. **Provider OAuth (Google dll):** Jika digunakan, callback tetap mengarah ke domain Supabase Anda, dan redirect final otomatis menuju `https://enikzrad.web.id`.
+
+---
+
+### 5. Opsi Menjalankan Permanen sebagai Service (Background)
+
+#### A. Linux (systemd Unit Example)
+Simpan file `/etc/systemd/system/digiq-web.service`:
+```ini
+[Unit]
+Description=DigiQ Flutter Web SPA Server
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/digiq
+ExecStart=/usr/bin/python3 /var/www/digiq/scripts/spa_server.py
+Restart=always
+RestartSec=5
+Environment=HOST=127.0.0.1
+Environment=PORT=9000
+
+[Install]
+WantedBy=multi-user.target
+```
+Aktifkan dengan:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now digiq-web
+```
+
+#### B. Windows (NSSM / Task Scheduler)
+Gunakan **NSSM (Non-Sucking Service Manager)**:
+```cmd
+nssm install DigiQWebServer "python.exe" "D:\PROJEK FAN DEV\digiq\scripts\spa_server.py"
+nssm set DigiQWebServer AppDirectory "D:\PROJEK FAN DEV\digiq"
+nssm set DigiQWebServer AppEnvironmentExtra HOST=127.0.0.1 PORT=9000
+nssm start DigiQWebServer
+```
+
+---
+
+### 6. Troubleshooting Singkat
+
+| Gejala Masalah | Penyebab Utama | Solusi Penanganan |
+| :--- | :--- | :--- |
+| **Error 502 Bad Gateway / 1033 di Cloudflare** | Server port 9000 atau service `cloudflared` mati. | Jalankan `serve_prod_9000` dan pastikan `cloudflared tunnel run` aktif. |
+| **Halaman putih / Blank setelah deploy** | Service Worker browser masih memegang cache lama. | Buka di Incognito, atau lakukan Hard Refresh (`Ctrl+F5`) & Purge Cache di Cloudflare. |
+| **Error 404 saat refresh halaman dalam (mis. `/login`)** | Server statis tidak mendukung SPA History Fallback. | Gunakan `scripts/spa_server.py` yang otomatis mengembalikan `index.html` dengan status 200. |
+| **Port 9000 sudah dipakai (Address already in use)** | Ada proses lama yang menggantung di port 9000. | Script `serve_prod_9000` otomatis membunuh PID yang bentrok. Atau matikan manual via `Stop-Process`. |
+| **Auth redirect ditolak Supabase** | `https://enikzrad.web.id/**` belum didaftarkan di Supabase. | Daftarkan di **Supabase ➔ Auth ➔ URL Configuration ➔ Redirect URLs**. |
 
 ---
 
