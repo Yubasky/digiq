@@ -2,12 +2,14 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "DigiQ (Development)",
+      "name": "DigiQ (Development - Port 9000)",
       "request": "launch",
       "type": "dart",
       "program": "lib/main.dart",
+      "deviceId": "chrome",
       "args": [
         "--web-port=9000",
+        "--dart-define=PUBLIC_SITE_URL=http://localhost:9000",
         "--dart-define=SUPABASE_URL=https://iqxoofrhhrqkgehuvrlb.supabase.co",
         "--dart-define=SUPABASE_ANON_KEY=sb_publishable_ICrxKBqQHJIt95kBowuW3Q_tkvgtP6L"
       ]
