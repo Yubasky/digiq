@@ -87,6 +87,7 @@ class SpaRequestHandler(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "SAMEORIGIN")
         self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
+        self.send_header("Content-Security-Policy", "default-src 'self' 'unsafe-inline' 'unsafe-eval' https: wss: data: blob:;")
 
     def _determine_cache_control(self, rel_path, is_spa_fallback):
         """Menentukan header Cache-Control berdasarkan jenis file."""
@@ -149,6 +150,19 @@ class SpaRequestHandler(BaseHTTPRequestHandler):
                 return
 
             clean_path = posixpath.normpath(unquoted_path)
+
+            # 0. Health-Check Endpoint instan untuk Uptime Monitor / Cloudflare
+            if clean_path == "/health":
+                health_payload = b'{"status":"ok","server":"DigiQ-SPA-Windows","port":9000}\n'
+                self.send_response(200, "OK")
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(health_payload)))
+                self.send_header("Cache-Control", "no-cache, no-store")
+                self._send_security_headers()
+                self.end_headers()
+                if send_body:
+                    self.wfile.write(health_payload)
+                return
 
             # 2. Proteksi Dotfile: cegah akses .env, .git, .vscode, dll (kecuali /.well-known/)
             path_segments = [seg for seg in clean_path.strip("/").split("/") if seg]

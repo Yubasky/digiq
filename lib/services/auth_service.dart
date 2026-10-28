@@ -2,11 +2,16 @@
 //
 // Layanan autentikasi DigiQ: Registrasi, Login, Password Reset, Verifikasi Email.
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'supabase_config.dart';
 import '../models/profile_model.dart';
+
+/// Status ketersediaan username
+enum UsernameCheckStatus { available, taken, invalidFormat, networkError }
 
 /// Hasil operasi AuthService untuk feedback UI.
 class AuthResult {
@@ -38,6 +43,44 @@ class AuthService {
 
   static String get kAuthCallbackUrl => kAuthRedirectUri;
 
+  // ─── Username Validation & Availability Check ─────────────────────────────
+
+  /// Validasi format username: 5-20 karakter, hanya huruf dan angka (alfanumerik)
+  static String? validateUsernameFormat(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Username wajib diisi.';
+    final u = v.trim();
+    if (u.length < 5) return 'Username minimal 5 karakter.';
+    if (u.length > 20) return 'Username maksimal 20 karakter.';
+    if (!RegExp(r'^[a-zA-Z0-9]+$').hasMatch(u)) {
+      return 'Hanya boleh berisi huruf dan angka tanpa spasi/simbol.';
+    }
+    return null;
+  }
+
+  /// Memeriksa ketersediaan username ke Supabase RPC check_username_available
+  /// Membedakan: available (tersedia), taken (sudah dipakai), networkError (gangguan jaringan)
+  static Future<UsernameCheckStatus> checkUsernameStatus(
+    String username,
+  ) async {
+    final formatErr = validateUsernameFormat(username);
+    if (formatErr != null) return UsernameCheckStatus.invalidFormat;
+
+    try {
+      final res = await _sb
+          .rpc(
+            'check_username_available',
+            params: {'p_username': username.trim().toLowerCase()},
+          )
+          .timeout(const Duration(seconds: 5));
+      if (res == true) return UsernameCheckStatus.available;
+      return UsernameCheckStatus.taken;
+    } on TimeoutException {
+      return UsernameCheckStatus.networkError;
+    } catch (_) {
+      return UsernameCheckStatus.networkError;
+    }
+  }
+
   // ─── Sign Up ────────────────────────────────────────────────────────────────
 
   /// Daftar akun baru dengan emailRedirectTo custom scheme digiq://auth-callback.
@@ -47,15 +90,43 @@ class AuthService {
     required String password,
     required String fullName,
     required String phone,
+    String? username,
     String? emailRedirectTo,
   }) async {
+    final cleanEmail = email.trim();
+    final cleanFullName = fullName.trim();
+    final cleanPhone = phone.trim();
+    final cleanUsername = username?.trim().toLowerCase() ?? '';
+
+    if (cleanUsername.isNotEmpty) {
+      final formatErr = validateUsernameFormat(cleanUsername);
+      if (formatErr != null) {
+        return AuthResult(success: false, message: formatErr);
+      }
+    }
+
     try {
-      final res = await _sb.auth.signUp(
-        email: email.trim(),
-        password: password,
-        emailRedirectTo: emailRedirectTo ?? kAuthRedirectUri,
-        data: {'full_name': fullName.trim(), 'phone': phone.trim()},
-      );
+      final payloadData = <String, dynamic>{
+        'full_name': cleanFullName,
+        'phone': cleanPhone,
+      };
+      if (cleanUsername.isNotEmpty) {
+        payloadData['username'] = cleanUsername;
+      }
+
+      final res = await _sb.auth
+          .signUp(
+            email: cleanEmail,
+            password: password,
+            emailRedirectTo: emailRedirectTo ?? kAuthRedirectUri,
+            data: payloadData,
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw TimeoutException(
+              'Batas waktu koneksi pendaftaran berakhir (Upstream Timeout).',
+            ),
+          );
 
       if (res.user == null) {
         return const AuthResult(
@@ -71,13 +142,21 @@ class AuthService {
         success: true,
         message: 'Akun berhasil dibuat! Silakan verifikasi email Anda.',
       );
+    } on TimeoutException catch (e) {
+      return AuthResult(
+        success: false,
+        message: e.message ?? 'Server sedang lambat merespons. Silakan periksa jaringan Anda atau coba sesaat lagi.',
+      );
     } on AuthException catch (e) {
       return AuthResult(
         success: false,
         message: _translateAuthError(e.message),
       );
     } catch (e) {
-      return AuthResult(success: false, message: 'Terjadi kesalahan: $e');
+      return AuthResult(
+        success: false,
+        message: 'Terjadi kesalahan sistem: $e',
+      );
     }
   }
 
@@ -439,6 +518,12 @@ class AuthService {
     }
     if (lower.contains('invalid totp') || lower.contains('mfa')) {
       return 'Kode autentikator tidak valid. Coba lagi.';
+    }
+    if (lower.contains('database error saving new user')) {
+      return 'Gagal menyimpan profil pengguna baru. Username atau data yang dimasukkan mungkin sudah digunakan atau tidak valid.';
+    }
+    if (lower.contains('upstream') || lower.contains('gateway timeout')) {
+      return 'Layanan autentikasi sedang mengalami batas waktu (timeout). Silakan periksa koneksi atau coba beberapa saat lagi.';
     }
     if (lower.contains('network') || lower.contains('connection')) {
       return 'Koneksi internet bermasalah. Periksa jaringan Anda.';

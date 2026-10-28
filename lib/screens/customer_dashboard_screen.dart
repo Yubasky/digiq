@@ -450,7 +450,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       Text(
-                        'Halo, ${widget.profile.fullName.split(' ').first} 👋',
+                        'Halo, ${widget.profile.displayName} 👋',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 22,

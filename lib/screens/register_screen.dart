@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
@@ -26,6 +27,12 @@ class _RegisterScreenState extends State<RegisterScreen>
   bool _isLoading = false;
   bool _agreed = false;
 
+  Timer? _debounceTimer;
+  int _usernameCheckSeq = 0;
+  bool _isCheckingUsername = false;
+  UsernameCheckStatus? _usernameStatus;
+  String? _usernameErrorText;
+
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
@@ -43,10 +50,69 @@ class _RegisterScreenState extends State<RegisterScreen>
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOut));
     _animController.forward();
+    _usernameController.addListener(_onUsernameChanged);
+  }
+
+  void _onUsernameChanged() {
+    final currentInput = _usernameController.text.trim();
+    _debounceTimer?.cancel();
+
+    if (currentInput.isEmpty) {
+      setState(() {
+        _isCheckingUsername = false;
+        _usernameStatus = null;
+        _usernameErrorText = null;
+      });
+      return;
+    }
+
+    final formatErr = AuthService.validateUsernameFormat(currentInput);
+    if (formatErr != null) {
+      setState(() {
+        _isCheckingUsername = false;
+        _usernameStatus = UsernameCheckStatus.invalidFormat;
+        _usernameErrorText = formatErr;
+      });
+      return;
+    }
+
+    final seq = ++_usernameCheckSeq;
+    setState(() {
+      _isCheckingUsername = true;
+      _usernameErrorText = null;
+    });
+
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
+      final status = await AuthService.checkUsernameStatus(currentInput);
+      if (!mounted || seq != _usernameCheckSeq) {
+        return; // Stale async response dibuang
+      }
+
+      setState(() {
+        _isCheckingUsername = false;
+        _usernameStatus = status;
+        switch (status) {
+          case UsernameCheckStatus.available:
+            _usernameErrorText = null;
+            break;
+          case UsernameCheckStatus.taken:
+            _usernameErrorText = 'Username ini telah digunakan';
+            break;
+          case UsernameCheckStatus.invalidFormat:
+            _usernameErrorText = 'Username minimal 5 dan maksimal 20 karakter alfanumerik.';
+            break;
+          case UsernameCheckStatus.networkError:
+            _usernameErrorText = 'Gangguan jaringan saat memeriksa username. Silakan periksa koneksi.';
+            break;
+        }
+      });
+    });
   }
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
+    _usernameController.removeListener(_onUsernameChanged);
     _animController.dispose();
     _nameController.dispose();
     _usernameController.dispose();
@@ -58,7 +124,14 @@ class _RegisterScreenState extends State<RegisterScreen>
   }
 
   Future<void> _doRegister() async {
-    if (_isLoading) return;
+    if (_isLoading || _isCheckingUsername) return;
+    if (_usernameStatus != UsernameCheckStatus.available) {
+      _showSnack(
+        _usernameErrorText ?? 'Periksa kembali format dan ketersediaan username.',
+        isError: true,
+      );
+      return;
+    }
     if (!_formKey.currentState!.validate()) return;
     if (!_agreed) {
       _showSnack('Harap setujui syarat & ketentuan terlebih dahulu.', isError: true);
@@ -73,6 +146,7 @@ class _RegisterScreenState extends State<RegisterScreen>
       password: _passwordController.text,
       fullName: _nameController.text.trim(),
       phone: _phoneController.text.trim(),
+      username: _usernameController.text.trim(),
     );
 
     if (!mounted) return;
@@ -254,17 +328,38 @@ class _RegisterScreenState extends State<RegisterScreen>
                                             _buildLabel('Username'),
                                             const SizedBox(height: 6),
                                             _buildTextField(
+
                                               controller: _usernameController,
-                                              hint: 'Contoh: bayup99',
+                                              hint: 'Contoh: user123',
+                                              suffixIcon: _isCheckingUsername
+                                                  ? const Padding(
+                                                      padding: EdgeInsets.all(12),
+                                                      child: SizedBox(
+                                                        width: 16,
+                                                        height: 16,
+                                                        child: CircularProgressIndicator(
+                                                          strokeWidth: 2,
+                                                          color: AppColors.primary,
+                                                        ),
+                                                      ),
+                                                    )
+                                                  : (_usernameStatus == UsernameCheckStatus.available
+                                                      ? const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 20)
+                                                      : (_usernameStatus == UsernameCheckStatus.taken
+                                                          ? const Icon(Icons.cancel_rounded, color: AppColors.danger, size: 20)
+                                                          : (_usernameStatus == UsernameCheckStatus.networkError
+                                                              ? const Icon(Icons.wifi_off_rounded, color: AppColors.warning, size: 20)
+                                                              : null))),
                                               icon: Icons.alternate_email_rounded,
                                               textInputAction: TextInputAction.next,
                                               validator: (v) {
-                                                if (v == null || v.trim().isEmpty) return 'Username wajib diisi';
-                                                final u = v.trim();
-                                                if (u.length < 3) return 'Username minimal 3 karakter';
-                                                if (u.length > 20) return 'Username maksimal 20 karakter';
-                                                if (!RegExp(r'^[a-zA-Z0-9._]+$').hasMatch(u)) {
-                                                  return 'Hanya boleh huruf, angka, titik, atau garis bawah';
+                                                final formatErr = AuthService.validateUsernameFormat(v);
+                                                if (formatErr != null) return formatErr;
+                                                if (_usernameStatus == UsernameCheckStatus.taken) {
+                                                  return 'Username ini telah digunakan';
+                                                }
+                                                if (_usernameStatus == UsernameCheckStatus.networkError) {
+                                                  return 'Gangguan jaringan saat memeriksa username.';
                                                 }
                                                 return null;
                                               },

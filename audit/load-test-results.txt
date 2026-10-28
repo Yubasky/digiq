@@ -1,0 +1,27 @@
+=================================================================
+               DIGIQ SPA SERVER CONCURRENT LOAD TEST
+=================================================================
+Server Host       : 127.0.0.1
+Server Port       : 9005
+Engine            : Python 3 ThreadingHTTPServer (spa_server.py)
+Concurrency       : 10 workers
+Total Requests    : 100
+Total Time        : 0.59 seconds
+Throughput        : 169.5 requests/sec
+
+Latency Statistics:
+- Minimum Latency : 4.14 ms
+- Average Latency : 26.42 ms
+- Maximum Latency : 531.87 ms
+- P95 Latency     : 38.54 ms
+- P99 Latency     : 531.87 ms
+
+Status Codes Received:
+- HTTP 200: 84 responses
+- HTTP 404: 16 responses
+
+Error Count       : 0
+Failure Rate      : 0.0%
+Security Guard    : 404 on /.env strictly enforced
+Verdict           : PASS (No server crashes, all requests completed)
+=================================================================
