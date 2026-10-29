@@ -91,29 +91,7 @@ class _RegisterScreenState extends State<RegisterScreen>
       setState(() {
         _isCheckingUsername = false;
         _usernameStatus = status;
-        switch (status) {
-          case UsernameCheckStatus.available:
-            _usernameErrorText = null;
-            break;
-          case UsernameCheckStatus.taken:
-            _usernameErrorText = 'Username ini telah digunakan';
-            break;
-          case UsernameCheckStatus.invalidFormat:
-            _usernameErrorText = 'Username minimal 5 dan maksimal 20 karakter alfanumerik.';
-            break;
-          case UsernameCheckStatus.serverNotReady:
-            _usernameErrorText = 'Fitur pengecekan username belum aktif di server. Hubungi admin.';
-            break;
-          case UsernameCheckStatus.permissionDenied:
-            _usernameErrorText = 'Izin akses pemeriksaan username ditolak oleh server. Hubungi admin.';
-            break;
-          case UsernameCheckStatus.networkError:
-            _usernameErrorText = 'Gangguan jaringan saat memeriksa username. Silakan periksa koneksi.';
-            break;
-          case UsernameCheckStatus.unknownError:
-            _usernameErrorText = 'Terjadi kendala saat memeriksa username. Anda tetap dapat melanjutkan pendaftaran.';
-            break;
-        }
+        _usernameErrorText = AuthService.getUsernameStatusMessage(status);
       });
     }
 

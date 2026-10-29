@@ -319,5 +319,23 @@ void main() {
         equals('Username ini telah digunakan. Silakan pilih username lain.'),
       );
     });
+
+    test('Pesan status getUsernameStatusMessage netral dan ramah user (tidak memuat "Hubungi admin")', () {
+      final msgServer = AuthService.getUsernameStatusMessage(UsernameCheckStatus.serverNotReady);
+      final msgPerm = AuthService.getUsernameStatusMessage(UsernameCheckStatus.permissionDenied);
+      final msgUnknown = AuthService.getUsernameStatusMessage(UsernameCheckStatus.unknownError);
+      final msgNet = AuthService.getUsernameStatusMessage(UsernameCheckStatus.networkError);
+
+      // Verifikasi pesan tidak mengandung 'Hubungi admin'
+      expect(msgServer, isNot(contains('Hubungi admin')));
+      expect(msgPerm, isNot(contains('Hubungi admin')));
+      expect(msgUnknown, isNot(contains('Hubungi admin')));
+      expect(msgNet, isNot(contains('Hubungi admin')));
+
+      // Verifikasi pesan menenangkan user umum bahwa pendaftaran tetap dapat dilanjutkan
+      expect(msgServer, contains('Anda tetap dapat melanjutkan pendaftaran'));
+      expect(msgPerm, contains('Anda tetap dapat melanjutkan pendaftaran'));
+      expect(msgUnknown, contains('Anda tetap dapat melanjutkan pendaftaran'));
+    });
   });
 }

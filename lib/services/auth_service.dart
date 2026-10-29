@@ -113,6 +113,27 @@ class AuthService {
     return UsernameCheckStatus.unknownError;
   }
 
+  /// Pesan netral dan ramah untuk pengguna umum berdasarkan status pengecekan username.
+  /// Tidak menggunakan kata 'Hubungi admin' agar tidak membingungkan pengguna akhir.
+  static String? getUsernameStatusMessage(UsernameCheckStatus status) {
+    switch (status) {
+      case UsernameCheckStatus.available:
+        return null;
+      case UsernameCheckStatus.taken:
+        return 'Username ini telah digunakan';
+      case UsernameCheckStatus.invalidFormat:
+        return 'Username minimal 5 dan maksimal 20 karakter alfanumerik.';
+      case UsernameCheckStatus.serverNotReady:
+        return 'Pemeriksaan username sementara tidak tersedia. Anda tetap dapat melanjutkan pendaftaran.';
+      case UsernameCheckStatus.permissionDenied:
+        return 'Pemeriksaan username tidak dapat dilakukan saat ini. Anda tetap dapat melanjutkan pendaftaran.';
+      case UsernameCheckStatus.networkError:
+        return 'Gangguan jaringan saat memeriksa username. Silakan periksa koneksi.';
+      case UsernameCheckStatus.unknownError:
+        return 'Terjadi kendala saat memeriksa username. Anda tetap dapat melanjutkan pendaftaran.';
+    }
+  }
+
   /// Memeriksa ketersediaan username ke Supabase RPC check_username_available.
   /// Membedakan: available (tersedia), taken (sudah dipakai), invalidFormat,
   /// networkError (jaringan), serverNotReady (PGRST202), permissionDenied (401/403),
