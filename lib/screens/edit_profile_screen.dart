@@ -21,6 +21,12 @@ import '../theme/app_theme.dart';
 class EditProfileScreen extends StatefulWidget {
   final ProfileModel profile;
 
+  @visibleForTesting
+  static bool enableWebUploadForTesting = false;
+
+  @visibleForTesting
+  static Future<PickedAvatarFile?> Function()? pickImageOverride;
+
   const EditProfileScreen({super.key, required this.profile});
 
   @override
@@ -200,13 +206,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Future<void> _pickAndUploadAvatar() async {
     if (_isUploadingAvatar) return;
 
-    if (!kIsWeb) {
+    if (!kIsWeb && !EditProfileScreen.enableWebUploadForTesting) {
       _showSnack('Fitur upload foto profil saat ini hanya tersedia di versi web.', isError: true);
       return;
     }
 
     try {
-      final picked = await pickAvatarImage();
+      final picked = await (EditProfileScreen.pickImageOverride != null
+          ? EditProfileScreen.pickImageOverride!()
+          : pickAvatarImage());
       if (picked == null) return; // User cancel
 
       // Validasi format/ekstensi (jpg, jpeg, png, webp)
@@ -530,6 +538,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             bottom: 0,
             right: 0,
             child: InkWell(
+              key: const Key('edit_profile_avatar_picker_button'),
               onTap: _isUploadingAvatar ? null : _pickAndUploadAvatar,
               borderRadius: BorderRadius.circular(20),
               child: Container(
@@ -726,6 +735,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _buildLabel('Password Saat Ini'),
           const SizedBox(height: 6),
           TextFormField(
+            key: const Key('edit_profile_old_password_field'),
             controller: _oldPasswordController,
             obscureText: _obscureOldPass,
             decoration: _inputDecoration(
@@ -745,10 +755,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _buildLabel('Password Baru (Minimal 8 Karakter)'),
           const SizedBox(height: 6),
           TextFormField(
+            key: const Key('edit_profile_new_password_field'),
             controller: _newPasswordController,
             obscureText: _obscureNewPass,
             decoration: _inputDecoration(
-              hint: '••••••••',
+              hint: 'Minimal 8 karakter',
               icon: Icons.lock_outline_rounded,
               suffixIcon: IconButton(
                 icon: Icon(
@@ -764,10 +775,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _buildLabel('Konfirmasi Password Baru'),
           const SizedBox(height: 6),
           TextFormField(
+            key: const Key('edit_profile_confirm_password_field'),
             controller: _confirmPasswordController,
             obscureText: _obscureConfirmPass,
             decoration: _inputDecoration(
-              hint: '••••••••',
+              hint: 'Ulangi password baru',
               icon: Icons.lock_outline_rounded,
               suffixIcon: IconButton(
                 icon: Icon(
@@ -784,6 +796,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             width: double.infinity,
             height: 44,
             child: OutlinedButton(
+              key: const Key('edit_profile_save_password_button'),
               onPressed: _isSavingPassword ? null : _saveNewPassword,
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.primary,
@@ -841,6 +854,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _buildLabel('Alamat Email Baru'),
           const SizedBox(height: 6),
           TextFormField(
+            key: const Key('edit_profile_new_email_field'),
             controller: _newEmailController,
             keyboardType: TextInputType.emailAddress,
             decoration: _inputDecoration(
@@ -859,14 +873,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       ? const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 20)
                       : (_emailCheckStatus == EmailCheckStatus.taken
                           ? const Icon(Icons.cancel_rounded, color: AppColors.error, size: 20)
-                          : null)),
+                          : (_emailCheckStatus == EmailCheckStatus.networkError
+                              ? const Icon(Icons.info_outline_rounded, color: AppColors.warning, size: 20)
+                              : null))),
             ),
           ),
-          if (_emailCheckStatus == EmailCheckStatus.taken) ...[
+          if (_emailCheckStatus != null &&
+              _emailCheckStatus != EmailCheckStatus.available &&
+              _emailCheckStatus != EmailCheckStatus.invalidFormat) ...[
             const SizedBox(height: 6),
-            const Text(
-              'Email ini sudah digunakan oleh akun lain.',
-              style: TextStyle(color: AppColors.error, fontSize: 12),
+            Text(
+              AuthService.getEmailStatusMessage(_emailCheckStatus!) ?? '',
+              style: TextStyle(
+                color: _emailCheckStatus == EmailCheckStatus.taken ? AppColors.error : AppColors.textSecondary,
+                fontSize: 12,
+              ),
             ),
           ],
           const SizedBox(height: 18),
@@ -874,6 +895,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             width: double.infinity,
             height: 44,
             child: OutlinedButton(
+              key: const Key('edit_profile_submit_email_button'),
               onPressed: _isUpdatingEmail ? null : _requestEmailChange,
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.primary,

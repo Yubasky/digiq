@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'deep_link_auth_handler.dart';
 
@@ -41,6 +42,10 @@ class SupabaseConfig {
     );
   }
 
+  /// Klien Supabase mock/fake untuk pengujian unit & widget.
+  @visibleForTesting
+  static SupabaseClient? testClient;
+
   /// Shortcut getter global.
-  static SupabaseClient get supabase => Supabase.instance.client;
+  static SupabaseClient get supabase => testClient ?? Supabase.instance.client;
 }
