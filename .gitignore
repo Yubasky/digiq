@@ -52,3 +52,6 @@ app.*.map.json
 
 # Audit scratch files and artifacts
 audit/
+edge_audit_profile/
+edge_temp_profile/
+

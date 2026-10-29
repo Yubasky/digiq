@@ -1,7 +1,7 @@
-import 'dart:async';
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
+import '../services/app_language.dart';
 import '../theme/app_theme.dart';
 import 'auth/email_verification_screen.dart';
 
@@ -27,18 +27,6 @@ class _RegisterScreenState extends State<RegisterScreen>
   bool _isLoading = false;
   bool _agreed = false;
 
-  Timer? _debounceTimer;
-  int _usernameCheckSeq = 0;
-  bool _isCheckingUsername = false;
-  UsernameCheckStatus? _usernameStatus;
-  String? _usernameErrorText;
-
-  Timer? _debounceEmailTimer;
-  int _emailCheckSeq = 0;
-  bool _isCheckingEmail = false;
-  EmailCheckStatus? _emailStatus;
-  String? _emailErrorText;
-
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
@@ -56,115 +44,10 @@ class _RegisterScreenState extends State<RegisterScreen>
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOut));
     _animController.forward();
-    _usernameController.addListener(_onUsernameChanged);
-    _emailController.addListener(_onEmailChanged);
-  }
-
-  void _onUsernameChanged({bool force = false}) {
-    final currentInput = _usernameController.text.trim();
-    _debounceTimer?.cancel();
-
-    if (currentInput.isEmpty) {
-      setState(() {
-        _isCheckingUsername = false;
-        _usernameStatus = null;
-        _usernameErrorText = null;
-      });
-      return;
-    }
-
-    final formatErr = AuthService.validateUsernameFormat(currentInput);
-    if (formatErr != null) {
-      setState(() {
-        _isCheckingUsername = false;
-        _usernameStatus = UsernameCheckStatus.invalidFormat;
-        _usernameErrorText = formatErr;
-      });
-      return;
-    }
-
-    final seq = ++_usernameCheckSeq;
-    setState(() {
-      _isCheckingUsername = true;
-      _usernameErrorText = null;
-    });
-
-    void runCheck() async {
-      final status = await AuthService.checkUsernameStatus(currentInput);
-      if (!mounted || seq != _usernameCheckSeq) {
-        return; // Stale async response dibuang
-      }
-
-      setState(() {
-        _isCheckingUsername = false;
-        _usernameStatus = status;
-        _usernameErrorText = AuthService.getUsernameStatusMessage(status);
-      });
-    }
-
-    if (force) {
-      runCheck();
-    } else {
-      _debounceTimer = Timer(const Duration(milliseconds: 500), runCheck);
-    }
-  }
-
-
-  void _onEmailChanged({bool force = false}) {
-    final currentInput = _emailController.text.trim();
-    _debounceEmailTimer?.cancel();
-
-    if (currentInput.isEmpty) {
-      setState(() {
-        _isCheckingEmail = false;
-        _emailStatus = null;
-        _emailErrorText = null;
-      });
-      return;
-    }
-
-    final formatErr = AuthService.validateEmailFormat(currentInput);
-    if (formatErr != null) {
-      setState(() {
-        _isCheckingEmail = false;
-        _emailStatus = EmailCheckStatus.invalidFormat;
-        _emailErrorText = formatErr;
-      });
-      return;
-    }
-
-    final seq = ++_emailCheckSeq;
-    setState(() {
-      _isCheckingEmail = true;
-      _emailErrorText = null;
-    });
-
-    void runCheck() async {
-      final status = await AuthService.checkEmailStatus(currentInput);
-      if (!mounted || seq != _emailCheckSeq) {
-        return; // Stale async response discarded
-      }
-
-      setState(() {
-        _isCheckingEmail = false;
-        _emailStatus = status;
-        _emailErrorText = AuthService.getEmailStatusMessage(status);
-      });
-    }
-
-    if (force) {
-      runCheck();
-    } else {
-      _debounceEmailTimer = Timer(const Duration(milliseconds: 500), runCheck);
-    }
   }
 
   @override
   void dispose() {
-    _debounceTimer?.cancel();
-    _debounceEmailTimer?.cancel();
-    _usernameController.removeListener(_onUsernameChanged);
-    _emailController.removeListener(_onEmailChanged);
     _animController.dispose();
     _nameController.dispose();
     _usernameController.dispose();
@@ -176,36 +59,10 @@ class _RegisterScreenState extends State<RegisterScreen>
   }
 
   Future<void> _doRegister() async {
-    if (_isLoading || _isCheckingUsername || _isCheckingEmail) return;
-
-    // Safe Fallback: Tolak jika email atau username sudah pasti dipakai
-    if (_emailStatus == EmailCheckStatus.taken) {
-      _showSnack('Email ini sudah terdaftar. Silakan masuk atau gunakan Lupa Password.', isError: true);
-      return;
-    }
-    if (_emailStatus == EmailCheckStatus.invalidFormat) {
-      _showSnack(_emailErrorText ?? 'Periksa kembali format email Anda.', isError: true);
-      return;
-    }
-
-    // Safe Fallback: Hanya tolak jika format salah atau username SUDAH PASTI dipakai.
-    // Jika status serverNotReady atau networkError, pengguna tetap dibiarkan submit pendaftaran,
-    // karena unique constraint di database & _translateAuthError menjadi benteng validasi terakhir.
-    if (_usernameStatus == UsernameCheckStatus.taken) {
-      _showSnack('Username ini telah digunakan. Silakan pilih username lain.', isError: true);
-      return;
-    }
-    if (_usernameStatus == UsernameCheckStatus.invalidFormat) {
-      _showSnack(
-        _usernameErrorText ?? 'Periksa kembali format username.',
-        isError: true,
-      );
-      return;
-    }
-
+    if (_isLoading) return;
     if (!_formKey.currentState!.validate()) return;
     if (!_agreed) {
-      _showSnack('Harap setujui syarat & ketentuan terlebih dahulu.', isError: true);
+      _showSnack(AppLanguage.t('terms_error'), isError: true);
       return;
     }
 
@@ -217,7 +74,6 @@ class _RegisterScreenState extends State<RegisterScreen>
       password: _passwordController.text,
       fullName: _nameController.text.trim(),
       phone: _phoneController.text.trim(),
-      username: _usernameController.text.trim(),
     );
 
     if (!mounted) return;
@@ -253,9 +109,12 @@ class _RegisterScreenState extends State<RegisterScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Stack(
+    return ValueListenableBuilder<AppLang>(
+      valueListenable: AppLanguage.current,
+      builder: (context, lang, child) {
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          body: Stack(
         children: [
           // Gradient header blob
           Positioned(
@@ -339,19 +198,19 @@ class _RegisterScreenState extends State<RegisterScreen>
                                             ),
                                           ),
                                           const SizedBox(height: 16),
-                                          const Text(
-                                            'Buat Akun Baru',
-                                            style: TextStyle(
+                                          Text(
+                                            AppLanguage.t('register_title'),
+                                            style: const TextStyle(
                                               fontSize: 26,
                                               fontWeight: FontWeight.bold,
                                               color: AppColors.textPrimary,
                                             ),
                                           ),
                                           const SizedBox(height: 6),
-                                          const Text(
-                                            'Daftar dan nikmati kemudahan belanja produk digital',
+                                          Text(
+                                            AppLanguage.t('register_subtitle'),
                                             textAlign: TextAlign.center,
-                                            style: TextStyle(
+                                            style: const TextStyle(
                                               fontSize: 13,
                                               color: AppColors.textSecondary,
                                             ),
@@ -381,11 +240,11 @@ class _RegisterScreenState extends State<RegisterScreen>
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            _buildLabel('Nama Lengkap'),
+                                            _buildLabel(AppLanguage.t('name_label')),
                                             const SizedBox(height: 6),
                                             _buildTextField(
                                               controller: _nameController,
-                                              hint: 'Masukkan nama lengkap',
+                                              hint: AppLanguage.t('name_hint'),
                                               icon: Icons.person_outline_rounded,
                                               textInputAction: TextInputAction.next,
                                               validator: (v) {
@@ -396,103 +255,27 @@ class _RegisterScreenState extends State<RegisterScreen>
                                             ),
 
                                             const SizedBox(height: 14),
-                                            _buildLabel('Username'),
+                                            _buildLabel(AppLanguage.t('username_label')),
                                             const SizedBox(height: 6),
                                             _buildTextField(
-
                                               controller: _usernameController,
-                                              hint: 'Contoh: user123',
-                                              suffixIcon: _isCheckingUsername
-                                                  ? const Padding(
-                                                      padding: EdgeInsets.all(12),
-                                                      child: SizedBox(
-                                                        width: 16,
-                                                        height: 16,
-                                                        child: CircularProgressIndicator(
-                                                          strokeWidth: 2,
-                                                          color: AppColors.primary,
-                                                        ),
-                                                      ),
-                                                    )
-                                                  : (_usernameStatus == UsernameCheckStatus.available
-                                                      ? const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 20)
-                                                      : (_usernameStatus == UsernameCheckStatus.taken
-                                                          ? const Icon(Icons.cancel_rounded, color: AppColors.danger, size: 20)
-                                                          : ((_usernameStatus == UsernameCheckStatus.networkError ||
-                                                                  _usernameStatus == UsernameCheckStatus.serverNotReady ||
-                                                                  _usernameStatus == UsernameCheckStatus.permissionDenied ||
-                                                                  _usernameStatus == UsernameCheckStatus.unknownError)
-                                                              ? const Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 20)
-                                                              : null))),
+                                              hint: 'Contoh: bayup99',
                                               icon: Icons.alternate_email_rounded,
                                               textInputAction: TextInputAction.next,
                                               validator: (v) {
-                                                final formatErr = AuthService.validateUsernameFormat(v);
-                                                if (formatErr != null) return formatErr;
-                                                if (_usernameStatus == UsernameCheckStatus.taken) {
-                                                  return 'Username ini telah digunakan';
+                                                if (v == null || v.trim().isEmpty) return 'Username wajib diisi';
+                                                final u = v.trim();
+                                                if (u.length < 3) return 'Username minimal 3 karakter';
+                                                if (u.length > 20) return 'Username maksimal 20 karakter';
+                                                if (!RegExp(r'^[a-zA-Z0-9._]+$').hasMatch(u)) {
+                                                  return 'Hanya boleh huruf, angka, titik, atau garis bawah';
                                                 }
-                                                // Error jaringan/server tidak memblokir submit form (safe fallback)
                                                 return null;
                                               },
                                             ),
-                                            if (_usernameStatus == UsernameCheckStatus.serverNotReady ||
-                                                _usernameStatus == UsernameCheckStatus.permissionDenied ||
-                                                _usernameStatus == UsernameCheckStatus.networkError ||
-                                                _usernameStatus == UsernameCheckStatus.unknownError) ...[
-                                              const SizedBox(height: 8),
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                                decoration: BoxDecoration(
-                                                  color: AppColors.warningLight,
-                                                  borderRadius: BorderRadius.circular(10),
-                                                  border: Border.all(color: AppColors.warning.withValues(alpha: 0.35)),
-                                                ),
-                                                child: Row(
-                                                  children: [
-                                                    const Icon(Icons.warning_amber_rounded, size: 18, color: AppColors.warning),
-                                                    const SizedBox(width: 8),
-                                                    Expanded(
-                                                      child: Text(
-                                                        _usernameErrorText ?? 'Pengecekan username tidak dapat diselesaikan saat ini.',
-                                                        style: const TextStyle(
-                                                          fontSize: 12,
-                                                          color: Color(0xFF92400E),
-                                                          fontWeight: FontWeight.w500,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 8),
-                                                    TextButton(
-                                                      onPressed: _isCheckingUsername ? null : () => _onUsernameChanged(force: true),
-                                                      style: TextButton.styleFrom(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                        minimumSize: Size.zero,
-                                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                                      ),
-                                                      child: const Row(
-                                                        mainAxisSize: MainAxisSize.min,
-                                                        children: [
-                                                          Icon(Icons.refresh_rounded, size: 14, color: AppColors.warning),
-                                                          SizedBox(width: 4),
-                                                          Text(
-                                                            'Coba lagi',
-                                                            style: TextStyle(
-                                                              fontSize: 12,
-                                                              fontWeight: FontWeight.bold,
-                                                              color: AppColors.warning,
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
 
                                             const SizedBox(height: 14),
-                                            _buildLabel('Email'),
+                                            _buildLabel(AppLanguage.t('email_label')),
                                             const SizedBox(height: 6),
                                             _buildTextField(
                                               controller: _emailController,
@@ -500,118 +283,37 @@ class _RegisterScreenState extends State<RegisterScreen>
                                               icon: Icons.email_outlined,
                                               keyboardType: TextInputType.emailAddress,
                                               textInputAction: TextInputAction.next,
-                                              suffixIcon: _isCheckingEmail
-                                                  ? const Padding(
-                                                      padding: EdgeInsets.all(12),
-                                                      child: SizedBox(
-                                                        width: 18,
-                                                        height: 18,
-                                                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
-                                                      ),
-                                                    )
-                                                  : (_emailStatus == EmailCheckStatus.available
-                                                      ? const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 20)
-                                                      : (_emailStatus == EmailCheckStatus.taken
-                                                          ? const Icon(Icons.cancel_rounded, color: AppColors.error, size: 20)
-                                                          : ((_emailStatus == EmailCheckStatus.serverNotReady ||
-                                                                  _emailStatus == EmailCheckStatus.permissionDenied ||
-                                                                  _emailStatus == EmailCheckStatus.networkError ||
-                                                                  _emailStatus == EmailCheckStatus.unknownError)
-                                                              ? const Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 20)
-                                                              : null))),
                                               validator: (v) {
-                                                final formatErr = AuthService.validateEmailFormat(v);
-                                                if (formatErr != null) return formatErr;
-                                                if (_emailStatus == EmailCheckStatus.taken) {
-                                                  return 'Email ini sudah terdaftar';
+                                                if (v == null || v.trim().isEmpty) return 'Email wajib diisi';
+                                                final email = v.trim();
+                                                if (!email.contains('@')) {
+                                                  return 'Email harus menyertakan tanda @ (contoh: nama@gmail.com)';
+                                                }
+                                                final parts = email.split('@');
+                                                if (parts.length != 2 || parts[0].isEmpty) {
+                                                  return 'Format email tidak valid (contoh: nama@gmail.com)';
+                                                }
+                                                final domain = parts[1].trim();
+                                                if (domain.isEmpty) {
+                                                  return 'Masukkan penyedia email setelah @ (contoh: gmail.com, yahoo.com)';
+                                                }
+                                                if (!domain.contains('.')) {
+                                                  return 'Masukkan domain lengkap setelah @ (contoh: gmail.com, yahoo.com)';
+                                                }
+                                                final domainParts = domain.split('.');
+                                                if (domainParts[0].isEmpty || domainParts[1].isEmpty) {
+                                                  return 'Format domain email tidak valid (contoh: gmail.com)';
+                                                }
+                                                final emailReg = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+                                                if (!emailReg.hasMatch(email)) {
+                                                  return 'Format email tidak valid (contoh: nama@gmail.com)';
                                                 }
                                                 return null;
                                               },
                                             ),
-                                            if (_emailStatus == EmailCheckStatus.taken) ...[
-                                              const SizedBox(height: 8),
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                                decoration: BoxDecoration(
-                                                  color: AppColors.errorLight,
-                                                  borderRadius: BorderRadius.circular(10),
-                                                  border: Border.all(color: AppColors.error.withValues(alpha: 0.35)),
-                                                ),
-                                                child: const Row(
-                                                  children: [
-                                                    Icon(Icons.cancel_rounded, size: 18, color: AppColors.error),
-                                                    SizedBox(width: 8),
-                                                    Expanded(
-                                                      child: Text(
-                                                        'Email ini sudah terdaftar. Silakan masuk atau gunakan Lupa Password.',
-                                                        style: TextStyle(
-                                                          fontSize: 12,
-                                                          color: AppColors.error,
-                                                          fontWeight: FontWeight.w500,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
-                                            if (_emailStatus == EmailCheckStatus.serverNotReady ||
-                                                _emailStatus == EmailCheckStatus.permissionDenied ||
-                                                _emailStatus == EmailCheckStatus.networkError ||
-                                                _emailStatus == EmailCheckStatus.unknownError) ...[
-                                              const SizedBox(height: 8),
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                                decoration: BoxDecoration(
-                                                  color: AppColors.warningLight,
-                                                  borderRadius: BorderRadius.circular(10),
-                                                  border: Border.all(color: AppColors.warning.withValues(alpha: 0.35)),
-                                                ),
-                                                child: Row(
-                                                  children: [
-                                                    const Icon(Icons.warning_amber_rounded, size: 18, color: AppColors.warning),
-                                                    SizedBox(width: 8),
-                                                    Expanded(
-                                                      child: Text(
-                                                        _emailErrorText ?? 'Pengecekan email tidak dapat diselesaikan saat ini.',
-                                                        style: const TextStyle(
-                                                          fontSize: 12,
-                                                          color: Color(0xFF92400E),
-                                                          fontWeight: FontWeight.w500,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 8),
-                                                    TextButton(
-                                                      onPressed: _isCheckingEmail ? null : () => _onEmailChanged(force: true),
-                                                      style: TextButton.styleFrom(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                        minimumSize: Size.zero,
-                                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                                      ),
-                                                      child: const Row(
-                                                        mainAxisSize: MainAxisSize.min,
-                                                        children: [
-                                                          Icon(Icons.refresh_rounded, size: 14, color: AppColors.warning),
-                                                          SizedBox(width: 4),
-                                                          Text(
-                                                            'Coba lagi',
-                                                            style: TextStyle(
-                                                              fontSize: 12,
-                                                              fontWeight: FontWeight.bold,
-                                                              color: AppColors.warning,
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
 
                                             const SizedBox(height: 14),
-                                            _buildLabel('Nomor HP'),
+                                            _buildLabel(AppLanguage.t('phone_label')),
                                             const SizedBox(height: 6),
                                             _buildTextField(
                                               controller: _phoneController,
@@ -634,7 +336,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                             ),
 
                                             const SizedBox(height: 14),
-                                            _buildLabel('Password'),
+                                            _buildLabel(AppLanguage.t('password_label')),
                                             const SizedBox(height: 6),
                                             _buildTextField(
                                               controller: _passwordController,
@@ -658,11 +360,11 @@ class _RegisterScreenState extends State<RegisterScreen>
                                             ),
 
                                             const SizedBox(height: 14),
-                                            _buildLabel('Konfirmasi Password'),
+                                            _buildLabel(AppLanguage.t('confirm_password_label')),
                                             const SizedBox(height: 6),
                                             _buildTextField(
                                               controller: _confirmPasswordController,
-                                              hint: 'Ulangi password',
+                                              hint: AppLanguage.t('confirm_password_hint'),
                                               icon: Icons.lock_outline_rounded,
                                               obscure: _obscureConfirm,
                                               textInputAction: TextInputAction.done,
@@ -772,9 +474,9 @@ class _RegisterScreenState extends State<RegisterScreen>
                                                   color: Colors.white,
                                                 ),
                                               )
-                                            : const Text(
-                                                'Daftar Sekarang',
-                                                style: TextStyle(
+                                            : Text(
+                                                AppLanguage.t('register_btn'),
+                                                style: const TextStyle(
                                                   fontSize: 15,
                                                   fontWeight: FontWeight.bold,
                                                 ),
@@ -789,13 +491,13 @@ class _RegisterScreenState extends State<RegisterScreen>
                                       child: GestureDetector(
                                         onTap: () => Navigator.of(context).pop(),
                                         child: RichText(
-                                          text: const TextSpan(
-                                            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                                          text: TextSpan(
+                                            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
                                             children: [
-                                              TextSpan(text: 'Sudah punya akun? '),
+                                              TextSpan(text: AppLanguage.t('already_have_account')),
                                               TextSpan(
-                                                text: 'Masuk di sini',
-                                                style: TextStyle(
+                                                text: AppLanguage.t('sign_in_link'),
+                                                style: const TextStyle(
                                                   color: AppColors.primary,
                                                   fontWeight: FontWeight.bold,
                                                 ),
@@ -821,7 +523,9 @@ class _RegisterScreenState extends State<RegisterScreen>
         ],
       ),
     );
-  }
+  },
+);
+}
 
   Widget _buildLabel(String label) {
     return Text(
