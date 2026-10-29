@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
 import '../services/app_language.dart';
@@ -107,6 +107,86 @@ class _RegisterScreenState extends State<RegisterScreen>
     );
   }
 
+  Widget _buildLanguageSwitch() {
+    return ValueListenableBuilder<AppLang>(
+      valueListenable: AppLanguage.current,
+      builder: (context, currentLang, _) {
+        return Container(
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: AppColors.cardBorder,
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildLangOption(
+                label: 'ID',
+                flag: '🇮🇩',
+                isSelected: currentLang == AppLang.id,
+                onTap: () => AppLanguage.setLanguage(AppLang.id),
+              ),
+              const SizedBox(width: 2),
+              _buildLangOption(
+                label: 'EN',
+                flag: '🇬🇧',
+                isSelected: currentLang == AppLang.en,
+                onTap: () => AppLanguage.setLanguage(AppLang.en),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildLangOption({
+    required String label,
+    required String flag,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(flag, style: const TextStyle(fontSize: 11)),
+            const SizedBox(width: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? Colors.white : AppColors.textSecondary,
+                letterSpacing: 0.4,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<AppLang>(
@@ -149,16 +229,19 @@ class _RegisterScreenState extends State<RegisterScreen>
           SafeArea(
             child: Column(
               children: [
-                // Back button
+                // Top bar: Back button & Language switch
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: IconButton(
-                      icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                      color: AppColors.textSecondary,
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                        color: AppColors.textSecondary,
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                      _buildLanguageSwitch(),
+                    ],
                   ),
                 ),
 
@@ -172,12 +255,17 @@ class _RegisterScreenState extends State<RegisterScreen>
                           return SingleChildScrollView(
                             physics: const BouncingScrollPhysics(),
                             padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
-                            child: Center(
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 480),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minHeight: constraints.maxHeight - 20,
+                              ),
+                              child: IntrinsicHeight(
+                                child: Center(
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(maxWidth: 480),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
                                     // Logo + Title
                                     Center(
                                       child: Column(
@@ -507,12 +595,14 @@ class _RegisterScreenState extends State<RegisterScreen>
                                         ),
                                       ),
                                     ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
-                          );
-                        },
+                          ),
+                        );
+                      },
                       ),
                     ),
                   ),

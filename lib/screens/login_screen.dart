@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../models/profile_model.dart';
 import '../services/auth_service.dart';
 import '../services/app_language.dart';
@@ -53,7 +53,7 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
-  // ΓöÇΓöÇΓöÇ Supabase Login Flow with Fallback ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡ Supabase Login Flow with Fallback Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡
 
   Future<void> _doLogin() async {
     if (_isLoading) return;
@@ -164,25 +164,29 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  // ΓöÇΓöÇΓöÇ Language Switch Widget ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡ Language Switch Widget Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡
 
-  Widget _buildLanguageSwitch() {
+  Widget _buildLanguageSwitch({bool inCard = false}) {
     return ValueListenableBuilder<AppLang>(
       valueListenable: AppLanguage.current,
       builder: (context, currentLang, _) {
         return Container(
           padding: const EdgeInsets.all(3),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.22),
-            borderRadius: BorderRadius.circular(24),
+            color: inCard
+                ? AppColors.background
+                : Colors.white.withValues(alpha: 0.28),
+            borderRadius: BorderRadius.circular(22),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.4),
+              color: inCard
+                  ? AppColors.cardBorder
+                  : Colors.white.withValues(alpha: 0.55),
               width: 1.2,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 8,
+                color: Colors.black.withValues(alpha: inCard ? 0.04 : 0.12),
+                blurRadius: 6,
                 offset: const Offset(0, 2),
               ),
             ],
@@ -192,15 +196,17 @@ class _LoginScreenState extends State<LoginScreen>
             children: [
               _buildLangOption(
                 label: 'ID',
-                flag: '≡ƒç«≡ƒç⌐',
+                flag: '🇮🇩',
                 isSelected: currentLang == AppLang.id,
+                inCard: inCard,
                 onTap: () => AppLanguage.setLanguage(AppLang.id),
               ),
               const SizedBox(width: 2),
               _buildLangOption(
                 label: 'EN',
-                flag: '≡ƒç¼≡ƒçº',
+                flag: '🇬🇧',
                 isSelected: currentLang == AppLang.en,
+                inCard: inCard,
                 onTap: () => AppLanguage.setLanguage(AppLang.en),
               ),
             ],
@@ -215,22 +221,27 @@ class _LoginScreenState extends State<LoginScreen>
     required String flag,
     required bool isSelected,
     required VoidCallback onTap,
+    bool inCard = false,
   }) {
+    final activeBg = inCard ? AppColors.primary : Colors.white;
+    final activeText = inCard ? Colors.white : AppColors.primary;
+    final inactiveText = inCard ? AppColors.textSecondary : Colors.white;
+
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(18),
+          color: isSelected ? activeBg : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.12),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
                   ),
                 ]
               : null,
@@ -238,15 +249,15 @@ class _LoginScreenState extends State<LoginScreen>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(flag, style: const TextStyle(fontSize: 12)),
-            const SizedBox(width: 4),
+            Text(flag, style: const TextStyle(fontSize: 11)),
+            const SizedBox(width: 3),
             Text(
               label,
               style: TextStyle(
-                fontSize: 11.5,
+                fontSize: 11,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? AppColors.primary : Colors.white,
-                letterSpacing: 0.5,
+                color: isSelected ? activeText : inactiveText,
+                letterSpacing: 0.4,
               ),
             ),
           ],
@@ -255,7 +266,7 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  // ΓöÇΓöÇΓöÇ Build Screen ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡ Build Screen Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡
 
   @override
   Widget build(BuildContext context) {
@@ -312,13 +323,6 @@ class _LoginScreenState extends State<LoginScreen>
               SafeArea(
                 child: Stack(
                   children: [
-                    // Language Switch at Top-Right (Inside Blue Hero Wave)
-                    Positioned(
-                      top: 10,
-                      right: 16,
-                      child: _buildLanguageSwitch(),
-                    ),
-
                     // Main Content ScrollView with Zero Gaps on all devices (including iPhone 16)
                     FadeTransition(
                       opacity: _fadeAnim,
@@ -411,24 +415,35 @@ class _LoginScreenState extends State<LoginScreen>
                                                     crossAxisAlignment:
                                                         CrossAxisAlignment.start,
                                                     children: [
-                                                      Text(
-                                                        AppLanguage.t('welcome_title'),
-                                                        style: const TextStyle(
-                                                          fontSize: 20,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          color: AppColors
-                                                              .textPrimary,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(height: 3),
-                                                      Text(
-                                                        AppLanguage.t('welcome_subtitle'),
-                                                        style: const TextStyle(
-                                                          fontSize: 12.5,
-                                                          color: AppColors
-                                                              .textSecondary,
-                                                        ),
+                                                      Row(
+                                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                        children: [
+                                                          Expanded(
+                                                            child: Column(
+                                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                                              children: [
+                                                                Text(
+                                                                  AppLanguage.t('welcome_title'),
+                                                                  style: const TextStyle(
+                                                                    fontSize: 20,
+                                                                    fontWeight: FontWeight.bold,
+                                                                    color: AppColors.textPrimary,
+                                                                  ),
+                                                                ),
+                                                                const SizedBox(height: 3),
+                                                                Text(
+                                                                  AppLanguage.t('welcome_subtitle'),
+                                                                  style: const TextStyle(
+                                                                    fontSize: 12.5,
+                                                                    color: AppColors.textSecondary,
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                          _buildLanguageSwitch(inCard: true),
+                                                        ],
                                                       ),
                                                       const SizedBox(height: 18),
 
@@ -984,6 +999,13 @@ class _LoginScreenState extends State<LoginScreen>
                           },
                         ),
                       ),
+                    ),
+
+                    // Top-right language switch pill floating on top of hero wave
+                    Positioned(
+                      top: 12,
+                      right: 16,
+                      child: _buildLanguageSwitch(),
                     ),
                   ],
                 ),

@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/product_model.dart';
 import '../models/profile_model.dart';
@@ -456,7 +456,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       Text(
-                        'Halo, ${widget.profile.fullName.split(' ').first} ≡ƒæï',
+                        '${AppLanguage.t('greeting_prefix')}${widget.profile.fullName.split(' ').first} 👋',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 22,
@@ -466,7 +466,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Mau beli produk digital apa hari ini?',
+                        AppLanguage.t('greeting_subtitle'),
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.88),
                           fontSize: 13,
@@ -1630,9 +1630,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                           color: Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Text(
-                          'Pelanggan DigiQ',
-                          style: TextStyle(
+                        child: Text(
+                          AppLanguage.t('customer_badge'),
+                          style: const TextStyle(
                               color: Colors.white,
                               fontSize: 11.5,
                               fontWeight: FontWeight.w500),
@@ -1708,6 +1708,26 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                         icon: Icons.help_outline_rounded,
                         label: 'Bantuan & FAQ',
                         onTap: () {},
+                      ),
+                      _menuItem(
+                        icon: Icons.language_rounded,
+                        label: AppLanguage.isId
+                            ? 'Bahasa (Indonesia)'
+                            : 'Language (English)',
+                        onTap: () {
+                          AppLanguage.toggleLanguage();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                AppLanguage.isId
+                                    ? 'Bahasa diubah ke Bahasa Indonesia'
+                                    : 'Language changed to English',
+                              ),
+                              duration: const Duration(seconds: 1),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
                       ),
                       _menuItem(
                         icon: Icons.info_outline_rounded,

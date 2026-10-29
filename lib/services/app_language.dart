@@ -219,6 +219,44 @@ class AppLanguage {
       AppLang.en: 'Add to Cart',
     },
 
+    // Profile & Customer
+    'customer_badge': {
+      AppLang.id: 'Pelanggan DigiQ',
+      AppLang.en: 'DigiQ Customer',
+    },
+    'about_app': {
+      AppLang.id: 'Tentang Aplikasi',
+      AppLang.en: 'About App',
+    },
+    'notifications': {
+      AppLang.id: 'Notifikasi',
+      AppLang.en: 'Notifications',
+    },
+    'help_faq': {
+      AppLang.id: 'Bantuan & FAQ',
+      AppLang.en: 'Help & FAQ',
+    },
+    'language_setting': {
+      AppLang.id: 'Bahasa (Indonesia)',
+      AppLang.en: 'Language (English)',
+    },
+    'edit_profile': {
+      AppLang.id: 'Edit Profil',
+      AppLang.en: 'Edit Profile',
+    },
+    'change_password': {
+      AppLang.id: 'Ubah Sandi',
+      AppLang.en: 'Change Password',
+    },
+    'account_info': {
+      AppLang.id: 'Informasi Akun',
+      AppLang.en: 'Account Information',
+    },
+    'account_balance': {
+      AppLang.id: 'Saldo DigiQ',
+      AppLang.en: 'DigiQ Balance',
+    },
+
     // Dialogs & Actions
     'logout_confirm_title': {
       AppLang.id: 'Konfirmasi Keluar',
