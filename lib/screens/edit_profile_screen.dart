@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 // lib/screens/edit_profile_screen.dart
 //
 // Halaman Edit Profil Pelanggan DigiQ:
@@ -35,8 +36,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late final TextEditingController _phoneController;
 
   // Password controllers
+  final _oldPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  bool _obscureOldPass = true;
   bool _obscureNewPass = true;
   bool _obscureConfirmPass = true;
   bool _isSavingPassword = false;
@@ -176,6 +179,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _nameController.dispose();
     _usernameController.dispose();
     _phoneController.dispose();
+    _oldPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     _newEmailController.dispose();
@@ -196,11 +200,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Future<void> _pickAndUploadAvatar() async {
     if (_isUploadingAvatar) return;
 
+    if (!kIsWeb) {
+      _showSnack('Fitur upload foto profil saat ini hanya tersedia di versi web.', isError: true);
+      return;
+    }
+
     try {
       final picked = await pickAvatarImage();
       if (picked == null) return; // User cancel
 
-      // Validasi ekstensi
+      // Validasi format/ekstensi (jpg, jpeg, png, webp)
       const allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
       if (!allowedExts.contains(picked.extension.toLowerCase())) {
         _showSnack('Format foto harus berupa JPG, PNG, atau WebP.', isError: true);
@@ -216,11 +225,29 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       setState(() => _isUploadingAvatar = true);
       final uid = _currentProfile.id;
-      final filePath = '$uid/avatar.${picked.extension.toLowerCase()}';
+      final newFilePath = '$uid/avatar.${picked.extension.toLowerCase()}';
+
+      // Hapus avatar lama di bucket jika format sebelumnya berbeda
+      final oldAvatar = _currentProfile.avatarUrl;
+      if (oldAvatar != null && oldAvatar.contains('/avatars/')) {
+        try {
+          final uri = Uri.parse(oldAvatar);
+          final pathSegments = uri.pathSegments;
+          final avatarIdx = pathSegments.indexOf('avatars');
+          if (avatarIdx != -1 && avatarIdx + 1 < pathSegments.length) {
+            final oldPath = pathSegments.sublist(avatarIdx + 1).join('/');
+            if (oldPath != newFilePath && oldPath.isNotEmpty) {
+              await SupabaseConfig.supabase.storage.from('avatars').remove([oldPath]);
+            }
+          }
+        } catch (_) {
+          // Abaikan kegagalan hapus file lama agar upload tetap berjalan
+        }
+      }
 
       // Upload binary dengan upsert ke bucket avatars
       await SupabaseConfig.supabase.storage.from('avatars').uploadBinary(
-            filePath,
+            newFilePath,
             picked.bytes,
             fileOptions: FileOptions(
               contentType: picked.mimeType,
@@ -228,11 +255,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
           );
 
-      // Ambil public url dengan cache buster
-      final baseUrl = SupabaseConfig.supabase.storage.from('avatars').getPublicUrl(filePath);
+      // Ambil public url dengan cache buster (?v=timestamp)
+      final baseUrl = SupabaseConfig.supabase.storage.from('avatars').getPublicUrl(newFilePath);
       final publicUrlWithTimestamp = '$baseUrl?v=${DateTime.now().millisecondsSinceEpoch}';
 
-      // Simpan URL ke database profiles
+      // Simpan URL ke tabel profiles
       await SupabaseConfig.supabase
           .from('profiles')
           .update({'avatar_url': publicUrlWithTimestamp})
@@ -286,31 +313,40 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _saveNewPassword() async {
-    final pass = _newPasswordController.text;
-    final confirm = _confirmPasswordController.text;
+    final oldPass = _oldPasswordController.text;
+    final newPass = _newPasswordController.text;
+    final confirmPass = _confirmPasswordController.text;
 
-    if (pass.isEmpty) {
+    if (oldPass.isEmpty) {
+      _showSnack('Masukkan password saat ini.', isError: true);
+      return;
+    }
+    if (newPass.isEmpty) {
       _showSnack('Masukkan password baru.', isError: true);
       return;
     }
-    if (pass.length < 8) {
-      _showSnack('Password minimal 8 karakter.', isError: true);
+    if (newPass.length < 8) {
+      _showSnack('Password baru minimal 8 karakter.', isError: true);
       return;
     }
-    if (pass != confirm) {
-      _showSnack('Konfirmasi password tidak cocok.', isError: true);
+    if (newPass != confirmPass) {
+      _showSnack('Konfirmasi password baru tidak cocok.', isError: true);
       return;
     }
 
     setState(() => _isSavingPassword = true);
-    final res = await AuthService.changePassword(pass);
+    final res = await AuthService.changePasswordWithOld(
+      oldPassword: oldPass,
+      newPassword: newPass,
+    );
     if (!mounted) return;
     setState(() => _isSavingPassword = false);
 
     if (res.success) {
+      _oldPasswordController.clear();
       _newPasswordController.clear();
       _confirmPasswordController.clear();
-      _showSnack('Password berhasil diubah.');
+      _showSnack(res.message ?? 'Password berhasil diperbarui.');
     } else {
       _showSnack(res.message ?? 'Gagal mengubah password.', isError: true);
     }
@@ -534,6 +570,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             _buildLabel('Nama Lengkap'),
             const SizedBox(height: 6),
             TextFormField(
+              key: const Key('edit_profile_name_field'),
               controller: _nameController,
               decoration: _inputDecoration(
                 hint: 'Nama Lengkap Anda',
@@ -547,6 +584,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             _buildLabel('Username'),
             const SizedBox(height: 6),
             TextFormField(
+              key: const Key('edit_profile_username_field'),
               controller: _usernameController,
               decoration: _inputDecoration(
                 hint: 'username (5-20 alfanumerik)',
@@ -590,6 +628,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             _buildLabel('Nomor HP'),
             const SizedBox(height: 6),
             TextFormField(
+              key: const Key('edit_profile_phone_field'),
               controller: _phoneController,
               keyboardType: TextInputType.phone,
               inputFormatters: [
@@ -608,6 +647,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             _buildLabel('Alamat Email (Akun)'),
             const SizedBox(height: 6),
             TextFormField(
+              key: const Key('edit_profile_email_field'),
               initialValue: userEmail,
               readOnly: true,
               style: const TextStyle(color: AppColors.textSecondary),
@@ -634,6 +674,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               width: double.infinity,
               height: 48,
               child: ElevatedButton.icon(
+                key: const Key('edit_profile_save_button'),
                 onPressed: (_isSavingProfile || !_hasUnsavedChanges) ? null : _saveProfileChanges,
                 icon: _isSavingProfile
                     ? const SizedBox(
@@ -682,6 +723,25 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ],
           ),
           const SizedBox(height: 16),
+          _buildLabel('Password Saat Ini'),
+          const SizedBox(height: 6),
+          TextFormField(
+            controller: _oldPasswordController,
+            obscureText: _obscureOldPass,
+            decoration: _inputDecoration(
+              hint: 'Password akun Anda saat ini',
+              icon: Icons.lock_clock_outlined,
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscureOldPass ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                  size: 20,
+                  color: AppColors.textSecondary,
+                ),
+                onPressed: () => setState(() => _obscureOldPass = !_obscureOldPass),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
           _buildLabel('Password Baru (Minimal 8 Karakter)'),
           const SizedBox(height: 6),
           TextFormField(

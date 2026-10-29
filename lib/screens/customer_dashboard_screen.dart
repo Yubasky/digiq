@@ -1,4 +1,5 @@
 import 'edit_profile_screen.dart';
+import '../services/supabase_config.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/product_model.dart';
@@ -55,6 +56,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
           _productsLoading = false;
         });
       }
+    }, onError: (_) {
+      // Offline / stream error fallback
+      if (mounted) setState(() => _productsLoading = false);
     });
     _trxSub = _trxStream.listen((list) {
       if (mounted) {
@@ -64,6 +68,8 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               .toList();
         });
       }
+    }, onError: (_) {
+      // Offline / stream error fallback
     });
     // Expire pending di server saat buka riwayat
     TransactionService.expirePendingTransactions();
@@ -1548,6 +1554,36 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
 
   // ─── PROFIL TAB ─────────────────────────────────────────────────────────────
 
+  Future<void> _navigateToEditProfile() async {
+    final updated = await Navigator.push<ProfileModel>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditProfileScreen(profile: _profile),
+      ),
+    );
+    if (updated != null && mounted) {
+      setState(() => _profile = updated);
+    } else if (mounted) {
+      final fresh = await AuthService.getCurrentProfile();
+      if (fresh != null && mounted) {
+        setState(() => _profile = fresh);
+      }
+    }
+  }
+
+  Widget _buildAvatarInitial() {
+    return Center(
+      child: Text(
+        _profile.fullName.isNotEmpty ? _profile.fullName[0].toUpperCase() : '?',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 32,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
   Widget _buildProfilTab() {
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -1555,7 +1591,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
         slivers: [
           SliverAppBar(
             toolbarHeight: 62,
-            expandedHeight: 200,
+            expandedHeight: 220,
             pinned: true,
             automaticallyImplyLeading: false,
             elevation: 0,
@@ -1586,39 +1622,78 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const SizedBox(height: 22),
-                      Container(
-                        width: 72,
-                        height: 72,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.5), width: 2),
-                        ),
-                        child: Center(
-                          child: Text(
-                            _profile.fullName.isNotEmpty
-                                ? _profile.fullName[0].toUpperCase()
-                                : '?',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 30,
-                              fontWeight: FontWeight.bold,
+                      const SizedBox(height: 20),
+                      // Avatar with edit pencil badge
+                      Stack(
+                        children: [
+                          Container(
+                            width: 76,
+                            height: 76,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.6), width: 2.5),
+                            ),
+                            child: ClipOval(
+                              child: (_profile.avatarUrl != null &&
+                                      _profile.avatarUrl!.isNotEmpty)
+                                  ? Image.network(
+                                      _profile.avatarUrl!,
+                                      width: 76,
+                                      height: 76,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) =>
+                                          _buildAvatarInitial(),
+                                    )
+                                  : _buildAvatarInitial(),
                             ),
                           ),
-                        ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Material(
+                              color: Colors.white,
+                              shape: const CircleBorder(),
+                              elevation: 3,
+                              child: InkWell(
+                                key: const Key('profile_avatar_edit_button'),
+                                onTap: _navigateToEditProfile,
+                                customBorder: const CircleBorder(),
+                                child: const Padding(
+                                  padding: EdgeInsets.all(6),
+                                  child: Icon(
+                                    Icons.edit_rounded,
+                                    size: 15,
+                                    color: Color(0xFF0077B6),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       Text(
-                        _profile.fullName,
+                        _profile.fullName.isNotEmpty ? _profile.fullName : 'Pelanggan DigiQ',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 3),
+                      if (_profile.username.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          '@${_profile.username}',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.85),
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 3),
@@ -1644,130 +1719,136 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             child: Container(
               width: double.infinity,
               color: AppColors.background,
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-              child: Column(
-                children: [
-                  // User info card
-                  _profileCard(
-                    title: 'Informasi Akun',
-                    children: [
-                      _profileInfoRow(Icons.person_outline_rounded, 'Nama',
-                          _profile.fullName),
-                      _profileInfoRow(
-                          Icons.alternate_email_rounded,
-                          'ID Akun',
-                          _profile.id.substring(0, 8).toUpperCase()),
-                      _profileInfoRow(Icons.phone_outlined, 'No. HP',
-                          _profile.phone),
-                    ],
-                  ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 640),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+                    child: Column(
+                      children: [
+                        // User info card
+                        _profileCard(
+                          title: 'Informasi Akun',
+                          children: [
+                            _profileInfoRow(Icons.person_outline_rounded, 'Nama',
+                                _profile.fullName),
+                            _profileInfoRow(
+                                Icons.alternate_email_rounded,
+                                'Username',
+                                _profile.username.isNotEmpty ? '@${_profile.username}' : '-'),
+                            _profileInfoRow(
+                                Icons.email_outlined,
+                                'Email',
+                                SupabaseConfig.supabase.auth.currentUser?.email ?? '-'),
+                            _profileInfoRow(Icons.phone_outlined, 'No. HP',
+                                _profile.phone.isNotEmpty ? _profile.phone : '-'),
+                            _profileInfoRow(
+                                Icons.badge_outlined,
+                                'ID Akun',
+                                _profile.id.length >= 8
+                                    ? _profile.id.substring(0, 8).toUpperCase()
+                                    : _profile.id),
+                          ],
+                        ),
 
-                  const SizedBox(height: 12),
+                        const SizedBox(height: 12),
 
-                  // Stats card
-                  _profileCard(
-                    title: 'Statistik',
-                    children: [
-                      _statRow(
-                        icon: Icons.receipt_long_rounded,
-                        color: AppColors.primary,
-                        label: 'Total Transaksi',
-                        value: '${_transactions.length}x',
-                      ),
-                      _statRow(
-                        icon: Icons.monetization_on_rounded,
-                        color: AppColors.success,
-                        label: 'Total Pengeluaran',
-                        value: formatCurrency(_transactions.fold(
-                            0.0, (s, t) => s + t.totalAmount)),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Menu
-                  _profileCard(
-                    title: 'Menu',
-                    children: [
-                      _menuItem(
-                        icon: Icons.person_outline_rounded,
-                        label: 'Edit Profil',
-                        onTap: () async {
-                          final updated = await Navigator.push<ProfileModel>(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => EditProfileScreen(profile: _profile),
+                        // Stats card
+                        _profileCard(
+                          title: 'Statistik',
+                          children: [
+                            _statRow(
+                              icon: Icons.receipt_long_rounded,
+                              color: AppColors.primary,
+                              label: 'Total Transaksi',
+                              value: '${_transactions.length}x',
                             ),
-                          );
-                          if (updated != null && mounted) {
-                            setState(() => _profile = updated);
-                          } else if (mounted) {
-                            final fresh = await AuthService.getCurrentProfile();
-                            if (fresh != null && mounted) {
-                              setState(() => _profile = fresh);
-                            }
-                          }
-                        },
-                      ),
-                      _menuItem(
-                        icon: Icons.history_rounded,
-                        label: 'Riwayat Transaksi',
-                        onTap: () => setState(() => _currentTab = 2),
-                      ),
-                      _menuItem(
-                        icon: Icons.notifications_outlined,
-                        label: 'Notifikasi',
-                        onTap: () {},
-                      ),
-                      _menuItem(
-                        icon: Icons.help_outline_rounded,
-                        label: 'Bantuan & FAQ',
-                        onTap: () {},
-                      ),
-                      _menuItem(
-                        icon: Icons.info_outline_rounded,
-                        label: 'Tentang Aplikasi',
-                        onTap: _showAboutAppDialog,
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Logout
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: ListTile(
-                      leading: Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: AppColors.danger.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(10),
+                            _statRow(
+                              icon: Icons.monetization_on_rounded,
+                              color: AppColors.success,
+                              label: 'Total Pengeluaran',
+                              value: formatCurrency(_transactions.fold(
+                                  0.0, (s, t) => s + t.totalAmount)),
+                            ),
+                          ],
                         ),
-                        child: const Icon(Icons.logout_rounded,
-                            color: AppColors.danger, size: 20),
-                      ),
-                      title: const Text(
-                        'Keluar',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.danger,
+
+                        const SizedBox(height: 12),
+
+                        // Menu
+                        _profileCard(
+                          title: 'Menu',
+                          children: [
+                            _menuItem(
+                              key: const Key('profile_menu_edit_item'),
+                              icon: Icons.manage_accounts_rounded,
+                              label: 'Edit Profil',
+                              onTap: _navigateToEditProfile,
+                            ),
+                            _menuItem(
+                              icon: Icons.history_rounded,
+                              label: 'Riwayat Transaksi',
+                              onTap: () => setState(() => _currentTab = 2),
+                            ),
+                            _menuItem(
+                              icon: Icons.notifications_outlined,
+                              label: 'Notifikasi',
+                              onTap: () {},
+                            ),
+                            _menuItem(
+                              icon: Icons.help_outline_rounded,
+                              label: 'Bantuan & FAQ',
+                              onTap: () {},
+                            ),
+                            _menuItem(
+                              icon: Icons.info_outline_rounded,
+                              label: 'Tentang Aplikasi',
+                              onTap: _showAboutAppDialog,
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        // Logout
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: ListTile(
+                            leading: Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: AppColors.danger.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.logout_rounded,
+                                  color: AppColors.danger, size: 20),
+                            ),
+                            title: const Text(
+                              'Keluar',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.danger,
+                              ),
+                            ),
+                            trailing: const Icon(Icons.chevron_right_rounded,
+                                color: AppColors.danger, size: 20),
+                            onTap: _confirmLogout,
+                          ),
                         ),
                       ),
-                      trailing: const Icon(Icons.chevron_right_rounded,
-                          color: AppColors.danger, size: 20),
-                      onTap: _confirmLogout,
+
+                        const SizedBox(height: 80),
+                      ],
                     ),
                   ),
-
-                  const SizedBox(height: 80),
-                ],
+                ),
               ),
             ),
           ),
@@ -1777,7 +1858,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   }
 
   Widget _profileCard(
-      {required String title, required List<Widget> children}) {
+      {required String title,
+      required List<Widget> children,
+      Widget? trailing}) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1794,13 +1877,19 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textSecondary,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              ?trailing,
+            ],
           ),
           const SizedBox(height: 12),
           ...children,
@@ -1875,10 +1964,12 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   }
 
   Widget _menuItem(
-      {required IconData icon,
+      {Key? key,
+      required IconData icon,
       required String label,
       required VoidCallback onTap}) {
     return InkWell(
+      key: key,
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Padding(

@@ -778,6 +778,67 @@ class AuthService {
     }
   }
 
+
+  /// Ganti password dengan verifikasi password lama terlebih dahulu (re-autentikasi aman).
+  static Future<AuthResult> changePasswordWithOld({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    final user = _sb.auth.currentUser;
+    final email = user?.email;
+    if (user == null || email == null) {
+      return const AuthResult(
+        success: false,
+        message: 'Sesi Anda telah berakhir. Silakan login kembali.',
+      );
+    }
+
+    if (newPassword.trim().length < 8) {
+      return const AuthResult(
+        success: false,
+        message: 'Password baru minimal 8 karakter.',
+      );
+    }
+
+    try {
+      // 1. Verifikasi kredensial lama via re-autentikasi
+      await _sb.auth.signInWithPassword(
+        email: email,
+        password: oldPassword,
+      );
+    } on AuthException catch (e) {
+      final msg = e.message.toLowerCase();
+      if (msg.contains('invalid') || msg.contains('credentials') || msg.contains('grant')) {
+        return const AuthResult(
+          success: false,
+          message: 'Password saat ini salah. Silakan periksa kembali.',
+        );
+      }
+      return AuthResult(success: false, message: _translateAuthError(e.message));
+    } catch (_) {
+      return const AuthResult(
+        success: false,
+        message: 'Gagal memverifikasi password saat ini. Periksa koneksi Anda.',
+      );
+    }
+
+    // 2. Update password baru
+    try {
+      await _sb.auth.updateUser(UserAttributes(password: newPassword));
+      return const AuthResult(
+        success: true,
+        message: 'Password berhasil diperbarui.',
+      );
+    } on AuthException catch (e) {
+      return AuthResult(success: false, message: _translateAuthError(e.message));
+    } catch (_) {
+      return const AuthResult(
+        success: false,
+        message: 'Gagal memperbarui password baru. Silakan coba lagi.',
+      );
+    }
+  }
+
   /// Ganti password (dipakai di SetNewPasswordScreen setelah verifyOTP recovery).
   static Future<AuthResult> changePassword(String newPassword) async {
     try {
