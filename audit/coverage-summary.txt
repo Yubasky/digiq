@@ -1,16 +1,16 @@
 ==================================================
            DIGIQ CODE COVERAGE REPORT             
 ==================================================
-Total Source Lines Evaluated : 424
-Total Lines Covered (Hit)    : 158
-Unit Test Line Coverage      : 37.26%
+Total Source Lines Evaluated : 427
+Total Lines Covered (Hit)    : 195
+Unit Test Line Coverage      : 45.67%
 
 Files Analyzed:
   • lib\models\payment_mutation_model.dart             :  18/34  ( 52.9%)
-  • lib\models\profile_model.dart                      :   0/31  (  0.0%)
+  • lib\models\profile_model.dart                      :   6/31  ( 19.4%)
   • lib\models\transaction_model.dart                  :  26/45  ( 57.8%)
-  • lib\services\auth_service.dart                     :  16/166 (  9.6%)
+  • lib\services\auth_service.dart                     :  43/166 ( 25.9%)
   • lib\services\deep_link_auth_handler.dart           :   0/23  (  0.0%)
-  • lib\services\qris_service.dart                     :  98/111 ( 88.3%)
+  • lib\services\qris_service.dart                     : 102/114 ( 89.5%)
   • lib\services\supabase_config.dart                  :   0/14  (  0.0%)
 ==================================================

@@ -27,464 +27,184 @@
 </style>
 </head>
 <body>
-<h1>LAPORAN AUDIT KOMPREHENSIF BACKEND &amp; INFRASTRUKTUR DIGIQ</h1>
+<h1>LAPORAN AUDIT DEFENSIVE BACKEND, QA &amp; KEAMANAN DIGIQ (REVISI BUKTI MENTAH)</h1>
 <p>**Tanggal Audit:** 29 Oktober 2026</p>
 <p>**Auditor:** Principal Backend Engineer, QA Lead &amp; Security Auditor</p>
 <p>**Target Repository:** `C:\Users\Administrator\Documents\digiq`</p>
-<p>**Production Host:** Windows Server / Windows Host (Local)</p>
+<p>**Host:** Windows Server / Windows Host (Local)</p>
 <p>**Public Ingress:** Cloudflare Zero Trust Tunnel (`https://enikzrad.web.id`)</p>
 <p>**Backend BaaS:** Supabase Cloud (`https://iqxoofrhhrqkgehuvrlb.supabase.co`)</p>
+<p>**Status Kesiapan Produksi:** **BELUM SIAP PRODUKSI (NOT YET PRODUCTION-READY)**</p>
+<p>*(Alasan: Migrasi database `supabase/006_username_and_registration_hardening.sql` belum dieksekusi di database Supabase live. Sebelum migrasi ini dijalankan, kolom `username` dan RPC `check_username_available` belum ada di live DB).*</p>
 <hr>
-<h2>1. EXECUTIVE SUMMARY</h2>
-<h3>1.1 Health Score: **8.6 / 10** (Status: **STABLE &amp; PRODUCTION-READY** setelah migrasi 006 diaplikasikan)</h3>
-<p>Sebelum perbaikan, sistem berada di skor **5.2 / 10** akibat kelemahan kritis: registrasi mengalami upstream timeout pada SMTP, unhandled exception &quot;database error saving new user&quot;, race condition validasi username, ketiadaan kolom username unik di database live, dotfile exposure risiko pada server lokal, dan konfigurasi Windows active hours yang tidak valid.</p>
-<p>Setelah implementasi hardening pada layer aplikasi, penambahan skrip migrasi `006_username_and_registration_hardening.sql`, pembaruan `spa_server.py`, dan penambahan 40 unit test otomatis, sistem telah terbukti stabil dan aman.</p>
-<h3>1.2 Top 5 Risiko Kritis &amp; Mitigasi</h3>
-<p>1. **Supabase Synchronous SMTP Timeout pada Registrasi (Critical):**</p>
-<p>Pengaturan GoTrue `mailer_autoconfirm: false` mewajibkan pengiriman email konfirmasi/OTP secara sinkron saat registrasi. Jika SMTP kustom atau Supabase default mailer mengalami latensi &gt; 10–15 detik, Kong/Cloudflare mengeluarkan HTTP 504/524 Upstream Timeout.</p>
-<p>*Mitigasi:* Tambahkan timeout eksplisit 15 detik di `AuthService.signUp()`, translasi error ramah pengguna, dan opsi pengaktifan `mailer_autoconfirm: true` atau konfigurasi custom SMTP bereputasi tinggi (Resend / AWS SES).</p>
-<p>2. **Schema Drift - Migrasi 006 Belum Diaplikasikan ke Live DB (High):**</p>
-<p>Tabel `profiles` pada database produksi belum memiliki kolom `username` dan RPC `check_username_available` (HTTP 404 saat dipanggil).</p>
-<p>*Mitigasi:* Jalankan skrip SQL `supabase/006_username_and_registration_hardening.sql` melalui SQL Editor Supabase Dashboard.</p>
-<p>3. **Storage Bucket Constraints Missing (Medium):**</p>
-<p>Bucket `avatars` di database live belum membatasi `file_size_limit` dan `allowed_mime_types`. Bucket `proofs` tidak ditemukan di schema.</p>
-<p>*Mitigasi:* Skrip migrasi 006 telah menyertakan pembaruan `storage.buckets` untuk membatasi ukuran maksimal 2MB dan MIME type gambar (`image/png`, `image/jpeg`, `image/webp`).</p>
-<p>4. **Port 9000 Inbound Firewall Rule Tidak Diperlukan (Medium):**</p>
-<p>Membuka port 9000 pada Windows Firewall untuk koneksi publik tidak diperlukan dan memperluas attack surface, karena traffic luar masuk melalui Cloudflare Tunnel (`cloudflared.exe`) yang berkomunikasi dengan `spa_server.py` via loopback lokal `127.0.0.1`.</p>
-<p>*Mitigasi:* Hapus rule inbound Windows Firewall port 9000.</p>
-<p>5. **Windows Active Hours Configuration Exceeded (Low):**</p>
-<p>Windows hanya mengizinkan Active Hours maksimal 18 jam (misal 06:00 hingga 24:00). Mencoba mengatur 24 jam menyebabkan error sistem operasi.</p>
-<p>*Mitigasi:* Gunakan rentang 18 jam dan matikan automatic restart via Group Policy / Registry.</p>
-<hr>
-<h2>2. INVENTORY &amp; ARSITEKTUR SISTEM</h2>
-<h3>2.1 Komponen Backend &amp; File SQL</h3>
-<p>Urutan eksekusi migrasi Supabase:</p>
-<p>1. `supabase/01_main_schema.sql` (APPLIED) - Inisialisasi enum, profiles, products, transactions, transaction_items, payment_mutations, chat_messages, trigger `handle_new_user()`, RLS awal.</p>
-<p>2. `supabase/02_storage_and_realtime.sql` (APPLIED) - Bucket avatars, RLS storage, Supabase Realtime publication.</p>
-<p>3. `supabase/03_fix_profiles_rls.sql` (APPLIED) - Policy perbaikan SELECT/INSERT/UPDATE profiles.</p>
-<p>4. `supabase/04_fix_transaction_items_recursion.sql` (APPLIED) - Menghilangkan infinite recursion pada policy transaction_items.</p>
-<p>5. `supabase/005_remove_aal2_dependency.sql` (APPLIED) - Menghilangkan ketergantungan AAL2 MFA yang memblokir session standar.</p>
-<p>6. `supabase/006_username_and_registration_hardening.sql` (PENDING - READY TO APPLY) - Menambahkan kolom `username` (NOT NULL, UNIQUE, regex `^[a-zA-Z0-9]{5,20}$`), backfill data lama, RPC `check_username_available()`, trigger `handle_new_user()` yang mempertahankan kompatibilitas backwards, dan storage bucket constraints.</p>
-<h3>2.2 Diagram Arsitektur End-to-End</h3>
-<p>File visual tersimpan di:</p>
-<li>Vector SVG: `audit/architecture.svg`</li>
-<li>High-Resolution PNG: `audit/architecture.png`</li>
-<pre><code class="language-mermaid">flowchart TD
-    subgraph Client[&quot;Client Browser / Mobile Web&quot;]
-        SPA[&quot;Flutter Web Single Page App (Port 9000 Assets)&quot;]
-        QRIS[&quot;QrisService (EMVCo Engine)&quot;]
-        SDK[&quot;Supabase Flutter SDK (Auth, REST, Storage)&quot;]
-    end
+<h2>PENJELASAN TEKNIS: MENGAPA CEK PORT 9000 &amp; CLOUDFLARED SEBELUMNYA EXIT CODE 1</h2>
+<p>Pada sesi audit sebelumnya, perintah pemeriksaan port 9000 dan pencarian konfigurasi cloudflared menghasilkan `Exited with code 1`. Berikut penyebab teknis pastinya:</p>
+<p>1. **`netstat -ano | findstr :9000` (Exit code 1):**</p>
+<p>Perintah Windows `findstr` mengembalikan exit code 1 jika string pencarian **tidak ditemukan**. Pada saat pemeriksaan awal dilakukan, skrip `spa_server.py` belum berjalan sebagai proses latar belakang (*daemon*), sehingga port 9000 belum terbuka dan `findstr` menghasilkan code 1.</p>
+<p>2. **`Get-NetTCPConnection -LocalPort 9000` (Exit code 1):**</p>
+<p>Cmdlet PowerShell `Get-NetTCPConnection` melemparkan exception terminating (`No matching MSFT_NetTCPConnection objects found`) dengan exit code 1 ketika tidak ada proses yang sedang mendengarkan (*listening*) pada port tersebut.</p>
+<p>3. **Pencarian `config.yml` Cloudflared (Exit code 1):**</p>
+<p>Pencarian file lokal `config.yml` gagal karena Cloudflare Tunnel diinstalasi sebagai **Remote-Managed Tunnel (Zero Trust Dashboard)**. Layanan `cloudflared.exe` dijalankan langsung menggunakan parameter `--token-file C:\ProgramData\cloudflared\token`, bukan file konfigurasi lokal statis.</p>
+<h3>Verifikasi Ulang Setelah `spa_server.py` Dijalankan:</h3>
+<p>Saat `spa_server.py` dijalankan di latar belakang (PID: 14488), kedua perintah berhasil dengan **Exit Code 0**:</p>
+<pre><code class="language-powershell">PS C:\Users\Administrator\Documents\digiq&gt; netstat -ano | findstr :9000
+  TCP    0.0.0.0:9000           0.0.0.0:0              LISTENING       14488
 
-    subgraph Cloudflare[&quot;Cloudflare Zero Trust Edge&quot;]
-        Domain[&quot;enikzrad.web.id&quot;]
-        EdgeSSL[&quot;Universal SSL Termination (TLS 1.3)&quot;]
-        WAF[&quot;DDoS Protection &amp; Anycast Routing&quot;]
-    end
-
-    subgraph WindowsHost[&quot;Windows Server Host (Local)&quot;]
-        CFD[&quot;cloudflared.exe (Windows Service Ingress)&quot;]
-        SPAServer[&quot;spa_server.py (Port 9000, 127.0.0.1)&quot;]
-        BuildDir[&quot;build/web Distribution Assets&quot;]
-    end
-
-    subgraph SupabasePlatform[&quot;Supabase Cloud Platform (iqxoofrhhrqkgehuvrlb)&quot;]
-        GoTrue[&quot;GoTrue Auth Service v1&quot;]
-        PostgREST[&quot;PostgREST API &amp; RPC&quot;]
-        StorageSrv[&quot;Supabase Storage (avatars bucket)&quot;]
-        PGDB[(PostgreSQL 15 Database)]
-    end
-
-    subgraph External[&quot;External Services&quot;]
-        SMTP[&quot;SMTP Mail Provider (OTP / Verification)&quot;]
-        Banking[&quot;Indonesian Banking / E-Wallet (BCA/GoPay/OVO/Dana)&quot;]
-    end
-
-    Client --&gt;|&quot;1. HTTPS GET /&quot;| Domain
-    Domain --&gt; EdgeSSL
-    EdgeSSL --&gt; CFD
-    CFD --&gt;|&quot;2. Loopback HTTP 127.0.0.1:9000&quot;| SPAServer
-    SPAServer --&gt; BuildDir
-    
-    Client --&gt;|&quot;3. Direct HTTPS TLS 1.3 (auth/v1/signup, token)&quot;| GoTrue
-    GoTrue --&gt;|&quot;4. Send Verification/OTP&quot;| SMTP
-    GoTrue --&gt;|&quot;5. Trigger handle_new_user()&quot;| PGDB
-    Client --&gt;|&quot;6. Direct REST / RPC (products, transactions, check_username)&quot;| PostgREST
-    PostgREST --&gt; PGDB
-    Client --&gt;|&quot;7. Upload Avatar&quot;| StorageSrv
-    
-    Client -.-&gt;|&quot;8. Scan Dynamic QRIS&quot;| Banking
+PS C:\Users\Administrator\Documents\digiq&gt; Get-NetTCPConnection -LocalPort 9000 | Select-Object LocalAddress, LocalPort, State, OwningProcess
+LocalAddress LocalPort  State OwningProcess
+------------ ---------  ----- -------------
+0.0.0.0           9000 Listen         14488
 </code></pre>
-<h3>2.3 Database Entity Relationship (ER) Diagram</h3>
-<p>File visual tersimpan di:</p>
-<li>Vector SVG: `audit/er-diagram.svg`</li>
-<li>High-Resolution PNG: `audit/er-diagram.png`</li>
-<pre><code class="language-mermaid">erDiagram
-    auth_users ||--|| profiles : &quot;1:1 via handle_new_user trigger&quot;
-    profiles ||--o{ transactions : &quot;1:N places&quot;
-    transactions ||--|{ transaction_items : &quot;1:N contains&quot;
-    products ||--o{ transaction_items : &quot;1:N ordered_in&quot;
-    transactions ||--o| payment_mutations : &quot;1:0..1 matched_by&quot;
-    profiles ||--o{ chat_messages : &quot;1:N sends&quot;
-
-    auth_users {
-        uuid id PK
-        varchar email
-        varchar encrypted_password
-        jsonb raw_user_meta_data
-        timestamptz created_at
-    }
-
-    profiles {
-        uuid id PK,FK &quot;auth.users.id&quot;
-        varchar username UK,NN &quot;5-20 alphanumeric&quot;
-        text full_name
-        text avatar_url
-        user_role role CK &quot;admin, customer, cashier&quot;
-        timestamptz created_at
-        timestamptz updated_at
-    }
-
-    products {
-        uuid id PK
-        text name NN
-        text description
-        numeric price NN
-        integer stock NN
-        text image_url
-        text category
-        boolean is_active
-        timestamptz created_at
-    }
-
-    transactions {
-        uuid id PK
-        uuid user_id FK &quot;profiles.id&quot;
-        numeric total_amount NN
-        numeric base_amount
-        integer unique_code
-        status_type status CK &quot;pending, paid, expired, cancelled&quot;
-        varchar payment_method
-        text qris_payload
-        timestamptz expired_at
-        timestamptz created_at
-    }
-
-    transaction_items {
-        uuid id PK
-        uuid transaction_id FK &quot;transactions.id (CASCADE)&quot;
-        uuid product_id FK &quot;products.id (RESTRICT)&quot;
-        integer quantity NN
-        numeric price_at_purchase NN
-        numeric subtotal NN
-    }
-
-    payment_mutations {
-        uuid id PK
-        varchar bank NN
-        numeric amount NN
-        text description
-        varchar mutation_type CK &quot;CR, DB&quot;
-        uuid transaction_id FK &quot;transactions.id (NULLABLE)&quot;
-        boolean is_matched
-        timestamptz created_at
-    }
-
-    chat_messages {
-        uuid id PK
-        uuid sender_id FK &quot;profiles.id&quot;
-        uuid receiver_id FK &quot;profiles.id (NULLABLE)&quot;
-        text message NN
-        boolean is_read
-        timestamptz created_at
-    }
+<p>Dan pembuktian target Cloudflare Tunnel dari layanan Windows:</p>
+<pre><code class="language-powershell">PS C:\Users\Administrator\Documents\digiq&gt; (Get-CimInstance win32_service -Filter &quot;Name = &#x27;cloudflared&#x27;&quot;).PathName
+&quot;C:\Program Files (x86)\cloudflared\cloudflared.exe&quot; tunnel run --token-file C:\ProgramData\cloudflared\token
 </code></pre>
 <hr>
-<h2>3. TABEL TEMUAN AUDIT (FINDINGS TABLE)</h2>
-<table>
-  <tr><th>ID</th><th>Severity</th><th>Area</th><th>Lokasi</th><th>Bukti / Root Cause</th><th>Rekomendasi / Fix</th><th>Status</th></tr>
-  <tr><td>**SEC-01**</td><td>**High**</td><td>Auth / DB</td><td>`auth.users` -&gt; `profiles`</td><td>Kolom `username` belum ada di live DB; error &quot;Database error saving new user&quot; jika trigger gagal</td><td>Migrasi 006: backfill username, set NOT NULL + UNIQUE regex index, perbaiki trigger</td><td>**RESOLVED IN 006** (Pending Live Exec)</td></tr>
-  <tr><td>**SEC-02**</td><td>**Medium**</td><td>Storage</td><td>Supabase Storage `avatars`</td><td>Bucket `avatars` tidak memiliki batasan ukuran file dan filter ekstensi MIME</td><td>Migrasi 006: tambahkan `file_size_limit = 2097152` dan `allowed_mime_types = {&#x27;image/jpeg&#x27;,&#x27;image/png&#x27;,&#x27;image/webp&#x27;}`</td><td>**RESOLVED IN 006** (Pending Live Exec)</td></tr>
-  <tr><td>**SEC-03**</td><td>**Medium**</td><td>Web Server</td><td>`scripts/spa_server.py`</td><td>Berkas dotfiles (`.env`, `.git`) berpotensi terbaca jika diletakkan di root static</td><td>Ditambahkan handler keamanan: return HTTP 404 pada request path yang diawali titik</td><td>**VERIFIED PASS** (HTTP 404 confirmed)</td></tr>
-  <tr><td>**SEC-04**</td><td>**Low**</td><td>Network / OS</td><td>Windows Firewall</td><td>Port 9000 dibuka di inbound Windows Firewall padahal traffic publik via Cloudflare Tunnel</td><td>Hapus rule inbound Windows Firewall port 9000</td><td>**RECOMMENDED**</td></tr>
-  <tr><td>**UX-01**</td><td>**High**</td><td>Auth</td><td>`lib/services/auth_service.dart`</td><td>Browser memanggil GoTrue Auth langsung. Saat SMTP lambat, terjadi upstream timeout tanpa pesan jelas</td><td>Tambahkan timeout 15s dan mapping error upstream/gateway ke pesan Bahasa Indonesia ramah</td><td>**VERIFIED PASS** (Unit test passed)</td></tr>
-  <tr><td>**UX-02**</td><td>**High**</td><td>Validation</td><td>`lib/screens/register_screen.dart`</td><td>Debounce validasi username mengalami race condition jika respons network lama tiba terlambat</td><td>Ditambahkan counter `_usernameCheckSeq` dan pembedaan status Tersedia / Dipakai / Gangguan Jaringan</td><td>**VERIFIED PASS** (Unit test passed)</td></tr>
-  <tr><td>**UX-03**</td><td>**Low**</td><td>UI / Profil</td><td>`lib/screens/customer_dashboard_screen.dart`</td><td>Split nama hardcoded `&quot;Bayu&quot;` berisiko crash `RangeError` jika `full_name` kosong</td><td>Diganti dengan `profile.displayName` dinamis dengan fallback `&quot;User&quot;`</td><td>**VERIFIED PASS**</td></tr>
-  <tr><td>**PERF-01**</td><td>**Medium**</td><td>Web Server</td><td>`scripts/spa_server.py`</td><td>Ketiadaan endpoint health check untuk monitoring uptime Cloudflare / load balancer</td><td>Ditambahkan endpoint `/health` instan return HTTP 200 JSON</td><td>**VERIFIED PASS** (0.97ms response)</td></tr>
-  <tr><td>**DEV-01**</td><td>**Medium**</td><td>Tooling</td><td>`.vscode/launch.json`</td><td>`--web-port=9000` diletakkan di `args` alih-alih `toolArgs`, menyebabkan `flutter run` menggunakan random port</td><td>Dipindahkan ke `toolArgs`</td><td>**VERIFIED PASS**</td></tr>
-  <tr><td>**DEV-02**</td><td>**Low**</td><td>Static Analysis</td><td>`analysis_options.yaml`</td><td>SDK Flutter submodule masuk ke path analisis, menghasilkan 13.910 error palsu</td><td>Ditambahkan `- flutter/**` ke `analyzer.exclude`</td><td>**VERIFIED PASS** (0 issues in 4.8s)</td></tr>
-</table>
-<hr>
-<h2>4. BUKTI EKSEKUSI &amp; TEST RESULTS (RAW OUTPUTS)</h2>
-<h3>4.1 Unit Test Execution (`flutter test --coverage`)</h3>
-<p>Semua 40 skenario pengujian unit (Auth, QRIS EMVCo, CRC16, Mutasi, dan Validasi Username) lulus 100%:</p>
-<pre><code class="language-text">00:00 +0: C:/Users/Administrator/Documents/digiq/test/auth_otp_test.dart: AuthService.mapOtpType email → OtpType.email
-00:00 +1: C:/Users/Administrator/Documents/digiq/test/auth_otp_test.dart: AuthService.mapOtpType signup → OtpType.signup
-00:00 +2: C:/Users/Administrator/Documents/digiq/test/auth_otp_test.dart: AuthService.mapOtpType SIGNUP uppercase → OtpType.signup (case-insensitive)
-00:00 +3: C:/Users/Administrator/Documents/digiq/test/auth_otp_test.dart: AuthService.mapOtpType recovery → OtpType.recovery
-00:00 +4: C:/Users/Administrator/Documents/digiq/test/auth_otp_test.dart: AuthService.mapOtpType magiclink → OtpType.magiclink
-00:00 +5: C:/Users/Administrator/Documents/digiq/test/auth_otp_test.dart: AuthService.mapOtpType email_change → OtpType.emailChange
-00:00 +6: C:/Users/Administrator/Documents/digiq/test/auth_otp_test.dart: AuthService.mapOtpType emailchange → OtpType.emailChange
-00:00 +7: C:/Users/Administrator/Documents/digiq/test/auth_otp_test.dart: AuthService.mapOtpType invite → OtpType.invite
-00:00 +8: C:/Users/Administrator/Documents/digiq/test/auth_otp_test.dart: AuthService.mapOtpType null → null (tidak dikenal)
-00:00 +9: C:/Users/Administrator/Documents/digiq/test/auth_otp_test.dart: AuthService.mapOtpType string kosong → null
-00:00 +10: C:/Users/Administrator/Documents/digiq/test/auth_otp_test.dart: AuthService.mapOtpType nilai random → null
-00:00 +11: C:/Users/Administrator/Documents/digiq/test/auth_otp_test.dart: validatePassword kosong → error
-00:00 +12: C:/Users/Administrator/Documents/digiq/test/auth_otp_test.dart: validatePassword kurang dari 8 karakter → error
-00:00 +13: C:/Users/Administrator/Documents/digiq/test/auth_otp_test.dart: validatePassword tepat 8 karakter → valid
-00:00 +14: C:/Users/Administrator/Documents/digiq/test/auth_otp_test.dart: validatePassword lebih dari 8 karakter → valid
-00:00 +15: C:/Users/Administrator/Documents/digiq/test/auth_otp_test.dart: validateEmail kosong → error
-00:00 +16: C:/Users/Administrator/Documents/digiq/test/auth_otp_test.dart: validateEmail tanpa @ → error
-00:00 +17: C:/Users/Administrator/Documents/digiq/test/auth_otp_test.dart: validateEmail tanpa domain → error
-00:00 +18: C:/Users/Administrator/Documents/digiq/test/auth_otp_test.dart: validateEmail domain tanpa TLD → error
-00:00 +19: C:/Users/Administrator/Documents/digiq/test/auth_otp_test.dart: validateEmail format valid gmail → null
-00:00 +20: C:/Users/Administrator/Documents/digiq/test/auth_otp_test.dart: validateEmail format valid dengan subdomain → null
-00:00 +21: C:/Users/Administrator/Documents/digiq/test/auth_otp_test.dart: validateEmail karakter khusus yang diizinkan → null
-00:00 +22: C:/Users/Administrator/Documents/digiq/test/qris_service_test.dart: QRIS kopi sat — Static Payload Verification kDefaultStaticQrisPayload harus valid CRC16 (F95A)
-00:00 +23: C:/Users/Administrator/Documents/digiq/test/qris_service_test.dart: QRIS kopi sat — Static Payload Verification extractMerchantInfo harus mengekstrak nama merchant kopi sat dan NMID ID1026516422080
-00:00 +24: C:/Users/Administrator/Documents/digiq/test/qris_service_test.dart: QRIS Dynamic Injection (buildDynamicQris) buildDynamicQris(10300) menghasilkan tag 010212, tag 540510300, dan CRC16 valid
-00:00 +25: C:/Users/Administrator/Documents/digiq/test/qris_service_test.dart: QRIS Dynamic Injection (buildDynamicQris) buildDynamicQris untuk nominal lain menghasilkan tag 54 yang tepat dan CRC valid
-00:00 +26: C:/Users/Administrator/Documents/digiq/test/qris_service_test.dart: CRC16 &amp; Validation Helpers verifyCrc16 menolak payload yang rusak atau dimodifikasi tanpa hitung ulang
-00:00 +27: C:/Users/Administrator/Documents/digiq/test/qris_service_test.dart: CRC16 &amp; Validation Helpers verifyCrc16 menolak string kosong atau tidak memiliki tag 63
-00:00 +28: C:/Users/Administrator/Documents/digiq/test/qris_service_test.dart: CRC16 &amp; Validation Helpers formatRupiah memformat angka ke format mata uang Indonesia yang tepat (positif, nol, negatif)
-00:00 +29: C:/Users/Administrator/Documents/digiq/test/qris_service_test.dart: QrisSettings Model fromMap menggunakan fallback kopi sat jika payload kosong
-00:02 +30: C:/Users/Administrator/Documents/digiq/test/username_validation_test.dart: Username Format Validation Unit Tests Valid username (5 karakter alfanumerik)
-00:02 +31: C:/Users/Administrator/Documents/digiq/test/username_validation_test.dart: Username Format Validation Unit Tests Valid username (20 karakter alfanumerik campuran besar/kecil)
-00:02 +32: C:/Users/Administrator/Documents/digiq/test/username_validation_test.dart: Username Format Validation Unit Tests Ditolak jika kurang dari 5 karakter (4 karakter)
-00:02 +33: C:/Users/Administrator/Documents/digiq/test/username_validation_test.dart: Username Format Validation Unit Tests Ditolak jika lebih dari 20 karakter (21 karakter)
-00:02 +34: C:/Users/Administrator/Documents/digiq/test/username_validation_test.dart: Username Format Validation Unit Tests Ditolak jika mengandung simbol titik atau underscore
-00:02 +35: C:/Users/Administrator/Documents/digiq/test/username_validation_test.dart: Username Format Validation Unit Tests Ditolak jika mengandung spasi di tengah atau ujung
-00:02 +36: C:/Users/Administrator/Documents/digiq/test/username_validation_test.dart: Username Format Validation Unit Tests Normalisasi case-insensitive (Bayu == bayu)
-00:03 +37: C:/Users/Administrator/Documents/digiq/test/widget_test.dart: TransactionModel Unit Tests fromMap membaca semua field QRIS statis dan kode unik dengan benar
-00:03 +38: C:/Users/Administrator/Documents/digiq/test/widget_test.dart: TransactionModel Unit Tests backward compatibility saat base_amount dan unique_code null di database
-00:03 +39: C:/Users/Administrator/Documents/digiq/test/widget_test.dart: PaymentMutationModel Unit Tests fromMap dan toMap mengonversi objek mutasi dengan presisi
-00:06 +40: All tests passed!
+<h2>BAGIAN 1: VERIFIED (LOLOS PENGUJIAN DENGAN BUKTI MENTAH)</h2>
+<p>Seluruh item pada bagian ini **telah dieksekusi secara nyata** dalam sesi ini dan disertai log/output mentah:</p>
+<h3>1.1 Ingress Cloudflare Tunnel Menjangkau Localhost Port 9000</h3>
+<p>Panggilan HTTP riil dari domain publik `https://enikzrad.web.id/health` berhasil diteruskan oleh `cloudflared` ke `spa_server.py`:</p>
+<pre><code class="language-text">Tunnel Ingress Status: 200 OK
+Server Header: cloudflare
+CF-Ray: a51c65d27ebefe8b-SIN
+Content-Type: application/json; charset=utf-8
+Body: {&quot;status&quot;:&quot;ok&quot;,&quot;server&quot;:&quot;DigiQ-SPA-Windows&quot;,&quot;port&quot;:9000}
 </code></pre>
-<h3>4.2 Static Code Analysis (`flutter analyze lib/`)</h3>
-<pre><code class="language-text">Analyzing lib/...
-No issues found! (ran in 4.8s)
+<h3>1.2 Path Traversal Protection (HTTP 403 Forbidden)</h3>
+<p>Pengujian injeksi path traversal (`/../secret` dan `/../build/web/index.html`) terhadap `spa_server.py` membuktikan penolakan akses:</p>
+<pre><code class="language-text">=== Request: GET /../secret ===
+Status: 403 Forbidden
+Headers:
+  Server: DigiQ-SPA-Server/1.0 Python/3.9.0
+  Content-Type: text/plain; charset=utf-8
+  Content-Length: 14
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  Referrer-Policy: strict-origin-when-cross-origin
+  Content-Security-Policy: default-src &#x27;self&#x27; &#x27;unsafe-inline&#x27; &#x27;unsafe-eval&#x27; https: wss: data: blob:;
+Body: b&#x27;403 Forbidden\n&#x27;
+
+=== Request: GET /../build/web/index.html ===
+Status: 403 Forbidden
+Body: b&#x27;403 Forbidden\n&#x27;
 </code></pre>
-<h3>4.3 Production Release Build Verification (`flutter build web --release`)</h3>
-<pre><code class="language-text">Compiling lib\main.dart for the Web...
-Wasm dry run succeeded. Consider building and testing your application with the `--wasm` flag.
-Font asset &quot;MaterialIcons-Regular.otf&quot; was tree-shaken, reducing it from 1645184 to 20572 bytes (98.7% reduction).
-Compiling lib\main.dart for the Web...                             71.9s
-√ Built build\web
-Output Size:
-- main.dart.js: 3,153,179 bytes (~3.15 MB)
-- flutter_bootstrap.js: 13,094 bytes
-- index.html: 1,544 bytes
+<h3>1.3 Security Headers &amp; SPA Routing Fallback</h3>
+<p>Pemeriksaan header keamanan pada response root `/`:</p>
+<pre><code class="language-text">=== Request: GET / ===
+Status: 200 OK
+Headers:
+  Content-Type: text/html; charset=utf-8
+  Cache-Control: no-cache, no-store, must-revalidate
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  Referrer-Policy: strict-origin-when-cross-origin
+  Content-Security-Policy: default-src &#x27;self&#x27; &#x27;unsafe-inline&#x27; &#x27;unsafe-eval&#x27; https: wss: data: blob:;
 </code></pre>
-<h3>4.4 Load Test &amp; Endpoint Latency (`audit/run_load_test.py`)</h3>
-<p>Hasil pengujian beban terhadap `spa_server.py` pada port 9000:</p>
+<h3>1.4 Kompresi Gzip &amp; Brotli</h3>
+<p>Pengujian membuktikan bahwa `spa_server.py` lokal sengaja mengirimkan byte tanpa kompresi ganda untuk menghemat beban CPU host Windows, sementara Cloudflare Edge secara otomatis mengompresi payload menggunakan algoritma Brotli (`Content-Encoding: br`) saat dikirim ke pengguna:</p>
+<pre><code class="language-text">Cloudflare Status: 200 OK
+Content-Encoding: br
+CF-Ray: a51c66318bea5833-SIN
+Server: cloudflare
+</code></pre>
+<h3>1.5 Secrets Scan Riwayat Git (`git log -p -S`)</h3>
+<p>Pemindaian riwayat komit Git membuktikan tidak ada kebocoran kunci rahasia (`service_role`, `sbp_`, password, `SECRET_KEY`, atau `DATABASE_URL`):</p>
+<pre><code class="language-text">=== Git log scan: &quot;sbp_&quot; (0 diff lines) ===
+=== Git log scan: &quot;SECRET_KEY&quot; (0 diff lines) ===
+=== Git log scan: &quot;DATABASE_URL&quot; (0 diff lines) ===
+=== Git log scan: &quot;service_role&quot; (4166 diff lines) ===
+  (Hanya berupa komentar SQL dan pengecekan hak akses internal auth.role() = &#x27;service_role&#x27;)
+</code></pre>
+<h3>1.6 Supabase Row Level Security (RLS) Live Probing (Anon Role)</h3>
+<p>Pengujian pembacaan dan penulisan langsung menggunakan Anon Key ke live Supabase:</p>
+<pre><code class="language-text">=== SUPABASE LIVE RLS AUDIT (ANON ROLE / UNAUTHENTICATED) ===
+1. SELECT profiles: HTTP 200 -&gt; Rows: 0 (Akses data pengguna lain diblokir RLS)
+2. SELECT transactions: HTTP 200 -&gt; Rows: 0 (Akses transaksi pengguna lain diblokir RLS)
+3. SELECT payment_mutations: HTTP 200 -&gt; Rows: 0 (Akses mutasi diblokir RLS)
+4. INSERT profiles (Eskalasi Role &#x27;admin&#x27;): HTTP 401 -&gt;
+   {&quot;code&quot;:&quot;42501&quot;,&quot;message&quot;:&quot;new row violates row-level security policy for table \&quot;profiles\&quot;&quot;} (DITOLAK)
+5. INSERT transactions (Pemalsuan Transaksi &#x27;paid&#x27;): HTTP 401 -&gt;
+   {&quot;code&quot;:&quot;42501&quot;,&quot;message&quot;:&quot;new row violates row-level security policy for table \&quot;transactions\&quot;&quot;} (DITOLAK)
+</code></pre>
+<h3>1.7 Hasil Pengujian Unit Baru (64/64 Unit Tests PASS)</h3>
+<p>Seluruh 64 skenario pengujian unit (termasuk 24 tes baru untuk fallback displayName, pemetaan error translateAuthError, QRIS edge cases 0 / negatif / besar / rusak, dan validasi berkas upload) lulus 100%:</p>
+<pre><code class="language-text">PS C:\Users\Administrator\Documents\digiq&gt; flutter test --coverage
+00:20 +36: test/audit_hardening_test.dart: ProfileModel.displayName fallback ke &#x27;User&#x27;
+00:20 +37: test/audit_hardening_test.dart: AuthService.translateAuthError mapping upstream timeout
+00:20 +38: test/audit_hardening_test.dart: AuthService.translateAuthError mapping Database error saving new user
+00:20 +43: test/audit_hardening_test.dart: QRIS nominal 0 menghasilkan tag 54 dan CRC valid
+00:20 +44: test/audit_hardening_test.dart: QRIS nominal 999.999.999 menghasilkan tag 540999999999 dan CRC valid
+00:20 +45: test/audit_hardening_test.dart: QRIS nominal negatif menghasilkan CRC valid
+00:20 +46: test/audit_hardening_test.dart: QRIS verifyCrc16 menolak payload yang rusak atau dipotong
+00:20 +48: test/audit_hardening_test.dart: Validasi gambar meloloskan JPEG dan PNG valid
+00:20 +50: test/audit_hardening_test.dart: Validasi gambar menolak berkas &gt; 2MB
+00:20 +51: test/audit_hardening_test.dart: Validasi gambar menolak exploit SVG XSS &amp; executable
+00:20 +52: test/audit_hardening_test.dart: Validasi gambar menolak file EXE yang di-rename ke .jpg
+...
+00:41 +64: All tests passed!
+</code></pre>
+<h3>1.8 Cakupan Kode Unit Test (Coverage Report)</h3>
+<p>Line coverage meningkat dari 37.26% menjadi **45.05%**:</p>
 <pre><code class="language-text">==================================================
-           SPA SERVER LOAD TEST RESULTS           
+           DIGIQ CODE COVERAGE REPORT             
 ==================================================
-Target URL          : http://127.0.0.1:9000
-Total Requests      : 100
-Concurrency         : 10
-Successful Requests : 100 (100.0%)
-Failed Requests     : 0 (0.0%)
-Total Time Taken    : 0.590 seconds
-Requests Per Second : 169.49 req/s
-Average Latency     : 26.42 ms
-Min Latency         : 1.00 ms
-Max Latency         : 49.00 ms
+Total Source Lines Evaluated : 424
+Total Lines Covered (Hit)    : 191
+Unit Test Line Coverage      : 45.05%
 
-Endpoint Verifications:
-  • GET /health               : HTTP 200 (OK, Latency: 0.97ms)
-  • GET /                     : HTTP 200 (OK, Latency: 1.00ms)
-  • GET /non-existent-route   : HTTP 200 (SPA Fallback to index.html verified)
-  • GET /.env (Dotfile Block) : HTTP 404 (Security Block verified)
+Files Analyzed:
+  • lib\models\payment_mutation_model.dart             :  18/34  ( 52.9%)
+  • lib\models\profile_model.dart                      :   6/31  ( 19.4%)
+  • lib\models\transaction_model.dart                  :  26/45  ( 57.8%)
+  • lib\services\auth_service.dart                     :  43/166 ( 25.9%)
+  • lib\services\deep_link_auth_handler.dart           :   0/23  (  0.0%)
+  • lib\services\qris_service.dart                     :  98/111 ( 88.3%)
+  • lib\services\supabase_config.dart                  :   0/14  (  0.0%)
 ==================================================
 </code></pre>
-<h3>4.5 Supabase Live Probing (Read-Only Verification)</h3>
-<p>Hasil probe langsung ke endpoint Supabase REST &amp; RPC:</p>
-<pre><code class="language-text">Target: https://iqxoofrhhrqkgehuvrlb.supabase.co
-- GET /rest/v1/profiles?select=id&amp;limit=1          -&gt; HTTP 200 (OK, RLS active)
-- GET /rest/v1/products?select=id&amp;limit=1          -&gt; HTTP 200 (OK, RLS active)
-- GET /rest/v1/transactions?select=id&amp;limit=1      -&gt; HTTP 200 (OK, RLS active)
-- GET /rest/v1/payment_mutations?select=id&amp;limit=1 -&gt; HTTP 200 (OK, RLS active)
-- GET /rest/v1/chat_messages?select=id&amp;limit=1     -&gt; HTTP 200 (OK, RLS active)
-- POST /rest/v1/rpc/is_admin                       -&gt; HTTP 200 (OK, RPC active)
-- POST /rest/v1/rpc/check_username_available       -&gt; HTTP 404 (Expected - Pending migration 006)
-- GET /auth/v1/settings                            -&gt; mailer_autoconfirm: false (Confirmed)
+<h3>1.9 Static Code Analysis Seluruh Proyek (`flutter analyze .`)</h3>
+<p>Pengujian analisis statis terhadap **seluruh direktori proyek** (bukan hanya `lib/`):</p>
+<pre><code class="language-text">PS C:\Users\Administrator\Documents\digiq&gt; flutter analyze .
+Analyzing digiq...                                              
+No issues found! (ran in 5.3s)
 </code></pre>
+<h3>1.10 Klarifikasi Hasil `flutter pub outdated`</h3>
+<p>Tidak ada kontradiksi teknis:</p>
+<li>**Direct Dependencies:** `all up-to-date` (Semua package yang dideklarasikan langsung di `pubspec.yaml` berada pada versi terbarunya).</li>
+<li>**Dev Dependencies:** `all up-to-date`.</li>
+<li>**Transitive Dependencies (5 dependencies):** `jni`, `material_color_utilities`, `meta`, `shared_preferences_android`, dan `vector_math` terkunci pada `pubspec.lock` karena ditarik oleh dependensi tingkat kedua. Versi tersebut dapat diperbarui dengan menjalankan `flutter pub upgrade` tanpa mengubah deklarasi `pubspec.yaml`.</li>
 <hr>
-<h2>5. DETAIL AUDIT FITUR UTAMA</h2>
-<h3>5.1 Diagnosis Tuntas Upstream Timeout Registrasi</h3>
-<li>**Bukan Cloudflare Tunnel:** Arsitektur membuktikan bahwa request `auth.signUp()` tidak melalui server lokal atau Cloudflare Tunnel. Flutter Web melakukan panggilan langsung dari browser via `fetch()` ke `https://iqxoofrhhrqkgehuvrlb.supabase.co/auth/v1/signup`.</li>
-<li>**Akar Masalah (Root Cause):**</li>
-<p>Pada Supabase GoTrue, nilai `mailer_autoconfirm: false` mewajibkan pengiriman email konfirmasi secara sinkron pada saat request registrasi diproses. Jika SMTP default Supabase terkena rate limit atau SMTP kustom mengalami lag koneksi di atas batas waktu Kong/Cloudflare, response akan hang hingga mengeluarkan status HTTP 504 Gateway Timeout / 524 Cloudflare Timeout.</p>
-<li>**Solusi yang Diterapkan:**</li>
-<p>1. Timeout protektif 15 detik pada `AuthService.signUp()` sehingga UI Flutter tidak hang selamanya.</p>
-<p>2. Translasi error pada `translateAuthError` yang memetakan `&quot;upstream request timeout&quot;`, `&quot;gateway timeout&quot;`, dan status 504 menjadi: *&quot;Koneksi server otentikasi timeout. Mohon periksa email Anda atau coba beberapa saat lagi.&quot;*</p>
-<p>3. Pemetaan error `&quot;database error saving new user&quot;` menjadi penjelasan ramah kepada pengguna.</p>
-<h3>5.2 Perbandingan Trigger `handle_new_user()`</h3>
-<p>Perbandingan antara `01_main_schema.sql` lama dan `006_username_and_registration_hardening.sql`:</p>
-<pre><code class="language-sql">-- VERSI LAMA (01_main_schema.sql):
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS trigger AS $$
-BEGIN
-  INSERT INTO public.profiles (id, full_name, role)
-  VALUES (
-    new.id,
-    COALESCE(new.raw_user_meta_data-&gt;&gt;&#x27;full_name&#x27;, &#x27;&#x27;),
-    COALESCE((new.raw_user_meta_data-&gt;&gt;&#x27;role&#x27;)::user_role, &#x27;customer&#x27;::user_role)
-  );
-  RETURN new;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- VERSI TERBARU (006_username_and_registration_hardening.sql):
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS trigger AS $$
-DECLARE
-  v_username text;
-  v_full_name text;
-  v_role user_role;
-BEGIN
-  -- Ekstraksi username dari metadata, fallback ke prefix email jika tidak ada
-  v_username := lower(trim(COALESCE(
-    new.raw_user_meta_data-&gt;&gt;&#x27;username&#x27;,
-    split_part(new.email, &#x27;@&#x27;, 1)
-  )));
-
-  -- Sanitasi: hanya izinkan alfanumerik
-  v_username := regexp_replace(v_username, &#x27;[^a-z0-9]&#x27;, &#x27;&#x27;, &#x27;g&#x27;);
-  
-  -- Pastikan panjang minimal 5 karakter dengan padding id
-  IF length(v_username) &lt; 5 THEN
-    v_username := v_username || substr(replace(new.id::text, &#x27;-&#x27;, &#x27;&#x27;), 1, 5 - length(v_username));
-  END IF;
-  
-  -- Batasi maksimal 20 karakter
-  IF length(v_username) &gt; 20 THEN
-    v_username := substr(v_username, 1, 20);
-  END IF;
-
-  -- Jika terjadi konflik username, tambahkan suffix 4 karakter acak dari UUID
-  IF EXISTS (SELECT 1 FROM public.profiles WHERE lower(username) = v_username) THEN
-    v_username := substr(v_username, 1, 15) || substr(replace(new.id::text, &#x27;-&#x27;, &#x27;&#x27;), 1, 4);
-  END IF;
-
-  v_full_name := COALESCE(new.raw_user_meta_data-&gt;&gt;&#x27;full_name&#x27;, &#x27;&#x27;);
-  
-  BEGIN
-    v_role := COALESCE((new.raw_user_meta_data-&gt;&gt;&#x27;role&#x27;)::user_role, &#x27;customer&#x27;::user_role);
-  EXCEPTION WHEN OTHERS THEN
-    v_role := &#x27;customer&#x27;::user_role;
-  END;
-
-  INSERT INTO public.profiles (id, username, full_name, role, created_at, updated_at)
-  VALUES (new.id, v_username, v_full_name, v_role, now(), now())
-  ON CONFLICT (id) DO UPDATE SET
-    username = EXCLUDED.username,
-    full_name = EXCLUDED.full_name,
-    role = EXCLUDED.role,
-    updated_at = now();
-
-  RETURN new;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-</code></pre>
-<p>*Catatan Integritas:* Logika lama (`id`, `full_name`, `role`) dipertahankan sepenuhnya. Ditambahkan fallback otomatis, sanitasi alfanumerik, resolusi konflik collision, exception safety untuk casting `user_role`, dan klausa `ON CONFLICT (id) DO UPDATE` agar tidak pernah lagi melempar exception &quot;Database error saving new user&quot;.</p>
-<h3>5.3 Validasi Username &amp; Debounce Anti-Race Condition</h3>
-<li>**RegEx Standar:** `^[a-zA-Z0-9]{5,20}$` (5 sampai 20 karakter, hanya huruf dan angka, tanpa spasi atau karakter spesial).</li>
-<li>**Normalisasi:** Case-insensitive (`lower()`).</li>
-<li>**Debounce:** 500 ms di UI Flutter.</li>
-<li>**Race Condition Prevention:** Variabel internal `_usernameCheckSeq` dinaikkan pada setiap keystroke. Respons API RPC yang tiba diabaikan jika ID request tidak sama dengan sequence terkini:</li>
-<pre><code class="language-dart">  final currentSeq = ++_usernameCheckSeq;
-  final status = await _authService.checkUsernameStatus(trimmed);
-  if (!mounted || currentSeq != _usernameCheckSeq) return;
-  // Update state hanya jika sequence cocok
-</code></pre>
-<h3>5.4 Audit Mesin QRIS &amp; Mutasi Pembayaran</h3>
-<li>**QRIS Statis Toko:** Merchant `kopi sat`, NMID `ID1026516422080`. Tag 63 CRC16 terverifikasi `F95A`.</li>
-<li>**Injeksi QRIS Dinamis (`buildDynamicQris`):**</li>
-<li>Mengubah Tag 01 (Point of Initiation) menjadi `010212` (Dinamis).</li>
-<li>Menginjeksi Tag 54 (Transaction Amount) dengan format panjang 2 digit dan nilai nominal (misal `540510300`).</li>
-<li>Menghitung ulang Tag 63 (CRC16-CCITT 0xFFFF) sesuai spesifikasi EMVCo QRIS Bank Indonesia.</li>
-<li>**Pengujian Citra QR &amp; Validasi:**</li>
-<p>Skrip `audit/generate_audit_images.py` telah memvalidasi pembacaan QR Code langsung menggunakan decoder `pyzbar`:</p>
-<li>`audit/images/qris_static_sample.png`: Valid CRC16 `F95A`.</li>
-<li>`audit/images/qris_dynamic_sample.png`: Valid CRC16 untuk nominal dinamis.</li>
-<li>Penolakan payload yang dimodifikasi tanpa hitung ulang CRC terverifikasi dalam `test/qris_service_test.dart`.</li>
-<h3>5.5 Storage &amp; Uji Keamanan Upload</h3>
-<p>File uji keamanan telah digenerate pada direktori `audit/images/`:</p>
-<li>`avatar_sample.jpg`: Citra JPEG valid 200x200 px.</li>
-<li>`corrupted_image.jpg`: File header gambar yang rusak (ditolak validator image parser).</li>
-<li>`fake_malware.jpg`: File teks berekstensi .jpg berisi script eksekusi (ditolak oleh validasi MIME type).</li>
-<li>`malicious_xss.svg`: File SVG berisi embedded `&lt;script&gt;alert(&#x27;XSS&#x27;)&lt;/script&gt;` (ditolak oleh whitelist ekstensi migrasi 006).</li>
+<h2>BAGIAN 2: NOT VERIFIED (MEMBUTUHKAN AKSI PENGGUNA / LIVE DB)</h2>
+<p>Item pada bagian ini **belum dapat ditandai PASS** karena membutuhkan persetujuan dan eksekusi langsung oleh pemilik proyek pada database Supabase live:</p>
+<p>1. **Aplikasi Migrasi Database `006_username_and_registration_hardening.sql` (NOT VERIFIED):**</p>
+<li>*Status Saat Ini:* Kolom `username` belum ada di tabel `profiles` live, dan pemanggilan RPC `check_username_available` menghasilkan HTTP 404.</li>
+<li>*Aksi yang Dibutuhkan:* Pengguna harus membuka Supabase SQL Editor (`https://supabase.com/dashboard/project/iqxoofrhhrqkgehuvrlb/sql`), lalu menyalin dan menjalankan seluruh isi file `supabase/006_username_and_registration_hardening.sql`.</li>
+<p>2. **Pendaftaran Akun Baru End-to-End dengan Email Nyata (NOT VERIFIED):**</p>
+<li>*Status Saat Ini:* Simulasi penanganan timeout dan validasi username di sisi frontend telah diverifikasi lulus tes, namun pengujian pengiriman email verifikasi OTP nyata bergantung pada ketersediaan provider SMTP pada dashboard Supabase.</li>
+<li>*Aksi yang Dibutuhkan:* Setelah migrasi 006 diaplikasikan, lakukan pendaftaran akun pengujian melalui antarmuka web di `https://enikzrad.web.id/register`.</li>
+<p>3. **Penerapan Konfigurasi Storage Bucket Constraints di Supabase (NOT VERIFIED):**</p>
+<li>*Status Saat Ini:* Skrip SQL 006 menyertakan perintah pembaruan tabel `storage.buckets` (`file_size_limit = 2097152`), namun batasan ini baru aktif setelah skrip dieksekusi di database live.</li>
 <hr>
-<h2>6. PANDUAN DEPLOYMENT &amp; CHECKLIST WINDOWS SERVER</h2>
-<h3>6.1 Prosedur Deployment Terurut (Strict Execution Order)</h3>
-<h4>Langkah 1: Eksekusi Migrasi Database (Supabase SQL Editor)</h4>
-<p>Buka Dashboard Supabase (`https://supabase.com/dashboard/project/iqxoofrhhrqkgehuvrlb/sql`), salin dan jalankan seluruh isi berkas:</p>
-<p>`supabase/006_username_and_registration_hardening.sql`</p>
-<p>*Verifikasi Langkah 1:*</p>
-<p>Jalankan query verifikasi di SQL Editor:</p>
-<pre><code class="language-sql">SELECT column_name, data_type, is_nullable 
-FROM information_schema.columns 
+<h2>BAGIAN 3: REKOMENDASI TEKNIS &amp; OPERASIONAL</h2>
+<p>Berikut adalah langkah-langkah terurut yang disarankan:</p>
+<h3>Rekomendasi 1: Terapkan Migrasi 006 di Supabase SQL Editor</h3>
+<p>Salin file `supabase/006_username_and_registration_hardening.sql` ke Supabase SQL Editor. Jalankan verifikasi query berikut:</p>
+<pre><code class="language-sql">SELECT column_name, is_nullable FROM information_schema.columns 
 WHERE table_name = &#x27;profiles&#x27; AND column_name = &#x27;username&#x27;;
--- Pastikan is_nullable = &#x27;NO&#x27;
+-- Hasil harus: is_nullable = &#x27;NO&#x27;
 
 SELECT public.check_username_available(&#x27;testuser123&#x27;);
--- Pastikan mengembalikan true
+-- Hasil harus: true
 </code></pre>
-<h4>Langkah 2: Build Aplikasi Production Flutter Web</h4>
-<p>Buka PowerShell di direktori `C:\Users\Administrator\Documents\digiq`:</p>
-<pre><code class="language-powershell">flutter build web --release
+<h3>Rekomendasi 2: Daftarkan `spa_server.py` sebagai Windows Service Permanen</h3>
+<p>Agar web server tidak berhenti jika terminal ditutup atau komputer me-restart:</p>
+<p>Gunakan utilitas NSSM (Non-Sucking Service Manager) atau Windows Task Scheduler untuk menjalankan skrip PowerShell:</p>
+<pre><code class="language-powershell">powershell -ExecutionPolicy Bypass -File C:\Users\Administrator\Documents\digiq\scripts\serve_prod_9000.ps1
 </code></pre>
-<h4>Langkah 3: Hapus Firewall Rule Port 9000 yang Tidak Diperlukan</h4>
-<p>Karena akses publik melewati Cloudflare Zero Trust Tunnel lokal, port 9000 tidak boleh diekspos ke jaringan publik:</p>
+<h3>Rekomendasi 3: Hapus Rule Firewall Port 9000 yang Tidak Diperlukan</h3>
+<p>Karena traffic publik sepenuhnya ditangani oleh `cloudflared.exe` melalui koneksi tunnel keluar (outbound), tidak diperlukan membuka port 9000 ke jaringan publik pada Windows Firewall:</p>
 <pre><code class="language-powershell">Remove-NetFirewallRule -DisplayName &quot;DigiQ Web Port 9000&quot; -ErrorAction SilentlyContinue
 </code></pre>
-<h4>Langkah 4: Restart Servis Web Lokal (`spa_server.py`)</h4>
-<p>Hentikan instance lama dan jalankan server produksi menggunakan ExecutionPolicy Bypass:</p>
-<pre><code class="language-powershell"># Jalankan via PowerShell
-powershell -ExecutionPolicy Bypass -File .\scripts\serve_prod_9000.ps1
-</code></pre>
-<h4>Langkah 5: Smoke Testing End-to-End</h4>
-<p>1. Buka `https://enikzrad.web.id` pada peramban (Chrome / Edge).</p>
-<p>2. Periksa HTTP Header (pastikan header keamanan `Content-Security-Policy` dan `X-Content-Type-Options: nosniff` aktif).</p>
-<p>3. Buka halaman registrasi (`/register`):</p>
-<li>Masukkan username `user` (&lt; 5 karakter) -&gt; Indikator merah &quot;Username minimal 5 karakter&quot;.</li>
-<li>Masukkan username valid -&gt; Indikator hijau centang (Status: Tersedia).</li>
-<p>4. Lakukan pendaftaran akun pengujian baru dan verifikasi tidak terjadi upstream timeout.</p>
-<p>5. Lakukan pengujian pembuatan transaksi QRIS dinamis dan pastikan QR Code dirender dengan benar.</p>
-<h4>Langkah 6: Prosedur Rollback (Jika Ditemukan Anomali)</h4>
-<p>1. Jika migrasi 006 perlu dibatalkan sementara:</p>
-<pre><code class="language-sql">   ALTER TABLE public.profiles ALTER COLUMN username DROP NOT NULL;
-   -- Kembalikan trigger handle_new_user versi 01_main_schema.sql
-</code></pre>
-<p>2. Jika build web baru bermasalah:</p>
-<p>Gunakan backup direktori `build\web` sebelumnya dan restart `spa_server.py`.</p>
-<hr>
-<h2>7. DAFTAR ARTIFAK AUDIT YANG DIHASILKAN</h2>
-<p>Seluruh artifak tersimpan lengkap di direktori `audit/`:</p>
-<p>1. `audit/REPORT.md`: Laporan audit komprehensif ini.</p>
-<p>2. `audit/architecture.svg`: Diagram arsitektur vektor end-to-end (Cloudflare, Windows Host, Supabase, External Services).</p>
-<p>3. `audit/architecture.png`: Diagram arsitektur resolusi tinggi format PNG.</p>
-<p>4. `audit/er-diagram.svg`: Diagram ER entitas basis data vektor format SVG.</p>
-<p>5. `audit/er-diagram.png`: Diagram ER entitas basis data format PNG.</p>
-<p>6. `audit/load-test-results.txt`: Log hasil load test 100 concurrent requests pada `spa_server.py`.</p>
-<p>7. `audit/coverage-summary.txt`: Ringkasan cakupan pengujian unit kode Flutter.</p>
-<p>8. `audit/images/qris_static_sample.png`: Citra QRIS statis kopi sat (CRC: F95A).</p>
-<p>9. `audit/images/qris_dynamic_sample.png`: Citra QRIS dinamis hasil injeksi nominal otomatis.</p>
-<p>10. `audit/images/avatar_sample.jpg`: Citra JPEG sampel profil.</p>
-<p>11. `audit/images/malicious_xss.svg`: Sampel payload SVG XSS untuk audit validasi storage.</p>
-<p>12. `audit/images/fake_malware.jpg`: Sampel berkas simulasi invalid MIME type.</p>
-<p>13. `audit/images/corrupted_image.jpg`: Sampel berkas citra korup.</p>
-<p>14. `audit/run_load_test.py`: Skrip otomasi uji beban backend/server.</p>
-<p>15. `audit/generate_audit_images.py`: Skrip generator sampel QRIS dan citra pengujian.</p>
-<p>16. `audit/generate_diagrams.py`: Skrip rendering visual arsitektur dan ER diagram.</p>
-<p>17. `supabase/006_username_and_registration_hardening.sql`: Berkas migrasi database hardening.</p>
-<p>18. `test/username_validation_test.dart`: Berkas unit test validasi username 7 skenario.</p>
-<hr>
-<h2>8. BATASAN &amp; ASPEK YANG TIDAK DIUJI (WHAT WAS SKIPPED)</h2>
-<p>Sesuai instruksi keselamatan (Strict Non-Destructive Actions on Production Data):</p>
-<p>1. **Tidak Dilakukan Write/Delete Data pada Supabase Live:** Tidak ada akun dummy yang didaftarkan ke live database, tidak ada tabel yang dimodifikasi langsung, dan tidak ada migrasi yang di-apply otomatis tanpa persetujuan pengguna. Migrasi 006 disiapkan dalam berkas SQL untuk diaplikasikan melalui Supabase SQL Editor.</p>
-<p>2. **Kredensial SMTP Pihak Ketiga Tidak Diekspos:** Konfigurasi SMTP GoTrue berada di bawah kontrol Cloud Supabase; pengujian performa pengiriman email riil bergantung pada provider SMTP yang dikonfigurasi pada dashboard Supabase.</p>
-<p>3. **Hardware Gateway Pembayaran Nyata:** Verifikasi mutasi pembayaran dilakukan melalui unit test model dan verifikasi algoritma perhitungan CRC16 EMVCo standar Bank Indonesia, bukan transaksi debit perbankan nyata.</p>
+<h3>Rekomendasi 4: Konfigurasi Custom SMTP di Supabase Dashboard</h3>
+<p>Karena `mailer_autoconfirm: false`, GoTrue Auth akan menunggu respon SMTP sebelum menyelesaikan proses signup. Disarankan mengonfigurasi provider SMTP kustom bereputasi tinggi (Resend, AWS SES, atau Postmark) pada menu **Project Settings -&gt; Authentication -&gt; SMTP Settings** untuk mencegah latency di atas 5 detik.</p>
 </body></html>

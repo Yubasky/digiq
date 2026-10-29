@@ -29,7 +29,7 @@ PROJECT_ROOT = os.path.realpath(os.path.join(SCRIPT_DIR, ".."))
 BUILD_WEB_DIR = os.path.realpath(os.path.join(PROJECT_ROOT, "build", "web"))
 
 # ── Konfigurasi Port & Host ───────────────────────────────────────────────────
-DEFAULT_HOST = os.environ.get("HOST", "0.0.0.0")
+DEFAULT_HOST = os.environ.get("HOST", "127.0.0.1")
 DEFAULT_PORT = int(os.environ.get("PORT", 9000))
 
 # ── Pemetaan MIME Type Eksplisit ──────────────────────────────────────────────
@@ -87,7 +87,20 @@ class SpaRequestHandler(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "SAMEORIGIN")
         self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
-        self.send_header("Content-Security-Policy", "default-src 'self' 'unsafe-inline' 'unsafe-eval' https: wss: data: blob:;")
+        self.send_header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+        csp_policy = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://www.gstatic.com; "
+            "worker-src 'self' blob:; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com data:; "
+            "img-src 'self' data: blob: https://*.supabase.co; "
+            "connect-src 'self' https://*.supabase.co wss://*.supabase.co; "
+            "object-src 'none'; "
+            "base-uri 'self'; "
+            "frame-ancestors 'self';"
+        )
+        self.send_header("Content-Security-Policy", csp_policy)
 
     def _determine_cache_control(self, rel_path, is_spa_fallback):
         """Menentukan header Cache-Control berdasarkan jenis file."""

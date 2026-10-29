@@ -163,6 +163,13 @@ class QrisService {
   /// - Sisipkan Tag 54 nominal tepat sebelum Tag 58 (atau Tag 63)
   /// - Hitung ulang Tag 63 CRC16-CCITT
   static String buildDynamicQris(String staticPayload, int totalAmount) {
+    if (totalAmount <= 0) {
+      throw ArgumentError.value(
+        totalAmount,
+        'totalAmount',
+        'Nominal QRIS harus lebih besar dari 0',
+      );
+    }
     final source = staticPayload.trim().isNotEmpty
         ? staticPayload.trim()
         : kDefaultStaticQrisPayload;
@@ -205,6 +212,7 @@ class QrisService {
     required String staticPayload,
     required double totalAmount,
   }) {
+    if (totalAmount <= 0) return null;
     if (staticPayload.isEmpty && kDefaultStaticQrisPayload.isEmpty) return null;
     return buildDynamicQris(
       staticPayload.isNotEmpty ? staticPayload : kDefaultStaticQrisPayload,
