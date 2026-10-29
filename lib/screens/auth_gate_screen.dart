@@ -25,6 +25,7 @@ import '../models/profile_model.dart';
 import 'auth/email_verification_screen.dart';
 import 'auth/set_new_password_screen.dart';
 import 'login_screen.dart';
+import 'register_screen.dart';
 import 'customer_dashboard_screen.dart';
 import 'admin_dashboard_screen.dart';
 
@@ -252,6 +253,12 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
     // 4. Tidak ada sesi login
     final session = _session;
     if (session == null) {
+      if (kIsWeb &&
+          (Uri.base.fragment == '/register' ||
+           Uri.base.fragment == 'register' ||
+           Uri.base.path == '/register')) {
+        return const RegisterScreen();
+      }
       return const LoginScreen();
     }
 

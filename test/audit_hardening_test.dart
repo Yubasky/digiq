@@ -2,7 +2,9 @@
 // Pengujian unit terverifikasi langsung memanggil fungsi implementasi nyata pada lib/.
 // Tidak ada fungsi buatan/mock sintetis di dalam file tes ini.
 
+import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:digiq/models/profile_model.dart';
 import 'package:digiq/services/auth_service.dart';
 import 'package:digiq/services/qris_service.dart';
@@ -211,6 +213,111 @@ void main() {
 
       final garbageInfo = QrisService.extractMerchantInfo('XYZ99999NONTLV');
       expect(garbageInfo['merchant_name'], equals('kopi sat'));
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // GROUP 4: Username Availability Classification & Safe Fallback
+  // Memanggil fungsi implementasi:
+  // - lib/services/auth_service.dart (classifyUsernameCheckError)
+  // - lib/services/auth_service.dart (translateAuthError untuk username duplicate)
+  // ───────────────────────────────────────────────────────────────────────────
+  group('4. Username Check & Error Classification (Target: lib/services/auth_service.dart)', () {
+    test('PGRST202 (fungsi tidak ada di schema cache) diklasifikasikan sebagai serverNotReady', () {
+      final err = PostgrestException(
+        message: 'Could not find the function public.check_username_available in the schema cache',
+        code: 'PGRST202',
+      );
+      expect(
+        AuthService.classifyUsernameCheckError(err),
+        equals(UsernameCheckStatus.serverNotReady),
+      );
+    });
+
+    test('PostgrestException PGRST202 dengan pesan schema cache diklasifikasikan sebagai serverNotReady', () {
+      final err = PostgrestException(
+        message: 'Could not find the function public.check_username_available in the schema cache',
+        code: 'PGRST202',
+      );
+      expect(
+        AuthService.classifyUsernameCheckError(err),
+        equals(UsernameCheckStatus.serverNotReady),
+      );
+    });
+
+    test('HTTP 401/403/42501 (izin akses / permission denied) diklasifikasikan sebagai permissionDenied', () {
+      final err401 = PostgrestException(
+        message: 'Invalid API key or unauthorized',
+        code: '401',
+      );
+      final err403 = PostgrestException(
+        message: 'permission denied for function check_username_available',
+        code: '42501',
+      );
+      expect(
+        AuthService.classifyUsernameCheckError(err401),
+        equals(UsernameCheckStatus.permissionDenied),
+      );
+      expect(
+        AuthService.classifyUsernameCheckError(err403),
+        equals(UsernameCheckStatus.permissionDenied),
+      );
+    });
+
+    test('Error tak dikenal diklasifikasikan sebagai unknownError, BUKAN serverNotReady', () {
+      final errUnknown = PostgrestException(
+        message: 'Internal server error 500 in postgres',
+        code: '500',
+      );
+      expect(
+        AuthService.classifyUsernameCheckError(errUnknown),
+        equals(UsernameCheckStatus.unknownError),
+      );
+      expect(
+        AuthService.classifyUsernameCheckError('Unexpected runtime error 99'),
+        equals(UsernameCheckStatus.unknownError),
+      );
+    });
+
+    test('TimeoutException diklasifikasikan sebagai networkError', () {
+      final err = TimeoutException('Request timeout after 8 seconds');
+      expect(
+        AuthService.classifyUsernameCheckError(err),
+        equals(UsernameCheckStatus.networkError),
+      );
+    });
+
+    test('Socket / network exceptions diklasifikasikan sebagai networkError', () {
+      const socketErr = 'SocketException: Failed host lookup: iqxoofrhhrqkgehuvrlb.supabase.co';
+      const clientErr = 'ClientException: XMLHttpRequest error';
+      expect(
+        AuthService.classifyUsernameCheckError(socketErr),
+        equals(UsernameCheckStatus.networkError),
+      );
+      expect(
+        AuthService.classifyUsernameCheckError(clientErr),
+        equals(UsernameCheckStatus.networkError),
+      );
+    });
+
+    test('Error tidak pernah menghasilkan status taken (sudah digunakan)', () {
+      final errPgrst = PostgrestException(message: 'Fatal error', code: 'PGRST500');
+      final errTimeout = TimeoutException('Timed out');
+      expect(AuthService.classifyUsernameCheckError(errPgrst), isNot(equals(UsernameCheckStatus.taken)));
+      expect(AuthService.classifyUsernameCheckError(errTimeout), isNot(equals(UsernameCheckStatus.taken)));
+    });
+
+    test('Mapping translateAuthError untuk duplikat username pada submit registrasi', () {
+      const dbErr1 = 'Database error saving new user (idx_profiles_username_lower)';
+      const dbErr2 = 'duplicate key value violates unique constraint "idx_profiles_username_lower"';
+      expect(
+        AuthService.translateAuthError(dbErr1),
+        equals('Username ini telah digunakan. Silakan pilih username lain.'),
+      );
+      expect(
+        AuthService.translateAuthError(dbErr2),
+        equals('Username ini telah digunakan. Silakan pilih username lain.'),
+      );
     });
   });
 }

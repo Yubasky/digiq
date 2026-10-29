@@ -11,7 +11,15 @@ import 'supabase_config.dart';
 import '../models/profile_model.dart';
 
 /// Status ketersediaan username
-enum UsernameCheckStatus { available, taken, invalidFormat, networkError }
+enum UsernameCheckStatus {
+  available,
+  taken,
+  invalidFormat,
+  networkError,
+  serverNotReady,
+  permissionDenied,
+  unknownError,
+}
 
 /// Hasil operasi AuthService untuk feedback UI.
 class AuthResult {
@@ -57,28 +65,93 @@ class AuthService {
     return null;
   }
 
-  /// Memeriksa ketersediaan username ke Supabase RPC check_username_available
-  /// Membedakan: available (tersedia), taken (sudah dipakai), networkError (gangguan jaringan)
+  /// Mengklasifikasikan error dari pemanggilan RPC check_username_available:
+  /// - PGRST202 (atau pesan tidak ditemukan di schema cache) -> serverNotReady
+  /// - 401 / 403 / 42501 (atau permission denied) -> permissionDenied
+  /// - TimeoutException / Socket / Client / Network -> networkError
+  /// - Error tak dikenal -> unknownError (TIDAK mengasumsikan serverNotReady)
+  /// Pencocokan string longgar seperti 'not found' atau '404' telah dihapus.
+  static UsernameCheckStatus classifyUsernameCheckError(Object error) {
+    if (error is TimeoutException) {
+      return UsernameCheckStatus.networkError;
+    }
+    if (error is PostgrestException) {
+      final code = (error.code ?? '').toUpperCase();
+      final msg = error.message.toLowerCase();
+      // Hanya PGRST202 atau pesan spesifik schema cache yang menandakan fungsi belum ada
+      if (code == 'PGRST202' ||
+          msg.contains('could not find the function') ||
+          msg.contains('schema cache')) {
+        return UsernameCheckStatus.serverNotReady;
+      }
+      // 401 / 403 / 42501 menandakan penolakan izin akses (RLS / peran anon)
+      if (code == '401' ||
+          code == '403' ||
+          code == '42501' ||
+          msg.contains('permission denied')) {
+        return UsernameCheckStatus.permissionDenied;
+      }
+    }
+    final str = error.toString().toLowerCase();
+    if (str.contains('pgrst202') || str.contains('schema cache')) {
+      return UsernameCheckStatus.serverNotReady;
+    }
+    if (str.contains('permission denied') || str.contains('unauthorized')) {
+      return UsernameCheckStatus.permissionDenied;
+    }
+    if (str.contains('socket') ||
+        str.contains('timeoutexception') ||
+        str.contains('clientexception') ||
+        str.contains('network') ||
+        str.contains('failed host lookup') ||
+        str.contains('connection refused') ||
+        str.contains('xmlhttprequest') ||
+        str.contains('connection closed')) {
+      return UsernameCheckStatus.networkError;
+    }
+    // Error tak dikenal tidak diasumsikan serverNotReady
+    return UsernameCheckStatus.unknownError;
+  }
+
+  /// Memeriksa ketersediaan username ke Supabase RPC check_username_available.
+  /// Membedakan: available (tersedia), taken (sudah dipakai), invalidFormat,
+  /// networkError (jaringan), serverNotReady (PGRST202), permissionDenied (401/403),
+  /// dan unknownError.
+  /// Dilengkapi auto-retry 1x (jeda 500ms) dan batas waktu 4 detik per percobaan.
+  /// Total waktu tunggu terburuk (worst-case): ~8.5 detik.
   static Future<UsernameCheckStatus> checkUsernameStatus(
-    String username,
-  ) async {
+    String username, {
+    int maxRetries = 1,
+    Duration timeoutDuration = const Duration(seconds: 4),
+  }) async {
     final formatErr = validateUsernameFormat(username);
     if (formatErr != null) return UsernameCheckStatus.invalidFormat;
 
-    try {
-      final res = await _sb
-          .rpc(
-            'check_username_available',
-            params: {'p_username': username.trim().toLowerCase()},
-          )
-          .timeout(const Duration(seconds: 5));
-      if (res == true) return UsernameCheckStatus.available;
-      return UsernameCheckStatus.taken;
-    } on TimeoutException {
-      return UsernameCheckStatus.networkError;
-    } catch (_) {
-      return UsernameCheckStatus.networkError;
+    final cleanUsername = username.trim().toLowerCase();
+
+    for (var attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        final res = await _sb
+            .rpc(
+              'check_username_available',
+              params: {'p_username': cleanUsername},
+            )
+            .timeout(timeoutDuration);
+
+        if (res == true) return UsernameCheckStatus.available;
+        return UsernameCheckStatus.taken;
+      } catch (e) {
+        debugPrint(
+          '[AuthService] checkUsernameStatus (attempt ${attempt + 1}/${maxRetries + 1}) error: $e',
+        );
+        if (attempt < maxRetries) {
+          await Future.delayed(const Duration(milliseconds: 500));
+          continue;
+        }
+        return classifyUsernameCheckError(e);
+      }
     }
+    return UsernameCheckStatus.networkError;
   }
 
   // ─── Sign Up ────────────────────────────────────────────────────────────────
@@ -520,7 +593,15 @@ class AuthService {
       return 'Kode autentikator tidak valid. Coba lagi.';
     }
     if (lower.contains('database error saving new user')) {
+      if (lower.contains('username') ||
+          lower.contains('idx_profiles_username')) {
+        return 'Username ini telah digunakan. Silakan pilih username lain.';
+      }
       return 'Gagal menyimpan profil pengguna baru. Username atau data yang dimasukkan mungkin sudah digunakan atau tidak valid.';
+    }
+    if (lower.contains('idx_profiles_username') ||
+        (lower.contains('duplicate key') && lower.contains('username'))) {
+      return 'Username ini telah digunakan. Silakan pilih username lain.';
     }
     if (lower.contains('upstream') || lower.contains('gateway timeout')) {
       return 'Layanan autentikasi sedang mengalami batas waktu (timeout). Silakan periksa koneksi atau coba beberapa saat lagi.';

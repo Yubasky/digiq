@@ -53,7 +53,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     _usernameController.addListener(_onUsernameChanged);
   }
 
-  void _onUsernameChanged() {
+  void _onUsernameChanged({bool force = false}) {
     final currentInput = _usernameController.text.trim();
     _debounceTimer?.cancel();
 
@@ -82,7 +82,7 @@ class _RegisterScreenState extends State<RegisterScreen>
       _usernameErrorText = null;
     });
 
-    _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
+    void runCheck() async {
       final status = await AuthService.checkUsernameStatus(currentInput);
       if (!mounted || seq != _usernameCheckSeq) {
         return; // Stale async response dibuang
@@ -101,12 +101,27 @@ class _RegisterScreenState extends State<RegisterScreen>
           case UsernameCheckStatus.invalidFormat:
             _usernameErrorText = 'Username minimal 5 dan maksimal 20 karakter alfanumerik.';
             break;
+          case UsernameCheckStatus.serverNotReady:
+            _usernameErrorText = 'Fitur pengecekan username belum aktif di server. Hubungi admin.';
+            break;
+          case UsernameCheckStatus.permissionDenied:
+            _usernameErrorText = 'Izin akses pemeriksaan username ditolak oleh server. Hubungi admin.';
+            break;
           case UsernameCheckStatus.networkError:
             _usernameErrorText = 'Gangguan jaringan saat memeriksa username. Silakan periksa koneksi.';
             break;
+          case UsernameCheckStatus.unknownError:
+            _usernameErrorText = 'Terjadi kendala saat memeriksa username. Anda tetap dapat melanjutkan pendaftaran.';
+            break;
         }
       });
-    });
+    }
+
+    if (force) {
+      runCheck();
+    } else {
+      _debounceTimer = Timer(const Duration(milliseconds: 500), runCheck);
+    }
   }
 
   @override
@@ -125,13 +140,22 @@ class _RegisterScreenState extends State<RegisterScreen>
 
   Future<void> _doRegister() async {
     if (_isLoading || _isCheckingUsername) return;
-    if (_usernameStatus != UsernameCheckStatus.available) {
+
+    // Safe Fallback: Hanya tolak jika format salah atau username SUDAH PASTI dipakai.
+    // Jika status serverNotReady atau networkError, pengguna tetap dibiarkan submit pendaftaran,
+    // karena unique constraint di database & _translateAuthError menjadi benteng validasi terakhir.
+    if (_usernameStatus == UsernameCheckStatus.taken) {
+      _showSnack('Username ini telah digunakan. Silakan pilih username lain.', isError: true);
+      return;
+    }
+    if (_usernameStatus == UsernameCheckStatus.invalidFormat) {
       _showSnack(
-        _usernameErrorText ?? 'Periksa kembali format dan ketersediaan username.',
+        _usernameErrorText ?? 'Periksa kembali format username.',
         isError: true,
       );
       return;
     }
+
     if (!_formKey.currentState!.validate()) return;
     if (!_agreed) {
       _showSnack('Harap setujui syarat & ketentuan terlebih dahulu.', isError: true);
@@ -347,8 +371,11 @@ class _RegisterScreenState extends State<RegisterScreen>
                                                       ? const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 20)
                                                       : (_usernameStatus == UsernameCheckStatus.taken
                                                           ? const Icon(Icons.cancel_rounded, color: AppColors.danger, size: 20)
-                                                          : (_usernameStatus == UsernameCheckStatus.networkError
-                                                              ? const Icon(Icons.wifi_off_rounded, color: AppColors.warning, size: 20)
+                                                          : ((_usernameStatus == UsernameCheckStatus.networkError ||
+                                                                  _usernameStatus == UsernameCheckStatus.serverNotReady ||
+                                                                  _usernameStatus == UsernameCheckStatus.permissionDenied ||
+                                                                  _usernameStatus == UsernameCheckStatus.unknownError)
+                                                              ? const Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 20)
                                                               : null))),
                                               icon: Icons.alternate_email_rounded,
                                               textInputAction: TextInputAction.next,
@@ -358,12 +385,64 @@ class _RegisterScreenState extends State<RegisterScreen>
                                                 if (_usernameStatus == UsernameCheckStatus.taken) {
                                                   return 'Username ini telah digunakan';
                                                 }
-                                                if (_usernameStatus == UsernameCheckStatus.networkError) {
-                                                  return 'Gangguan jaringan saat memeriksa username.';
-                                                }
+                                                // Error jaringan/server tidak memblokir submit form (safe fallback)
                                                 return null;
                                               },
                                             ),
+                                            if (_usernameStatus == UsernameCheckStatus.serverNotReady ||
+                                                _usernameStatus == UsernameCheckStatus.permissionDenied ||
+                                                _usernameStatus == UsernameCheckStatus.networkError ||
+                                                _usernameStatus == UsernameCheckStatus.unknownError) ...[
+                                              const SizedBox(height: 8),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                                decoration: BoxDecoration(
+                                                  color: AppColors.warningLight,
+                                                  borderRadius: BorderRadius.circular(10),
+                                                  border: Border.all(color: AppColors.warning.withValues(alpha: 0.35)),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    const Icon(Icons.warning_amber_rounded, size: 18, color: AppColors.warning),
+                                                    const SizedBox(width: 8),
+                                                    Expanded(
+                                                      child: Text(
+                                                        _usernameErrorText ?? 'Pengecekan username tidak dapat diselesaikan saat ini.',
+                                                        style: const TextStyle(
+                                                          fontSize: 12,
+                                                          color: Color(0xFF92400E),
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    TextButton(
+                                                      onPressed: _isCheckingUsername ? null : () => _onUsernameChanged(force: true),
+                                                      style: TextButton.styleFrom(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                        minimumSize: Size.zero,
+                                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                      ),
+                                                      child: const Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          Icon(Icons.refresh_rounded, size: 14, color: AppColors.warning),
+                                                          SizedBox(width: 4),
+                                                          Text(
+                                                            'Coba lagi',
+                                                            style: TextStyle(
+                                                              fontSize: 12,
+                                                              fontWeight: FontWeight.bold,
+                                                              color: AppColors.warning,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
 
                                             const SizedBox(height: 14),
                                             _buildLabel('Email'),
