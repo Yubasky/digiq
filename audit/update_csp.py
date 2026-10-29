@@ -39,3 +39,4 @@ if target in c:
     print("Successfully updated CSP and HSTS in scripts/spa_server.py")
 else:
     print("Target not found, checking current content...")
+

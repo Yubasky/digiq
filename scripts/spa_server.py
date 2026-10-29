@@ -90,12 +90,12 @@ class SpaRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
         csp_policy = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://www.gstatic.com; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://www.gstatic.com https://static.cloudflareinsights.com; "
             "worker-src 'self' blob:; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com data:; "
             "img-src 'self' data: blob: https://*.supabase.co; "
-            "connect-src 'self' https://*.supabase.co wss://*.supabase.co; "
+            "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cloudflareinsights.com https://www.gstatic.com https://fonts.gstatic.com https://fonts.googleapis.com; "
             "object-src 'none'; "
             "base-uri 'self'; "
             "frame-ancestors 'self';"
