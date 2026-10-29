@@ -154,6 +154,17 @@ Write-Host "         [2/3] Memeriksa Ketersediaan Port $Port               " -Fo
 Write-Host "=================================================================" -ForegroundColor Cyan
 
 try {
+    # Verifikasi keamanan service NSSM DigiQWebSPA
+    $nssmSvc = Get-Service -Name "DigiQWebSPA" -ErrorAction SilentlyContinue
+    if ($nssmSvc -and $nssmSvc.Status -eq 'Running') {
+        Write-Warning "[DITOLAK] Layanan Windows Service 'DigiQWebSPA' sedang berjalan aktif mengelola port $Port."
+        Write-Host "JANGAN mematikan proses ini secara manual via serve_prod_9000.ps1." -ForegroundColor Yellow
+        Write-Host "Kelola layanan melalui:" -ForegroundColor White
+        Write-Host "  Restart-Service DigiQWebSPA" -ForegroundColor White
+        Write-Host "  atau: powershell -File scripts\setup_nssm_service.ps1 -Action status" -ForegroundColor White
+        exit 1
+    }
+
     $activeConns = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
     if ($activeConns) {
         foreach ($conn in $activeConns) {

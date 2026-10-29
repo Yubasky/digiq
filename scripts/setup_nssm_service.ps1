@@ -26,8 +26,12 @@ $ServiceDisplayName = "DigiQ Web SPA Production Server"
 $ProjectDir = "C:\Users\Administrator\Documents\digiq"
 $PythonExe = "C:\Users\Administrator\AppData\Local\Programs\Python\Python39-32\python.exe"
 $ScriptRelPath = "scripts\spa_server.py"
-$LogStdout = "$ProjectDir\audit\spa_server_out.log"
-$LogStderr = "$ProjectDir\audit\spa_server_err.log"
+$LogDir = "C:\digiq_logs"
+if (-not (Test-Path $LogDir)) {
+    New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
+}
+$LogStdout = "$LogDir\spa_server_out.log"
+$LogStderr = "$LogDir\spa_server_err.log" 
 
 # 1. Verifikasi Hak Administrator
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -90,9 +94,13 @@ if ($Action -eq 'rollback') {
         & $nssm stop $ServiceName
         Start-Sleep -Seconds 2
 
-        Write-Host "[2/2] Menghapus service $ServiceName dari Windows Service Control Manager..." -ForegroundColor Cyan
+        Write-Host "[2/3] Menghapus service $ServiceName dari Windows Service Control Manager..." -ForegroundColor Cyan
         & $nssm remove $ServiceName confirm
         Write-Host "[OK] Service $ServiceName berhasil dihapus." -ForegroundColor Green
+        Write-Host "[3/3] Memulihkan server manual Python di port 9000..." -ForegroundColor Cyan
+        Start-Process -FilePath $PythonExe -ArgumentList $ScriptRelPath -WorkingDirectory $ProjectDir -WindowStyle Hidden
+        Start-Sleep -Seconds 2
+        Write-Host "[OK] Server manual Python telah dipulihkan." -ForegroundColor Green
     } else {
         Write-Host "Service $ServiceName memang belum terdaftar di Windows." -ForegroundColor Gray
     }
@@ -146,6 +154,8 @@ if ($Action -eq 'install') {
     & $nssm set $ServiceName AppRotateFiles 1
     & $nssm set $ServiceName AppRotateOnline 1
     & $nssm set $ServiceName AppRotateBytes 10485760 # Rotasi log per 10 MB
+    & $nssm set $ServiceName AppExit Default Restart
+    & $nssm set $ServiceName AppEnvironmentExtra HOST=127.0.0.1 PORT=9000
 
     Write-Host "[4/4] Menjalankan service $ServiceName..." -ForegroundColor Cyan
     & $nssm start $ServiceName

@@ -464,6 +464,17 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
           ),
           const SizedBox(height: 12),
 
+                    const SizedBox(height: 10),
+          const Text(
+            'Tidak menerima email? Periksa folder Spam/Promosi.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+          const SizedBox(height: 6),
           // Tombol Kembali ke Login
           TextButton(
             onPressed: _navigateToLogin,
@@ -837,6 +848,17 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
           ),
           const SizedBox(height: 12),
 
+                    const SizedBox(height: 10),
+          const Text(
+            'Tidak menerima email? Periksa folder Spam/Promosi.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+          const SizedBox(height: 6),
           // Tombol Kembali ke Halaman Login
           TextButton(
             onPressed: _navigateToLogin,

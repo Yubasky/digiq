@@ -166,7 +166,8 @@ class SpaRequestHandler(BaseHTTPRequestHandler):
 
             # 0. Health-Check Endpoint instan untuk Uptime Monitor / Cloudflare
             if clean_path == "/health":
-                health_payload = b'{"status":"ok","server":"DigiQ-SPA-Windows","port":9000}\n'
+                actual_port = getattr(self.server, "server_address", (None, 9000))[1]
+                health_payload = f'{{"status":"ok","server":"DigiQ-SPA-Windows","port":{actual_port}}}\n'.encode("utf-8")
                 self.send_response(200, "OK")
                 self.send_header("Content-Type", "application/json; charset=utf-8")
                 self.send_header("Content-Length", str(len(health_payload)))

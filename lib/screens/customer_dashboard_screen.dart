@@ -1,3 +1,4 @@
+import 'edit_profile_screen.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/product_model.dart';
@@ -27,6 +28,7 @@ class CustomerDashboardScreen extends StatefulWidget {
 }
 
 class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
+  late ProfileModel _profile = widget.profile;
   int _currentTab = 0;
   final List<CartItem> _cart = [];
   List<QrisTransaction> _transactions = [];
@@ -58,7 +60,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       if (mounted) {
         setState(() {
           _transactions = list
-              .map((m) => QrisTransaction.fromTransactionModel(m, widget.profile.fullName))
+              .map((m) => QrisTransaction.fromTransactionModel(m, _profile.fullName))
               .toList();
         });
       }
@@ -450,7 +452,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       Text(
-                        'Halo, ${widget.profile.displayName} 👋',
+                        'Halo, ${_profile.displayName} 👋',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 22,
@@ -1596,8 +1598,8 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                         ),
                         child: Center(
                           child: Text(
-                            widget.profile.fullName.isNotEmpty
-                                ? widget.profile.fullName[0].toUpperCase()
+                            _profile.fullName.isNotEmpty
+                                ? _profile.fullName[0].toUpperCase()
                                 : '?',
                             style: const TextStyle(
                               color: Colors.white,
@@ -1609,7 +1611,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        widget.profile.fullName,
+                        _profile.fullName,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 18,
@@ -1650,13 +1652,13 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                     title: 'Informasi Akun',
                     children: [
                       _profileInfoRow(Icons.person_outline_rounded, 'Nama',
-                          widget.profile.fullName),
+                          _profile.fullName),
                       _profileInfoRow(
                           Icons.alternate_email_rounded,
                           'ID Akun',
-                          widget.profile.id.substring(0, 8).toUpperCase()),
+                          _profile.id.substring(0, 8).toUpperCase()),
                       _profileInfoRow(Icons.phone_outlined, 'No. HP',
-                          widget.profile.phone),
+                          _profile.phone),
                     ],
                   ),
 
@@ -1688,6 +1690,26 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                   _profileCard(
                     title: 'Menu',
                     children: [
+                      _menuItem(
+                        icon: Icons.person_outline_rounded,
+                        label: 'Edit Profil',
+                        onTap: () async {
+                          final updated = await Navigator.push<ProfileModel>(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => EditProfileScreen(profile: _profile),
+                            ),
+                          );
+                          if (updated != null && mounted) {
+                            setState(() => _profile = updated);
+                          } else if (mounted) {
+                            final fresh = await AuthService.getCurrentProfile();
+                            if (fresh != null && mounted) {
+                              setState(() => _profile = fresh);
+                            }
+                          }
+                        },
+                      ),
                       _menuItem(
                         icon: Icons.history_rounded,
                         label: 'Riwayat Transaksi',

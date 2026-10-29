@@ -103,6 +103,13 @@ void main() {
       expect(msg, contains('Gagal menyimpan profil pengguna baru'));
     });
 
+    test('Mapping kegagalan pengiriman email konfirmasi (SMTP)', () {
+      expect(
+        AuthService.translateAuthError('Error sending confirmation email'),
+        contains('Gagal mengirim email konfirmasi pendaftaran'),
+      );
+    });
+
     test('Mapping upstream timeout dan gateway timeout', () {
       // Memanggil: lib/services/auth_service.dart:479
       expect(

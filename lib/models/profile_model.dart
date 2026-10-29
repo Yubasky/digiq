@@ -10,6 +10,7 @@ class ProfileModel {
   final double balance;
   final bool is2faEnabled;
   final DateTime updatedAt;
+  final DateTime? usernameChangedAt;
 
   const ProfileModel({
     required this.id,
@@ -21,6 +22,7 @@ class ProfileModel {
     required this.balance,
     required this.is2faEnabled,
     required this.updatedAt,
+    this.usernameChangedAt,
   });
 
   bool get isAdmin => role == 'admin';
@@ -49,6 +51,9 @@ class ProfileModel {
       updatedAt: m['updated_at'] != null
           ? DateTime.parse(m['updated_at'] as String)
           : DateTime.now(),
+      usernameChangedAt: m['username_changed_at'] != null
+          ? DateTime.tryParse(m['username_changed_at'] as String)
+          : null,
     );
   }
 
@@ -59,6 +64,7 @@ class ProfileModel {
     String? avatarUrl,
     double? balance,
     bool? is2faEnabled,
+    DateTime? usernameChangedAt,
   }) {
     return ProfileModel(
       id: id,
@@ -70,6 +76,7 @@ class ProfileModel {
       balance: balance ?? this.balance,
       is2faEnabled: is2faEnabled ?? this.is2faEnabled,
       updatedAt: updatedAt,
+      usernameChangedAt: usernameChangedAt ?? this.usernameChangedAt,
     );
   }
 }

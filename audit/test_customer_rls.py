@@ -158,6 +158,39 @@ def run_rls_checks(supa_url, anon_key, token_a, id_a, id_b, token_b=None):
     except urllib.error.HTTPError as e:
         print(f"    -> PASS: Ditolak dengan HTTP {e.code} ({e.read().decode('utf-8').strip()}).")
 
+
+    # 6. User A calls update_my_profile with User B's username
+    print("\n[6] Uji: User A memanggil update_my_profile dengan username milik User B...")
+    prof_b = get_profile(supa_url, anon_key, token_b, id_b) if token_b else None
+    target_username = prof_b.get('username') if prof_b else 'darzkine'
+    url_rpc = f"{supa_url}/rest/v1/rpc/update_my_profile"
+    payload_rpc = json.dumps({
+        'p_full_name': 'Attacker Name',
+        'p_phone': '081299998888',
+        'p_username': target_username
+    }).encode('utf-8')
+    req_rpc = urllib.request.Request(url_rpc, data=payload_rpc, headers=headers_a, method='POST')
+    try:
+        with urllib.request.urlopen(req_rpc) as resp:
+            body = json.loads(resp.read().decode('utf-8'))
+            if body.get('success') is False and body.get('code') == 'username_taken':
+                print(f"    -> PASS: Ditolak dengan code '{body.get('code')}': {body.get('message')}")
+            else:
+                print(f"    -> VULNERABLE: Pembajakan username berhasil! Response: {body}")
+    except urllib.error.HTTPError as e:
+        print(f"    -> PASS: Request ditolak dengan HTTP {e.code}")
+
+    # 7. User A tries to modify is_2fa_enabled directly via PATCH
+    print("\n[7] Uji: User A mencoba mengubah status 2FA langsung via PATCH...")
+    url = f"{supa_url}/rest/v1/profiles?id=eq.{id_a}"
+    payload = json.dumps({'is_2fa_enabled': not initial_profile_a.get('is_2fa_enabled', False)}).encode('utf-8')
+    req = urllib.request.Request(url, data=payload, headers=headers_a, method='PATCH')
+    try:
+        with urllib.request.urlopen(req) as resp:
+            print("    -> VULNERABLE: Direct PATCH status 2FA berhasil lolos!")
+    except urllib.error.HTTPError as e:
+        print(f"    -> PASS: Direct PATCH 2FA berhasil ditolak oleh trigger dengan HTTP {e.code}.")
+
     print("\n" + "="*70 + "\n")
 
 if __name__ == '__main__':

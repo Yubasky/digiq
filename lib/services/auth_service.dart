@@ -21,6 +21,18 @@ enum UsernameCheckStatus {
   unknownError,
 }
 
+/// Status ketersediaan email
+enum EmailCheckStatus {
+  available,
+  taken,
+  invalidFormat,
+  networkError,
+  serverNotReady,
+  permissionDenied,
+  unknownError,
+}
+
+
 /// Hasil operasi AuthService untuk feedback UI.
 class AuthResult {
   final bool success;
@@ -64,6 +76,9 @@ class AuthService {
     }
     return null;
   }
+
+  /// Normalisasi username: hapus spasi ujung dan konversi ke huruf kecil
+  static String normalizeUsername(String input) => input.trim().toLowerCase();
 
   /// Mengklasifikasikan error dari pemanggilan RPC check_username_available:
   /// - PGRST202 (atau pesan tidak ditemukan di schema cache) -> serverNotReady
@@ -148,7 +163,7 @@ class AuthService {
     final formatErr = validateUsernameFormat(username);
     if (formatErr != null) return UsernameCheckStatus.invalidFormat;
 
-    final cleanUsername = username.trim().toLowerCase();
+    final cleanUsername = normalizeUsername(username);
 
     for (var attempt = 0; attempt <= maxRetries; attempt++) {
       try {
@@ -175,6 +190,134 @@ class AuthService {
     return UsernameCheckStatus.networkError;
   }
 
+
+  // ─── Email & Profile Validation ──────────────────────────────────────────
+
+  /// Validasi format email RFC sederhana
+  static String? validateEmailFormat(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Email wajib diisi.';
+    final clean = v.trim();
+    if (clean.length > 254) return 'Email terlalu panjang.';
+    if (!RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$').hasMatch(clean)) {
+      return 'Format email tidak valid.';
+    }
+    return null;
+  }
+
+  /// Validasi nama lengkap (2-60 karakter)
+  static String? validateFullNameFormat(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Nama lengkap wajib diisi.';
+    final clean = v.trim();
+    if (clean.length < 2) return 'Nama minimal 2 karakter.';
+    if (clean.length > 60) return 'Nama maksimal 60 karakter.';
+    return null;
+  }
+
+  /// Validasi nomor HP format Indonesia (08xx, +62xx, 62xx - 9 sampai 15 digit)
+  static String? validatePhoneFormat(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Nomor HP wajib diisi.';
+    final clean = v.trim();
+    if (!RegExp(r'^(\+62|62|08)[0-9]{7,13}$').hasMatch(clean)) {
+      return 'Format nomor HP tidak valid (contoh: 08123456789 atau +628123456789).';
+    }
+    return null;
+  }
+
+  /// Pesan status ketersediaan email yang ramah dan netral
+  static String? getEmailStatusMessage(EmailCheckStatus status) {
+    switch (status) {
+      case EmailCheckStatus.available:
+        return null;
+      case EmailCheckStatus.taken:
+        return 'Email ini sudah terdaftar. Silakan masuk atau gunakan Lupa Password.';
+      case EmailCheckStatus.invalidFormat:
+        return 'Format email tidak valid.';
+      case EmailCheckStatus.networkError:
+        return 'Koneksi lambat saat memeriksa email. Anda tetap dapat melanjutkan pendaftaran.';
+      case EmailCheckStatus.serverNotReady:
+      case EmailCheckStatus.permissionDenied:
+      case EmailCheckStatus.unknownError:
+        return 'Layanan pengecekan email sedang sibuk. Anda tetap dapat melanjutkan pendaftaran.';
+    }
+  }
+
+  /// Klasifikasi error dari pemanggilan RPC check_email_available
+  static EmailCheckStatus classifyEmailCheckError(Object error) {
+    if (error is TimeoutException) {
+      return EmailCheckStatus.networkError;
+    }
+    if (error is PostgrestException) {
+      final code = (error.code ?? '').toUpperCase();
+      final msg = error.message.toLowerCase();
+      if (code == 'PGRST202' ||
+          msg.contains('could not find the function') ||
+          msg.contains('schema cache')) {
+        return EmailCheckStatus.serverNotReady;
+      }
+      if (code == '401' ||
+          code == '403' ||
+          code == '42501' ||
+          msg.contains('permission denied') ||
+          msg.contains('unauthorized')) {
+        return EmailCheckStatus.permissionDenied;
+      }
+    }
+    final str = error.toString().toLowerCase();
+    if (str.contains('pgrst202') || str.contains('schema cache')) {
+      return EmailCheckStatus.serverNotReady;
+    }
+    if (str.contains('permission denied') || str.contains('unauthorized')) {
+      return EmailCheckStatus.permissionDenied;
+    }
+    if (str.contains('socket') ||
+        str.contains('timeoutexception') ||
+        str.contains('clientexception') ||
+        str.contains('network') ||
+        str.contains('failed host lookup') ||
+        str.contains('connection refused') ||
+        str.contains('xmlhttprequest') ||
+        str.contains('connection closed')) {
+      return EmailCheckStatus.networkError;
+    }
+    return EmailCheckStatus.unknownError;
+  }
+
+  /// Cek ketersediaan email via RPC check_email_available
+  static Future<EmailCheckStatus> checkEmailStatus(
+    String email, {
+    int maxRetries = 1,
+    Duration timeoutDuration = const Duration(seconds: 4),
+  }) async {
+    final formatErr = validateEmailFormat(email);
+    if (formatErr != null) return EmailCheckStatus.invalidFormat;
+
+    final cleanEmail = email.trim().toLowerCase();
+
+    for (var attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        final res = await _sb
+            .rpc(
+              'check_email_available',
+              params: {'p_email': cleanEmail},
+            )
+            .timeout(timeoutDuration);
+
+        if (res == true) return EmailCheckStatus.available;
+        return EmailCheckStatus.taken;
+      } catch (e) {
+        debugPrint(
+          '[AuthService] checkEmailStatus (attempt /) error: ',
+        );
+        if (attempt < maxRetries) {
+          await Future.delayed(const Duration(milliseconds: 500));
+          continue;
+        }
+        return classifyEmailCheckError(e);
+      }
+    }
+    return EmailCheckStatus.networkError;
+  }
+
   // ─── Sign Up ────────────────────────────────────────────────────────────────
 
   /// Daftar akun baru dengan emailRedirectTo custom scheme digiq://auth-callback.
@@ -190,7 +333,7 @@ class AuthService {
     final cleanEmail = email.trim();
     final cleanFullName = fullName.trim();
     final cleanPhone = phone.trim();
-    final cleanUsername = username?.trim().toLowerCase() ?? '';
+    final cleanUsername = username != null ? normalizeUsername(username) : '';
 
     if (cleanUsername.isNotEmpty) {
       final formatErr = validateUsernameFormat(cleanUsername);
@@ -226,6 +369,14 @@ class AuthService {
         return const AuthResult(
           success: false,
           message: 'Pendaftaran gagal. Silakan coba lagi.',
+        );
+      }
+
+      // Guard anti-enumerasi Supabase: jika email sudah terdaftar, identities bernilai kosong
+      if (res.user?.identities == null || res.user!.identities!.isEmpty) {
+        return const AuthResult(
+          success: false,
+          message: 'Email ini sudah terdaftar. Silakan login atau gunakan Lupa Password.',
         );
       }
 
@@ -479,6 +630,120 @@ class AuthService {
     return profile?.role;
   }
 
+
+  /// Update profil aman melalui RPC update_my_profile (melindungi role & balance).
+  static Future<AuthResult> updateMyProfile({
+    required String fullName,
+    required String phone,
+    required String username,
+  }) async {
+    try {
+      final uid = _sb.auth.currentUser?.id;
+      if (uid == null) {
+        return const AuthResult(
+          success: false,
+          message: 'Sesi Anda telah berakhir. Silakan login kembali.',
+        );
+      }
+
+      final res = await _sb.rpc('update_my_profile', params: {
+        'p_full_name': fullName.trim(),
+        'p_phone': phone.trim(),
+        'p_username': normalizeUsername(username),
+      }).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => throw TimeoutException('Batas waktu koneksi habis.'),
+      );
+
+      if (res is Map) {
+        final resMap = Map<String, dynamic>.from(res);
+        final success = resMap['success'] == true;
+        final message = (resMap['message'] as String?) ??
+            (success ? 'Profil berhasil diperbarui.' : 'Gagal memperbarui profil.');
+
+        ProfileModel? updatedProfile;
+        if (success) {
+          updatedProfile = await getCurrentProfile();
+        }
+        return AuthResult(
+          success: success,
+          message: message,
+          profile: updatedProfile,
+        );
+      }
+
+      return const AuthResult(
+        success: false,
+        message: 'Format data dari server tidak dikenali. Silakan coba sesaat lagi.',
+      );
+    } on TimeoutException {
+      return const AuthResult(
+        success: false,
+        message: 'Koneksi ke server mengalami batas waktu. Silakan periksa jaringan Anda.',
+      );
+    } on PostgrestException catch (e) {
+      return AuthResult(
+        success: false,
+        message: _translateAuthError(e.message),
+      );
+    } catch (_) {
+      return const AuthResult(
+        success: false,
+        message: 'Terjadi kendala saat memperbarui profil. Silakan coba beberapa saat lagi.',
+      );
+    }
+  }
+
+  /// Kirim permintaan perubahan email. Tautan konfirmasi akan dikirim ke alamat email baru (dan lama).
+  static Future<AuthResult> updateEmailAddress(String newEmail) async {
+    final formatErr = validateEmailFormat(newEmail);
+    if (formatErr != null) {
+      return AuthResult(success: false, message: formatErr);
+    }
+    final cleanEmail = newEmail.trim().toLowerCase();
+    try {
+      final currentEmail = _sb.auth.currentUser?.email?.toLowerCase();
+      if (currentEmail == cleanEmail) {
+        return const AuthResult(
+          success: false,
+          message: 'Email baru sama dengan email akun Anda saat ini.',
+        );
+      }
+
+      final checkStatus = await checkEmailStatus(cleanEmail);
+      if (checkStatus == EmailCheckStatus.taken) {
+        return const AuthResult(
+          success: false,
+          message: 'Email ini sudah digunakan oleh akun lain.',
+        );
+      }
+
+      await _sb.auth.updateUser(
+        UserAttributes(email: cleanEmail),
+        emailRedirectTo: kAuthRedirectUri,
+      );
+
+      return const AuthResult(
+        success: true,
+        message: 'Tautan konfirmasi telah dikirim ke email baru Anda. Silakan buka email tersebut untuk menyelesaikan perubahan.',
+      );
+    } on AuthException catch (e) {
+      final lower = e.message.toLowerCase();
+      if (lower.contains('already') || lower.contains('taken') || lower.contains('unique')) {
+        return const AuthResult(
+          success: false,
+          message: 'Email ini sudah digunakan oleh akun lain.',
+        );
+      }
+      return AuthResult(success: false, message: _translateAuthError(e.message));
+    } catch (_) {
+      return const AuthResult(
+        success: false,
+        message: 'Gagal mengajukan perubahan email. Silakan coba lagi.',
+      );
+    }
+  }
+
   // ─── Update profile ─────────────────────────────────────────────────────────
 
   /// Update nama, HP, dan/atau avatar_url.
@@ -623,6 +888,11 @@ class AuthService {
     if (lower.contains('idx_profiles_username') ||
         (lower.contains('duplicate key') && lower.contains('username'))) {
       return 'Username ini telah digunakan. Silakan pilih username lain.';
+    }
+    if (lower.contains('error sending confirmation email') ||
+        lower.contains('error sending email') ||
+        lower.contains('failed to send confirmation')) {
+      return 'Gagal mengirim email konfirmasi pendaftaran. Layanan email sedang sibuk, silakan coba beberapa saat lagi.';
     }
     if (lower.contains('upstream') || lower.contains('gateway timeout')) {
       return 'Layanan autentikasi sedang mengalami batas waktu (timeout). Silakan periksa koneksi atau coba beberapa saat lagi.';

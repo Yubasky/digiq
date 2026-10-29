@@ -33,6 +33,12 @@ class _RegisterScreenState extends State<RegisterScreen>
   UsernameCheckStatus? _usernameStatus;
   String? _usernameErrorText;
 
+  Timer? _debounceEmailTimer;
+  int _emailCheckSeq = 0;
+  bool _isCheckingEmail = false;
+  EmailCheckStatus? _emailStatus;
+  String? _emailErrorText;
+
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
@@ -51,6 +57,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOut));
     _animController.forward();
     _usernameController.addListener(_onUsernameChanged);
+    _emailController.addListener(_onEmailChanged);
   }
 
   void _onUsernameChanged({bool force = false}) {
@@ -102,10 +109,62 @@ class _RegisterScreenState extends State<RegisterScreen>
     }
   }
 
+
+  void _onEmailChanged({bool force = false}) {
+    final currentInput = _emailController.text.trim();
+    _debounceEmailTimer?.cancel();
+
+    if (currentInput.isEmpty) {
+      setState(() {
+        _isCheckingEmail = false;
+        _emailStatus = null;
+        _emailErrorText = null;
+      });
+      return;
+    }
+
+    final formatErr = AuthService.validateEmailFormat(currentInput);
+    if (formatErr != null) {
+      setState(() {
+        _isCheckingEmail = false;
+        _emailStatus = EmailCheckStatus.invalidFormat;
+        _emailErrorText = formatErr;
+      });
+      return;
+    }
+
+    final seq = ++_emailCheckSeq;
+    setState(() {
+      _isCheckingEmail = true;
+      _emailErrorText = null;
+    });
+
+    void runCheck() async {
+      final status = await AuthService.checkEmailStatus(currentInput);
+      if (!mounted || seq != _emailCheckSeq) {
+        return; // Stale async response discarded
+      }
+
+      setState(() {
+        _isCheckingEmail = false;
+        _emailStatus = status;
+        _emailErrorText = AuthService.getEmailStatusMessage(status);
+      });
+    }
+
+    if (force) {
+      runCheck();
+    } else {
+      _debounceEmailTimer = Timer(const Duration(milliseconds: 500), runCheck);
+    }
+  }
+
   @override
   void dispose() {
     _debounceTimer?.cancel();
+    _debounceEmailTimer?.cancel();
     _usernameController.removeListener(_onUsernameChanged);
+    _emailController.removeListener(_onEmailChanged);
     _animController.dispose();
     _nameController.dispose();
     _usernameController.dispose();
@@ -117,7 +176,17 @@ class _RegisterScreenState extends State<RegisterScreen>
   }
 
   Future<void> _doRegister() async {
-    if (_isLoading || _isCheckingUsername) return;
+    if (_isLoading || _isCheckingUsername || _isCheckingEmail) return;
+
+    // Safe Fallback: Tolak jika email atau username sudah pasti dipakai
+    if (_emailStatus == EmailCheckStatus.taken) {
+      _showSnack('Email ini sudah terdaftar. Silakan masuk atau gunakan Lupa Password.', isError: true);
+      return;
+    }
+    if (_emailStatus == EmailCheckStatus.invalidFormat) {
+      _showSnack(_emailErrorText ?? 'Periksa kembali format email Anda.', isError: true);
+      return;
+    }
 
     // Safe Fallback: Hanya tolak jika format salah atau username SUDAH PASTI dipakai.
     // Jika status serverNotReady atau networkError, pengguna tetap dibiarkan submit pendaftaran,
@@ -431,34 +500,115 @@ class _RegisterScreenState extends State<RegisterScreen>
                                               icon: Icons.email_outlined,
                                               keyboardType: TextInputType.emailAddress,
                                               textInputAction: TextInputAction.next,
+                                              suffixIcon: _isCheckingEmail
+                                                  ? const Padding(
+                                                      padding: EdgeInsets.all(12),
+                                                      child: SizedBox(
+                                                        width: 18,
+                                                        height: 18,
+                                                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                                                      ),
+                                                    )
+                                                  : (_emailStatus == EmailCheckStatus.available
+                                                      ? const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 20)
+                                                      : (_emailStatus == EmailCheckStatus.taken
+                                                          ? const Icon(Icons.cancel_rounded, color: AppColors.error, size: 20)
+                                                          : ((_emailStatus == EmailCheckStatus.serverNotReady ||
+                                                                  _emailStatus == EmailCheckStatus.permissionDenied ||
+                                                                  _emailStatus == EmailCheckStatus.networkError ||
+                                                                  _emailStatus == EmailCheckStatus.unknownError)
+                                                              ? const Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 20)
+                                                              : null))),
                                               validator: (v) {
-                                                if (v == null || v.trim().isEmpty) return 'Email wajib diisi';
-                                                final email = v.trim();
-                                                if (!email.contains('@')) {
-                                                  return 'Email harus menyertakan tanda @ (contoh: nama@gmail.com)';
-                                                }
-                                                final parts = email.split('@');
-                                                if (parts.length != 2 || parts[0].isEmpty) {
-                                                  return 'Format email tidak valid (contoh: nama@gmail.com)';
-                                                }
-                                                final domain = parts[1].trim();
-                                                if (domain.isEmpty) {
-                                                  return 'Masukkan penyedia email setelah @ (contoh: gmail.com, yahoo.com)';
-                                                }
-                                                if (!domain.contains('.')) {
-                                                  return 'Masukkan domain lengkap setelah @ (contoh: gmail.com, yahoo.com)';
-                                                }
-                                                final domainParts = domain.split('.');
-                                                if (domainParts[0].isEmpty || domainParts[1].isEmpty) {
-                                                  return 'Format domain email tidak valid (contoh: gmail.com)';
-                                                }
-                                                final emailReg = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
-                                                if (!emailReg.hasMatch(email)) {
-                                                  return 'Format email tidak valid (contoh: nama@gmail.com)';
+                                                final formatErr = AuthService.validateEmailFormat(v);
+                                                if (formatErr != null) return formatErr;
+                                                if (_emailStatus == EmailCheckStatus.taken) {
+                                                  return 'Email ini sudah terdaftar';
                                                 }
                                                 return null;
                                               },
                                             ),
+                                            if (_emailStatus == EmailCheckStatus.taken) ...[
+                                              const SizedBox(height: 8),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                                decoration: BoxDecoration(
+                                                  color: AppColors.errorLight,
+                                                  borderRadius: BorderRadius.circular(10),
+                                                  border: Border.all(color: AppColors.error.withValues(alpha: 0.35)),
+                                                ),
+                                                child: const Row(
+                                                  children: [
+                                                    Icon(Icons.cancel_rounded, size: 18, color: AppColors.error),
+                                                    SizedBox(width: 8),
+                                                    Expanded(
+                                                      child: Text(
+                                                        'Email ini sudah terdaftar. Silakan masuk atau gunakan Lupa Password.',
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          color: AppColors.error,
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                            if (_emailStatus == EmailCheckStatus.serverNotReady ||
+                                                _emailStatus == EmailCheckStatus.permissionDenied ||
+                                                _emailStatus == EmailCheckStatus.networkError ||
+                                                _emailStatus == EmailCheckStatus.unknownError) ...[
+                                              const SizedBox(height: 8),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                                decoration: BoxDecoration(
+                                                  color: AppColors.warningLight,
+                                                  borderRadius: BorderRadius.circular(10),
+                                                  border: Border.all(color: AppColors.warning.withValues(alpha: 0.35)),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    const Icon(Icons.warning_amber_rounded, size: 18, color: AppColors.warning),
+                                                    SizedBox(width: 8),
+                                                    Expanded(
+                                                      child: Text(
+                                                        _emailErrorText ?? 'Pengecekan email tidak dapat diselesaikan saat ini.',
+                                                        style: const TextStyle(
+                                                          fontSize: 12,
+                                                          color: Color(0xFF92400E),
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    TextButton(
+                                                      onPressed: _isCheckingEmail ? null : () => _onEmailChanged(force: true),
+                                                      style: TextButton.styleFrom(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                        minimumSize: Size.zero,
+                                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                      ),
+                                                      child: const Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          Icon(Icons.refresh_rounded, size: 14, color: AppColors.warning),
+                                                          SizedBox(width: 4),
+                                                          Text(
+                                                            'Coba lagi',
+                                                            style: TextStyle(
+                                                              fontSize: 12,
+                                                              fontWeight: FontWeight.bold,
+                                                              color: AppColors.warning,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
 
                                             const SizedBox(height: 14),
                                             _buildLabel('Nomor HP'),

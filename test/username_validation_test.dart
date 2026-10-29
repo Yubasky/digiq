@@ -32,10 +32,9 @@ void main() {
       expect(AuthService.validateUsernameFormat(' user123 '), isNull); // auto trim di depan/belakang
     });
 
-    test('Normalisasi case-insensitive (Bayu == bayu)', () {
-      const u1 = 'Bayu99';
-      const u2 = 'bayu99';
-      expect(u1.toLowerCase(), equals(u2.toLowerCase()));
+    test('Normalisasi case-insensitive via AuthService.normalizeUsername', () {
+      expect(AuthService.normalizeUsername('  Bayu99  '), equals('bayu99'));
+      expect(AuthService.normalizeUsername('DARZKINE'), equals('darzkine'));
     });
   });
 }
