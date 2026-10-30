@@ -1180,7 +1180,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         final width = constraints.maxWidth;
         final int crossAxisCount = width >= 1100 ? 4 : (width >= 720 ? 3 : 2);
         final double itemWidth = (width - (crossAxisCount - 1) * 12) / crossAxisCount;
-        final double itemHeight = (itemWidth * 9 / 16) + 112;
+        final double textScale = MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 1.35);
+        final double contentHeight = (width >= 720 ? 152.0 : 158.0) * textScale;
+        final double itemHeight = (itemWidth * 9 / 16) + contentHeight;
         final double childAspectRatio = itemWidth / itemHeight;
 
         return GridView.builder(
@@ -1222,12 +1224,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         borderRadius: BorderRadius.circular(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
             // 16:9 Banner Image Header with Overlaid Badge and Switch
             AspectRatio(
               aspectRatio: 16 / 9,
@@ -1336,7 +1334,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         color: AppColors.textMuted,
                         height: 1.2,
                       ),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
@@ -1374,10 +1372,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ),
 
-            ],
-            ),
+            const Spacer(),
 
-            // Card Footer: Actions (Status, Edit & Delete) - Snug & Bottom Aligned
+            // Card Footer: Actions (Status, Edit & Delete)
             Container(
               margin: const EdgeInsets.only(top: 4),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),

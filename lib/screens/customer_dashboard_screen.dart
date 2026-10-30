@@ -12,6 +12,7 @@ import '../services/app_language.dart';
 import '../theme/app_theme.dart';
 import '../widgets/qris_modal.dart';
 import 'login_screen.dart';
+import 'auth/email_verification_screen.dart';
 
 // Shared in-memory CartItem model
 
@@ -223,6 +224,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       final String errorMsg = e is PostgrestException
           ? e.message
           : e.toString().replaceAll('Exception:', '').trim();
+      final isUnverified = errorMsg.toLowerCase().contains('verifikasi') || errorMsg.toLowerCase().contains('verify');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -611,7 +613,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                   final width = constraints.crossAxisExtent;
                   final int crossAxisCount = width >= 1100 ? 4 : (width >= 720 ? 3 : 2);
                   final double itemWidth = (width - 32 - (crossAxisCount - 1) * 12) / crossAxisCount;
-                  final double itemHeight = (itemWidth * 9 / 16) + 120;
+                  final double textScale = MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 1.35);
+                  final double contentHeight = (width >= 720 ? 150.0 : 156.0) * textScale;
+                  final double itemHeight = (itemWidth * 9 / 16) + contentHeight;
                   final double childAspectRatio = itemWidth / itemHeight;
 
                   return SliverPadding(
@@ -769,13 +773,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
           borderRadius: BorderRadius.circular(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-              // 16:9 Banner Image Header with Overlaid Provider Badge and Stock Badge
+              // 16:9 Banner Image Header with Overlaid Badge and Stock Badge
               AspectRatio(
                 aspectRatio: 16 / 9,
                 child: Stack(
@@ -882,7 +882,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                       const SizedBox(height: 2),
                       Text(
                         product.description,
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 10,
@@ -903,11 +903,11 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                   ],
                 ),
               ),
-            ],
-          ),
 
-          // Quick Buy Button at Bottom
-          Padding(
+              const Spacer(),
+
+              // Quick Buy Button at Bottom
+              Padding(
             padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
             child: SizedBox(
               width: double.infinity,
