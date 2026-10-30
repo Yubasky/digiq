@@ -271,10 +271,37 @@ void main() {
       );
     });
 
-    test('Error tak dikenal diklasifikasikan sebagai unknownError, BUKAN serverNotReady', () {
-      final errUnknown = PostgrestException(
+    test('HTTP 429 (Rate Limit) dan 5xx (500, 502, 503, 504) diklasifikasikan sebagai serverNotReady', () {
+      final err429 = PostgrestException(
+        message: 'Too Many Requests',
+        code: '429',
+      );
+      final err503 = PostgrestException(
+        message: 'Service Unavailable',
+        code: '503',
+      );
+      final err500 = PostgrestException(
         message: 'Internal server error 500 in postgres',
         code: '500',
+      );
+      expect(
+        AuthService.classifyUsernameCheckError(err429),
+        equals(UsernameCheckStatus.serverNotReady),
+      );
+      expect(
+        AuthService.classifyUsernameCheckError(err503),
+        equals(UsernameCheckStatus.serverNotReady),
+      );
+      expect(
+        AuthService.classifyUsernameCheckError(err500),
+        equals(UsernameCheckStatus.serverNotReady),
+      );
+    });
+
+    test('Error tak dikenal diklasifikasikan sebagai unknownError, BUKAN serverNotReady', () {
+      final errUnknown = PostgrestException(
+        message: 'Some unhandled error',
+        code: 'UNKNOWN',
       );
       expect(
         AuthService.classifyUsernameCheckError(errUnknown),
@@ -294,9 +321,11 @@ void main() {
       );
     });
 
-    test('Socket / network exceptions diklasifikasikan sebagai networkError', () {
+    test('Socket / network / browser fetch exceptions diklasifikasikan sebagai networkError', () {
       const socketErr = 'SocketException: Failed host lookup: iqxoofrhhrqkgehuvrlb.supabase.co';
       const clientErr = 'ClientException: XMLHttpRequest error';
+      const fetchErr = 'TypeError: Failed to fetch';
+      const corsErr = 'Cross-Origin Request Blocked (CORS)';
       expect(
         AuthService.classifyUsernameCheckError(socketErr),
         equals(UsernameCheckStatus.networkError),
@@ -305,6 +334,19 @@ void main() {
         AuthService.classifyUsernameCheckError(clientErr),
         equals(UsernameCheckStatus.networkError),
       );
+      expect(
+        AuthService.classifyUsernameCheckError(fetchErr),
+        equals(UsernameCheckStatus.networkError),
+      );
+      expect(
+        AuthService.classifyUsernameCheckError(corsErr),
+        equals(UsernameCheckStatus.networkError),
+      );
+    });
+
+    test('In-memory cache username dapat di-reset dengan clearUsernameCache', () {
+      AuthService.clearUsernameCache();
+      expect(AuthService.normalizeUsername('  Bayu6  '), equals('bayu6'));
     });
 
     test('Error tidak pernah menghasilkan status taken (sudah digunakan)', () {

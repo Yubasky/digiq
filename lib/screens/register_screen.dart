@@ -32,6 +32,8 @@ class _RegisterScreenState extends State<RegisterScreen>
   bool _highlightAgreed = false;
 
   Timer? _debounceUsernameTimer;
+  Timer? _retryUsernameCooldownTimer;
+  bool _isRetryUsernameCoolingDown = false;
   int _usernameSeq = 0;
   bool _isCheckingUsername = false;
   UsernameCheckStatus? _usernameStatus;
@@ -67,6 +69,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   @override
   void dispose() {
     _debounceUsernameTimer?.cancel();
+    _retryUsernameCooldownTimer?.cancel();
     _debounceEmailTimer?.cancel();
     _usernameController.removeListener(_onUsernameChanged);
     _emailController.removeListener(_onEmailChanged);
@@ -93,6 +96,16 @@ class _RegisterScreenState extends State<RegisterScreen>
       return;
     }
 
+    // Jika belum force dan panjang < 3 karakter, jangan trigger validasi prematur/RPC
+    if (!force && currentInput.length < 3) {
+      setState(() {
+        _isCheckingUsername = false;
+        _usernameStatus = null;
+        _usernameErrorText = null;
+      });
+      return;
+    }
+
     final formatErr = AuthService.validateUsernameFormat(currentInput);
     if (formatErr != null) {
       setState(() {
@@ -110,7 +123,10 @@ class _RegisterScreenState extends State<RegisterScreen>
     });
 
     void runCheck() async {
-      final status = await AuthService.checkUsernameStatus(currentInput);
+      final status = await AuthService.checkUsernameStatus(
+        currentInput,
+        useCache: !force,
+      );
       if (!mounted || seq != _usernameSeq) {
         return; // Stale async response dibuang
       }
@@ -125,8 +141,24 @@ class _RegisterScreenState extends State<RegisterScreen>
     if (force) {
       runCheck();
     } else {
-      _debounceUsernameTimer = Timer(const Duration(milliseconds: 450), runCheck);
+      _debounceUsernameTimer = Timer(const Duration(milliseconds: 500), runCheck);
     }
+  }
+
+  void _onRetryUsername() {
+    if (_isCheckingUsername || _isRetryUsernameCoolingDown) return;
+    setState(() {
+      _isRetryUsernameCoolingDown = true;
+    });
+    _onUsernameChanged(force: true);
+    _retryUsernameCooldownTimer?.cancel();
+    _retryUsernameCooldownTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted) {
+        setState(() {
+          _isRetryUsernameCoolingDown = false;
+        });
+      }
+    });
   }
 
   void _onEmailChanged({bool force = false}) {
@@ -664,7 +696,7 @@ if (_isCheckingUsername) ...[
                                                     ),
                                                     const SizedBox(width: 8),
                                                     TextButton(
-                                                      onPressed: _isCheckingUsername ? null : () => _onUsernameChanged(force: true),
+                                                      onPressed: (_isCheckingUsername || _isRetryUsernameCoolingDown) ? null : _onRetryUsername,
                                                       style: TextButton.styleFrom(
                                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                                         minimumSize: Size.zero,

@@ -83,6 +83,15 @@ class AuthService {
     return null;
   }
 
+  /// In-memory cache ringan untuk menyimpan hasil ketersediaan username (hanya available/taken).
+  static final Map<String, UsernameCheckStatus> _usernameCache = {};
+
+  /// Membersihkan cache ketersediaan username (misal saat logout atau untuk testing).
+  @visibleForTesting
+  static void clearUsernameCache() {
+    _usernameCache.clear();
+  }
+
   /// Normalisasi username: hapus spasi ujung dan konversi ke huruf kecil
   static String normalizeUsername(String input) => input.trim().toLowerCase();
 
@@ -105,6 +114,17 @@ class AuthService {
           msg.contains('schema cache')) {
         return UsernameCheckStatus.serverNotReady;
       }
+      // HTTP 429 (Rate Limit) dan 5xx (500, 502, 503, 504, PGRST5xx)
+      if (code == '429' ||
+          code == '500' ||
+          code == '502' ||
+          code == '503' ||
+          code == '504' ||
+          code.startsWith('PGRST5') ||
+          msg.contains('too many requests') ||
+          msg.contains('rate limit')) {
+        return UsernameCheckStatus.serverNotReady;
+      }
       // 401 / 403 / 42501 menandakan penolakan izin akses (RLS / peran anon)
       if (code == '401' ||
           code == '403' ||
@@ -117,6 +137,15 @@ class AuthService {
     if (str.contains('pgrst202') || str.contains('schema cache')) {
       return UsernameCheckStatus.serverNotReady;
     }
+    if (str.contains('429') ||
+        str.contains('rate limit') ||
+        str.contains('too many requests') ||
+        str.contains('500') ||
+        str.contains('502') ||
+        str.contains('503') ||
+        str.contains('504')) {
+      return UsernameCheckStatus.serverNotReady;
+    }
     if (str.contains('permission denied') || str.contains('unauthorized')) {
       return UsernameCheckStatus.permissionDenied;
     }
@@ -124,10 +153,13 @@ class AuthService {
         str.contains('timeoutexception') ||
         str.contains('clientexception') ||
         str.contains('network') ||
+        str.contains('networkerror') ||
         str.contains('failed host lookup') ||
         str.contains('connection refused') ||
         str.contains('xmlhttprequest') ||
-        str.contains('connection closed')) {
+        str.contains('connection closed') ||
+        str.contains('failed to fetch') ||
+        str.contains('cors')) {
       return UsernameCheckStatus.networkError;
     }
     // Error tak dikenal tidak diasumsikan serverNotReady
@@ -165,11 +197,20 @@ class AuthService {
     String username, {
     int maxRetries = 1,
     Duration timeoutDuration = const Duration(seconds: 4),
+    bool useCache = true,
   }) async {
     final formatErr = validateUsernameFormat(username);
     if (formatErr != null) return UsernameCheckStatus.invalidFormat;
 
     final cleanUsername = normalizeUsername(username);
+
+    // Ambil dari cache bila sudah pernah diperiksa valid (available/taken)
+    if (useCache && _usernameCache.containsKey(cleanUsername)) {
+      final cached = _usernameCache[cleanUsername];
+      if (cached == UsernameCheckStatus.available || cached == UsernameCheckStatus.taken) {
+        return cached!;
+      }
+    }
 
     for (var attempt = 0; attempt <= maxRetries; attempt++) {
       try {
@@ -180,7 +221,11 @@ class AuthService {
             )
             .timeout(timeoutDuration);
 
-        if (res == true) return UsernameCheckStatus.available;
+        if (res == true) {
+          _usernameCache[cleanUsername] = UsernameCheckStatus.available;
+          return UsernameCheckStatus.available;
+        }
+        _usernameCache[cleanUsername] = UsernameCheckStatus.taken;
         return UsernameCheckStatus.taken;
       } catch (e) {
         debugPrint(
@@ -260,6 +305,16 @@ class AuthService {
           msg.contains('schema cache')) {
         return EmailCheckStatus.serverNotReady;
       }
+      if (code == '429' ||
+          code == '500' ||
+          code == '502' ||
+          code == '503' ||
+          code == '504' ||
+          code.startsWith('PGRST5') ||
+          msg.contains('too many requests') ||
+          msg.contains('rate limit')) {
+        return EmailCheckStatus.serverNotReady;
+      }
       if (code == '401' ||
           code == '403' ||
           code == '42501' ||
@@ -272,6 +327,15 @@ class AuthService {
     if (str.contains('pgrst202') || str.contains('schema cache')) {
       return EmailCheckStatus.serverNotReady;
     }
+    if (str.contains('429') ||
+        str.contains('rate limit') ||
+        str.contains('too many requests') ||
+        str.contains('500') ||
+        str.contains('502') ||
+        str.contains('503') ||
+        str.contains('504')) {
+      return EmailCheckStatus.serverNotReady;
+    }
     if (str.contains('permission denied') || str.contains('unauthorized')) {
       return EmailCheckStatus.permissionDenied;
     }
@@ -279,10 +343,13 @@ class AuthService {
         str.contains('timeoutexception') ||
         str.contains('clientexception') ||
         str.contains('network') ||
+        str.contains('networkerror') ||
         str.contains('failed host lookup') ||
         str.contains('connection refused') ||
         str.contains('xmlhttprequest') ||
-        str.contains('connection closed')) {
+        str.contains('connection closed') ||
+        str.contains('failed to fetch') ||
+        str.contains('cors')) {
       return EmailCheckStatus.networkError;
     }
     return EmailCheckStatus.unknownError;
