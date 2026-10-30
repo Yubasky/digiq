@@ -199,9 +199,13 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     );
   }
 
-  void _navigateToLogin() {
+  Future<void> _navigateToLogin() async {
     _redirectTimer?.cancel();
     _cooldownTimer?.cancel();
+    try {
+      await AuthService.signOut();
+    } catch (_) {}
+    if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginScreen()),
       (route) => false,
@@ -475,11 +479,12 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
             ),
           ),
           const SizedBox(height: 6),
-          // Tombol Kembali ke Login
-          TextButton(
+          // Tombol Keluar / Ganti Akun
+          TextButton.icon(
             onPressed: _navigateToLogin,
-            child: const Text(
-              'Kembali ke Halaman Login',
+            icon: const Icon(Icons.logout_rounded, size: 16, color: AppColors.textSecondary),
+            label: const Text(
+              'Keluar / Ganti Akun',
               style: TextStyle(
                 fontSize: 13,
                 color: AppColors.textSecondary,

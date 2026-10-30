@@ -1,3 +1,2 @@
-2026/10/29-12:06:04.008 48f4 Reusing MANIFEST C:\Users\Administrator\Documents\digiq\edge_audit_profile\Default\Session Storage/MANIFEST-000001
-2026/10/29-12:06:04.009 48f4 Recovering log #3
-2026/10/29-12:06:04.012 48f4 Reusing old log C:\Users\Administrator\Documents\digiq\edge_audit_profile\Default\Session Storage/000003.log 
+2026/10/30-07:27:22.712 56a0 Creating DB C:\Users\Administrator\Documents\digiq\edge_audit_profile\Default\Session Storage since it was missing.
+2026/10/30-07:27:22.780 56a0 Reusing MANIFEST C:\Users\Administrator\Documents\digiq\edge_audit_profile\Default\Session Storage/MANIFEST-000001

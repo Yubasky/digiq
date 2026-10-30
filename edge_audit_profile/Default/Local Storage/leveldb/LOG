@@ -1,3 +1,2 @@
-2026/10/29-12:06:03.938 1704 Reusing MANIFEST C:\Users\Administrator\Documents\digiq\edge_audit_profile\Default\Local Storage\leveldb/MANIFEST-000001
-2026/10/29-12:06:03.939 1704 Recovering log #3
-2026/10/29-12:06:03.945 1704 Reusing old log C:\Users\Administrator\Documents\digiq\edge_audit_profile\Default\Local Storage\leveldb/000003.log 
+2026/10/30-07:27:21.474 56a0 Creating DB C:\Users\Administrator\Documents\digiq\edge_audit_profile\Default\Local Storage\leveldb since it was missing.
+2026/10/30-07:27:22.027 56a0 Reusing MANIFEST C:\Users\Administrator\Documents\digiq\edge_audit_profile\Default\Local Storage\leveldb/MANIFEST-000001

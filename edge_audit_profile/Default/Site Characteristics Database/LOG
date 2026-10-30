@@ -1,3 +1,2 @@
-2026/10/29-12:06:03.418 4fb0 Reusing MANIFEST C:\Users\Administrator\Documents\digiq\edge_audit_profile\Default\Site Characteristics Database/MANIFEST-000001
-2026/10/29-12:06:03.419 4fb0 Recovering log #3
-2026/10/29-12:06:03.419 4fb0 Reusing old log C:\Users\Administrator\Documents\digiq\edge_audit_profile\Default\Site Characteristics Database/000003.log 
+2026/10/30-07:27:21.397 4d44 Creating DB C:\Users\Administrator\Documents\digiq\edge_audit_profile\Default\Site Characteristics Database since it was missing.
+2026/10/30-07:27:21.843 4d44 Reusing MANIFEST C:\Users\Administrator\Documents\digiq\edge_audit_profile\Default\Site Characteristics Database/MANIFEST-000001

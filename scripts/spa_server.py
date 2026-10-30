@@ -108,6 +108,9 @@ class SpaRequestHandler(BaseHTTPRequestHandler):
             return "no-cache, no-store, must-revalidate"
 
         filename = posixpath.basename(rel_path)
+        if filename == "main.dart.js":
+            return "no-cache, must-revalidate"
+
         if filename in NO_CACHE_FILES:
             return "no-cache, no-store, must-revalidate"
 

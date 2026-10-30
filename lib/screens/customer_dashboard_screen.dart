@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'edit_profile_screen.dart';
 import '../models/product_model.dart';
 import '../models/profile_model.dart';
 import '../models/transaction_model.dart';
@@ -28,6 +29,7 @@ class CustomerDashboardScreen extends StatefulWidget {
 }
 
 class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
+  late ProfileModel _profile;
   int _currentTab = 0;
   final List<CartItem> _cart = [];
   List<QrisTransaction> _transactions = [];
@@ -45,27 +47,37 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _profile = widget.profile;
     _productStream = ProductService.watchProducts(activeOnly: true);
     _trxStream = TransactionService.watchUserTransactions();
     _productSub = _productStream.listen((list) {
+
       if (mounted) {
         setState(() {
           _products = list;
           _productsLoading = false;
         });
       }
-    });
+    }, onError: (_) {});
     _trxSub = _trxStream.listen((list) {
       if (mounted) {
         setState(() {
           _transactions = list
-              .map((m) => QrisTransaction.fromTransactionModel(m, widget.profile.fullName))
+              .map((m) => QrisTransaction.fromTransactionModel(m, _profile.fullName))
               .toList();
         });
       }
-    });
+    }, onError: (_) {});
     // Expire pending di server saat buka riwayat
     TransactionService.expirePendingTransactions();
+  }
+
+  @override
+  void didUpdateWidget(CustomerDashboardScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.profile != widget.profile) {
+      _profile = widget.profile;
+    }
   }
 
   @override
@@ -456,7 +468,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       Text(
-                        '${AppLanguage.t('greeting_prefix')}${widget.profile.fullName.split(' ').first} 👋',
+                        '${AppLanguage.t('greeting_prefix')}${_profile.fullName.split(' ').first} 👋',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 22,
@@ -1591,37 +1603,74 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const SizedBox(height: 22),
-                      Container(
-                        width: 72,
-                        height: 72,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.5), width: 2),
-                        ),
-                        child: Center(
-                          child: Text(
-                            widget.profile.fullName.isNotEmpty
-                                ? widget.profile.fullName[0].toUpperCase()
-                                : '?',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 30,
-                              fontWeight: FontWeight.bold,
+                      Stack(
+                        children: [
+                          Container(
+                            width: 72,
+                            height: 72,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.5), width: 2),
+                            ),
+                            child: Center(
+                              child: Text(
+                                _profile.fullName.isNotEmpty
+                                    ? _profile.fullName[0].toUpperCase()
+                                    : '?',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 30,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Material(
+                              color: Colors.white,
+                              shape: const CircleBorder(),
+                              elevation: 3,
+                              child: InkWell(
+                                key: const Key('profile_avatar_edit_button'),
+                                onTap: _navigateToEditProfile,
+                                customBorder: const CircleBorder(),
+                                child: const Padding(
+                                  padding: EdgeInsets.all(6),
+                                  child: Icon(
+                                    Icons.edit_rounded,
+                                    size: 15,
+                                    color: Color(0xFF0077B6),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        widget.profile.fullName,
+                        _profile.fullName,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                      if (_profile.username.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          '@${_profile.username}',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.85),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 3),
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -1656,13 +1705,19 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                     title: 'Informasi Akun',
                     children: [
                       _profileInfoRow(Icons.person_outline_rounded, 'Nama',
-                          widget.profile.fullName),
+                          _profile.fullName),
+                      if (_profile.username.isNotEmpty)
+                        _profileInfoRow(
+                          Icons.alternate_email_rounded,
+                          'Username',
+                          '@${_profile.username}',
+                        ),
                       _profileInfoRow(
                           Icons.alternate_email_rounded,
                           'ID Akun',
-                          widget.profile.id.substring(0, 8).toUpperCase()),
+                          _profile.id.substring(0, 8).toUpperCase()),
                       _profileInfoRow(Icons.phone_outlined, 'No. HP',
-                          widget.profile.phone),
+                          _profile.phone),
                     ],
                   ),
 
@@ -1694,6 +1749,12 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                   _profileCard(
                     title: 'Menu',
                     children: [
+                      _menuItem(
+                        key: const Key('profile_menu_edit_item'),
+                        icon: Icons.manage_accounts_rounded,
+                        label: 'Edit Profil',
+                        onTap: _navigateToEditProfile,
+                      ),
                       _menuItem(
                         icon: Icons.history_rounded,
                         label: 'Riwayat Transaksi',
@@ -1740,11 +1801,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                   const SizedBox(height: 12),
 
                   // Logout
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+                  Material(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
                     child: ListTile(
                       leading: Container(
                         width: 38,
@@ -1879,10 +1938,12 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   }
 
   Widget _menuItem(
-      {required IconData icon,
+      {Key? key,
+      required IconData icon,
       required String label,
       required VoidCallback onTap}) {
     return InkWell(
+      key: key,
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
@@ -1915,6 +1976,21 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _navigateToEditProfile() async {
+    final updated = await Navigator.push<ProfileModel>(
+      context,
+      MaterialPageRoute(builder: (_) => EditProfileScreen(profile: _profile)),
+    );
+    if (updated != null && mounted) {
+      setState(() => _profile = updated);
+    } else if (mounted) {
+      final fresh = await AuthService.getCurrentProfile();
+      if (fresh != null && mounted) {
+        setState(() => _profile = fresh);
+      }
+    }
   }
 
   void _showAboutAppDialog() {

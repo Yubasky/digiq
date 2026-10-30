@@ -68,12 +68,13 @@ class _RegisterScreenState extends State<RegisterScreen>
 
     setState(() => _isLoading = true);
 
-    final registeredEmail = _emailController.text.trim();
+    final registeredEmail = _emailController.text.trim().toLowerCase();
     final result = await AuthService.signUp(
       email: registeredEmail,
       password: _passwordController.text,
       fullName: _nameController.text.trim(),
       phone: _phoneController.text.trim(),
+      username: _usernameController.text.trim(),
     );
 
     if (!mounted) return;

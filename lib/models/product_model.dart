@@ -48,7 +48,7 @@ class ProductModel {
       discountPrice: m['discount_price'] == null
           ? null
           : (m['discount_price'] as num).toDouble(),
-      stock: (m['stock'] as int?) ?? 0,
+      stock: (m['stock'] as num?)?.toInt() ?? 0,
       isActive: (m['is_active'] as bool?) ?? true,
       imageUrl: m['image_url'] as String?,
       provider: (m['provider'] as String?) ?? '',
@@ -209,36 +209,36 @@ class ProductItem {
         return ProductCategory.all;
     }
   }
-}
 
-/// Central in-memory fallback (digunakan jika Supabase belum terhubung)
-class ProductStore {
-  static final List<ProductItem> _products = [];
-  static List<ProductItem> get products => _products;
-
-  static void addProduct(ProductItem item) => _products.insert(0, item);
-
-  static void updateProduct(ProductItem item) {
-    final index = _products.indexWhere((p) => p.id == item.id);
-    if (index != -1) _products[index] = item;
-  }
-
-  static void deleteProduct(String id) =>
-      _products.removeWhere((p) => p.id == id);
-
-  static void toggleStatus(String id) {
-    final index = _products.indexWhere((p) => p.id == id);
-    if (index != -1) {
-      _products[index] =
-          _products[index].copyWith(isActive: !_products[index].isActive);
+  String get categoryString {
+    switch (category) {
+      case ProductCategory.pulsa:
+        return 'Pulsa';
+      case ProductCategory.pln:
+        return 'PLN';
+      case ProductCategory.games:
+        return 'Games';
+      case ProductCategory.ewallet:
+        return 'E-Wallet';
+      case ProductCategory.streaming:
+      case ProductCategory.all:
+        return 'Streaming';
     }
   }
 
-  static void reduceStock(String productId, int quantity) {
-    final index = _products.indexWhere((p) => p.id == productId);
-    if (index != -1) {
-      final newStock = (_products[index].stock - quantity).clamp(0, 9999);
-      _products[index] = _products[index].copyWith(stock: newStock);
-    }
+  ProductModel toProductModel({DateTime? createdAt}) {
+    return ProductModel(
+      id: id,
+      name: name,
+      category: categoryString,
+      description: description,
+      price: price,
+      discountPrice: null,
+      stock: stock,
+      isActive: isActive,
+      imageUrl: imageUrl,
+      provider: provider,
+      createdAt: createdAt ?? DateTime.now(),
+    );
   }
 }
