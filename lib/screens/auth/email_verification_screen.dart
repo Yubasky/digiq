@@ -7,8 +7,10 @@
 // 3. VerificationStatus.error: Tautan kedaluwarsa atau tidak valid (ikon peringatan Rose #E11D48, kirim ulang)
 
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../../services/auth_service.dart';
 import '../../services/app_language.dart';
 import '../../theme/app_theme.dart';
@@ -41,7 +43,7 @@ class EmailVerificationScreen extends StatefulWidget {
     this.errorMessage,
     this.isRecovery = false,
   }) : initialStatus =
-            initialStatus ?? initialState ?? VerificationStatus.waiting;
+           initialStatus ?? initialState ?? VerificationStatus.waiting;
 
   @override
   State<EmailVerificationScreen> createState() =>
@@ -82,31 +84,34 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   }
 
   void _setupAuthListener() {
-    _authSub = AuthService.authStateChanges.listen((data) {
-      if (!mounted) return;
-      final session = data.session;
-      final event = data.event;
+    _authSub = AuthService.authStateChanges.listen(
+      (data) {
+        if (!mounted) return;
+        final session = data.session;
+        final event = data.event;
 
-      // Terdeteksi ketika link di Gmail diklik dan PKCE berhasil menukar session
-      final isConfirmed = session?.user.emailConfirmedAt != null;
-      if (event == AuthChangeEvent.signedIn ||
-          event == AuthChangeEvent.userUpdated ||
-          isConfirmed) {
-        if (_status != VerificationStatus.verified) {
-          setState(() {
-            _status = VerificationStatus.verified;
-            _errorMessage = null;
-          });
-          _startRedirectCountdown();
+        // Terdeteksi ketika link di Gmail diklik dan PKCE berhasil menukar session
+        final isConfirmed = session?.user.emailConfirmedAt != null;
+        if (event == AuthChangeEvent.signedIn ||
+            event == AuthChangeEvent.userUpdated ||
+            isConfirmed) {
+          if (_status != VerificationStatus.verified) {
+            setState(() {
+              _status = VerificationStatus.verified;
+              _errorMessage = null;
+            });
+            _startRedirectCountdown();
+          }
         }
-      }
-    }, onError: (Object error) {
-      if (!mounted) return;
-      setState(() {
-        _status = VerificationStatus.error;
-        _errorMessage = AuthService.translateAuthError(error.toString());
-      });
-    });
+      },
+      onError: (Object error) {
+        if (!mounted) return;
+        setState(() {
+          _status = VerificationStatus.error;
+          _errorMessage = AuthService.translateAuthError(error.toString());
+        });
+      },
+    );
   }
 
   void _startCooldown(int seconds) {
@@ -169,7 +174,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
       );
     } else {
       _showSnack(
-        result.message ?? 'Gagal mengirim ulang email verifikasi.',
+        result.message ?? (AppLanguage.isId ? 'Gagal mengirim ulang email verifikasi.' : 'Failed to resend verification email.'),
         isError: true,
       );
     }
@@ -300,8 +305,8 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                       _status == VerificationStatus.verified
                           ? AppColors.success.withValues(alpha: 0.20)
                           : _status == VerificationStatus.error
-                              ? AppColors.error.withValues(alpha: 0.18)
-                              : AppColors.primary.withValues(alpha: 0.25),
+                          ? AppColors.error.withValues(alpha: 0.18)
+                          : AppColors.primary.withValues(alpha: 0.25),
                       Colors.transparent,
                     ],
                   ),
@@ -329,8 +334,10 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
             SafeArea(
               child: Center(
                 child: SingleChildScrollView(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 20,
+                  ),
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 440),
                     child: AnimatedSwitcher(
@@ -425,18 +432,19 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                 height: 1.5,
               ),
               children: [
+                TextSpan(text: AppLanguage.t('verify_email_waiting_desc_1')),
                 TextSpan(
-                    text: AppLanguage.t('verify_email_waiting_desc_1')),
-                TextSpan(
-                  text: emailText.isNotEmpty ? emailText : (AppLanguage.isId ? 'alamat email Anda' : 'your email address'),
+                  text: emailText.isNotEmpty
+                      ? emailText
+                      : (AppLanguage.isId
+                            ? 'alamat email Anda'
+                            : 'your email address'),
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     color: AppColors.textPrimary,
                   ),
                 ),
-                TextSpan(
-                  text: AppLanguage.t('verify_email_waiting_desc_2'),
-                ),
+                TextSpan(text: AppLanguage.t('verify_email_waiting_desc_2')),
               ],
             ),
           ),
@@ -452,7 +460,11 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.sync_rounded, size: 18, color: AppColors.primary),
+                const Icon(
+                  Icons.sync_rounded,
+                  size: 18,
+                  color: AppColors.primary,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -485,8 +497,13 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                     )
                   : const Icon(Icons.verified_user_rounded, size: 18),
               label: Text(
-                AppLanguage.isId ? 'Cek Status Verifikasi' : 'Check Verification Status',
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                AppLanguage.isId
+                    ? 'Cek Status Verifikasi'
+                    : 'Check Verification Status',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
@@ -505,8 +522,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
             width: double.infinity,
             height: 48,
             child: OutlinedButton.icon(
-              onPressed:
-                  (_resendCooldown > 0 || _isResending) ? null : _resendEmail,
+              onPressed: (_resendCooldown > 0 || _isResending)
+                  ? null
+                  : _resendEmail,
               icon: _isResending
                   ? const SizedBox(
                       width: 16,
@@ -521,8 +539,10 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                 _resendCooldown > 0
                     ? '${AppLanguage.t('resend_in_cooldown')}${_resendCooldown}s'
                     : AppLanguage.t('verify_email_resend_btn'),
-                style:
-                    const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.primary,
@@ -556,9 +576,15 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
           // Tombol Keluar / Ganti Akun
           TextButton.icon(
             onPressed: _navigateToLogin,
-            icon: const Icon(Icons.logout_rounded, size: 16, color: AppColors.textSecondary),
+            icon: const Icon(
+              Icons.logout_rounded,
+              size: 16,
+              color: AppColors.textSecondary,
+            ),
             label: Text(
-              AppLanguage.isId ? 'Keluar / Ganti Akun' : 'Sign Out / Switch Account',
+              AppLanguage.isId
+                  ? 'Keluar / Ganti Akun'
+                  : 'Sign Out / Switch Account',
               style: const TextStyle(
                 fontSize: 13,
                 color: AppColors.textSecondary,
@@ -678,8 +704,13 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
               onPressed: _navigateToDashboard,
               icon: const Icon(Icons.arrow_forward_rounded, size: 20),
               label: Text(
-                AppLanguage.isId ? 'Masuk ke Aplikasi Sekarang' : 'Enter App Now',
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                AppLanguage.isId
+                    ? 'Masuk ke Aplikasi Sekarang'
+                    : 'Enter App Now',
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
@@ -700,8 +731,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
 
   Widget _buildErrorCard() {
     if (widget.isRecovery) {
-      final displayError = _errorMessage ??
-          'Tautan reset kata sandi sudah kedaluwarsa atau sudah digunakan. Silakan minta tautan baru.';
+      final displayError =
+          _errorMessage ??
+          (AppLanguage.isId ? 'Tautan reset kata sandi sudah kedaluwarsa atau sudah digunakan. Silakan minta tautan baru.' : 'Password reset link has expired or has already been used. Please request a new link.');
 
       return Container(
         key: const ValueKey('recovery_error_card'),
@@ -738,8 +770,8 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
-              'Tautan Reset Tidak Valid',
+            Text(
+              AppLanguage.isId ? 'Tautan Reset Tidak Valid' : 'Invalid Reset Link',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 20,
@@ -788,8 +820,8 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
             const SizedBox(height: 12),
             TextButton(
               onPressed: _navigateToLogin,
-              child: const Text(
-                'Kembali ke Halaman Login',
+              child: Text(
+                AppLanguage.isId ? 'Kembali ke Halaman Login' : 'Back to Login Page',
                 style: TextStyle(
                   fontSize: 13,
                   color: AppColors.textSecondary,
@@ -801,8 +833,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
         ),
       );
     }
-    final displayError = _errorMessage ??
-        'Tautan verifikasi sudah kedaluwarsa atau tidak valid saat kembali dari Gmail. Silakan kirim ulang tautan baru.';
+    final displayError =
+        _errorMessage ??
+        (AppLanguage.isId ? 'Tautan verifikasi sudah kedaluwarsa atau tidak valid saat kembali dari Gmail. Silakan kirim ulang tautan baru.' : 'Verification link has expired or is invalid. Please resend a new link.');
 
     return Container(
       key: const ValueKey('error_card'),
@@ -841,8 +874,8 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
           ),
           const SizedBox(height: 24),
 
-          const Text(
-            'Tautan Kedaluwarsa / Tidak Valid',
+          Text(
+            AppLanguage.isId ? 'Tautan Kedaluwarsa / Tidak Valid' : 'Expired / Invalid Link',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 20,
@@ -871,21 +904,29 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
             style: const TextStyle(fontSize: 14),
             decoration: InputDecoration(
               hintText: 'Masukkan email Anda',
-              prefixIcon: const Icon(Icons.email_outlined,
-                  size: 20, color: AppColors.textMuted),
+              prefixIcon: const Icon(
+                Icons.email_outlined,
+                size: 20,
+                color: AppColors.textMuted,
+              ),
               isDense: true,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              border:
-                  OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: const BorderSide(color: AppColors.cardBorder),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide:
-                    const BorderSide(color: AppColors.primary, width: 2),
+                borderSide: const BorderSide(
+                  color: AppColors.primary,
+                  width: 2,
+                ),
               ),
               filled: true,
               fillColor: AppColors.background,
@@ -898,8 +939,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
             width: double.infinity,
             height: 50,
             child: ElevatedButton.icon(
-              onPressed:
-                  (_resendCooldown > 0 || _isResending) ? null : _resendEmail,
+              onPressed: (_resendCooldown > 0 || _isResending)
+                  ? null
+                  : _resendEmail,
               icon: _isResending
                   ? const SizedBox(
                       width: 18,
@@ -915,7 +957,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                     ? 'Tunggu ${_resendCooldown}d untuk kirim ulang'
                     : 'Kirim Ulang Email Verifikasi',
                 style: const TextStyle(
-                    fontSize: 14.5, fontWeight: FontWeight.bold),
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
@@ -929,9 +973,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
           ),
           const SizedBox(height: 12),
 
-                    const SizedBox(height: 10),
-          const Text(
-            'Tidak menerima email? Periksa folder Spam/Promosi.',
+          const SizedBox(height: 10),
+          Text(
+            AppLanguage.isId ? 'Tidak menerima email? Periksa folder Spam/Promosi.' : 'Didn\'t receive the email? Check your Spam/Promotions folder.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 12,
@@ -943,8 +987,8 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
           // Tombol Kembali ke Halaman Login
           TextButton(
             onPressed: _navigateToLogin,
-            child: const Text(
-              'Kembali ke Halaman Login',
+            child: Text(
+              AppLanguage.isId ? 'Kembali ke Halaman Login' : 'Back to Login Page',
               style: TextStyle(
                 fontSize: 13,
                 color: AppColors.textSecondary,

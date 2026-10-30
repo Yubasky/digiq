@@ -538,6 +538,199 @@ class AppLanguage {
       AppLang.id: 'Tutup',
       AppLang.en: 'Close',
     },
+    // Product & Catalog Details
+    'no_products_found': {
+      AppLang.id: 'Produk tidak ditemukan',
+      AppLang.en: 'No products found',
+    },
+    'no_products_desc': {
+      AppLang.id: 'Coba cari dengan kata kunci lain atau periksa kategori yang dipilih.',
+      AppLang.en: 'Try searching with different keywords or check the selected category.',
+    },
+    'ready_accounts_count': {
+      AppLang.id: 'Akun Siap Pakai',
+      AppLang.en: 'Ready Accounts',
+    },
+    'price_label': {
+      AppLang.id: 'Harga',
+      AppLang.en: 'Price',
+    },
+    'add_to_cart_btn': {
+      AppLang.id: '+ Keranjang',
+      AppLang.en: '+ Cart',
+    },
+    'buy_action_btn': {
+      AppLang.id: 'Beli',
+      AppLang.en: 'Buy',
+    },
+    'creating_transaction': {
+      AppLang.id: 'Membuat transaksi...',
+      AppLang.en: 'Creating transaction...',
+    },
+
+    // Cart Screen
+    'cart_title': {
+      AppLang.id: 'Keranjang Belanja',
+      AppLang.en: 'Shopping Cart',
+    },
+    'cart_empty_title': {
+      AppLang.id: 'Keranjang kosong',
+      AppLang.en: 'Your cart is empty',
+    },
+    'cart_empty_desc': {
+      AppLang.id: 'Yuk, tambahkan produk favoritmu!',
+      AppLang.en: 'Go ahead, add your favorite products!',
+    },
+    'browse_products': {
+      AppLang.id: 'Lihat Produk',
+      AppLang.en: 'Browse Products',
+    },
+    'clear_cart': {
+      AppLang.id: 'Kosongkan Keranjang',
+      AppLang.en: 'Clear Cart',
+    },
+    'clear_cart_confirm': {
+      AppLang.id: 'Yakin ingin menghapus semua item dari keranjang?',
+      AppLang.en: 'Are you sure you want to remove all items from your cart?',
+    },
+    'remove_all': {
+      AppLang.id: 'Hapus Semua',
+      AppLang.en: 'Remove All',
+    },
+    'pay_with_qris': {
+      AppLang.id: 'Bayar dengan QRIS',
+      AppLang.en: 'Pay with QRIS',
+    },
+    'total_payment': {
+      AppLang.id: 'Total Pembayaran',
+      AppLang.en: 'Total Payment',
+    },
+
+    // History Screen
+    'history_title': {
+      AppLang.id: 'Riwayat Transaksi',
+      AppLang.en: 'Transaction History',
+    },
+    'history_empty_title': {
+      AppLang.id: 'Belum ada transaksi',
+      AppLang.en: 'No transactions yet',
+    },
+    'history_empty_desc': {
+      AppLang.id: 'Transaksi yang berhasil akan muncul di sini',
+      AppLang.en: 'Successful transactions will appear here',
+    },
+    'status_pending': {
+      AppLang.id: 'Menunggu',
+      AppLang.en: 'Pending',
+    },
+    'status_success': {
+      AppLang.id: 'Berhasil',
+      AppLang.en: 'Success',
+    },
+    'status_expired': {
+      AppLang.id: 'Kedaluwarsa',
+      AppLang.en: 'Expired',
+    },
+    'status_cancelled': {
+      AppLang.id: 'Batal',
+      AppLang.en: 'Cancelled',
+    },
+
+    // Notifications & Info
+    'no_notifications_title': {
+      AppLang.id: 'Belum Ada Notifikasi Baru',
+      AppLang.en: 'No New Notifications',
+    },
+    'no_notifications_desc': {
+      AppLang.id: 'Pembaruan status pesanan dan informasi akun Anda akan muncul di sini.',
+      AppLang.en: 'Order updates and account notices will appear here.',
+    },
+    'understand_btn': {
+      AppLang.id: 'Mengerti',
+      AppLang.en: 'Got It',
+    },
+
+    // Admin Dashboard
+    'admin_digital_catalog': {
+      AppLang.id: 'Katalog Produk Digital',
+      AppLang.en: 'Digital Product Catalog',
+    },
+    'admin_ready_sale_suffix': {
+      AppLang.id: 'produk siap dijual via QRIS',
+      AppLang.en: 'products ready for sale via QRIS',
+    },
+    'admin_manage_all': {
+      AppLang.id: 'Kelola Semua',
+      AppLang.en: 'Manage All',
+    },
+    'admin_today_transactions': {
+      AppLang.id: 'Transaksi Masuk Hari Ini',
+      AppLang.en: 'Today\'s Transactions',
+    },
+    'admin_success_trx': {
+      AppLang.id: 'Berhasil (QRIS)',
+      AppLang.en: 'Successful (QRIS)',
+    },
+    'admin_pending_trx': {
+      AppLang.id: 'Pending Aktif',
+      AppLang.en: 'Active Pending',
+    },
+    'admin_total_omset': {
+      AppLang.id: 'Total Pendapatan',
+      AppLang.en: 'Total Revenue',
+    },
+    'admin_recent_notif': {
+      AppLang.id: 'Notifikasi Transaksi Terakhir',
+      AppLang.en: 'Recent Transaction Notifications',
+    },
+    'admin_no_trx_today': {
+      AppLang.id: 'Belum ada transaksi QRIS hari ini.',
+      AppLang.en: 'No QRIS transactions today.',
+    },
+    'admin_payment_received': {
+      AppLang.id: 'PEMBAYARAN QRIS MASUK!',
+      AppLang.en: 'QRIS PAYMENT RECEIVED!',
+    },
+    'admin_add_product_now': {
+      AppLang.id: 'Tambah Produk Sekarang',
+      AppLang.en: 'Add Product Now',
+    },
+    'admin_showing_products': {
+      AppLang.id: 'Menampilkan',
+      AppLang.en: 'Showing',
+    },
+    'admin_products_suffix': {
+      AppLang.id: 'Produk',
+      AppLang.en: 'Products',
+    },
+    'admin_save_qris_settings': {
+      AppLang.id: 'Simpan Pengaturan QRIS',
+      AppLang.en: 'Save QRIS Settings',
+    },
+    'admin_delete_product_title': {
+      AppLang.id: 'Hapus Akun?',
+      AppLang.en: 'Delete Product?',
+    },
+    'admin_delete_product_confirm': {
+      AppLang.id: 'Apakah Anda yakin ingin menghapus produk ini dari katalog toko?',
+      AppLang.en: 'Are you sure you want to remove this product from the store catalog?',
+    },
+    'admin_delete_action': {
+      AppLang.id: 'Hapus',
+      AppLang.en: 'Delete',
+    },
+    'admin_unmatched_mutations': {
+      AppLang.id: 'Mutasi Masuk Belum Terverifikasi (Unmatched)',
+      AppLang.en: 'Unmatched Incoming Mutations',
+    },
+    'admin_no_pending_trx': {
+      AppLang.id: 'Tidak ada transaksi pending yang aktif.',
+      AppLang.en: 'No active pending transactions.',
+    },
+    'admin_match_mutation': {
+      AppLang.id: 'Hubungkan Mutasi',
+      AppLang.en: 'Match Mutation',
+    },
   };
 
   static String t(String key) {

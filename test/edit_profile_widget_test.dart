@@ -21,11 +21,13 @@ import 'package:digiq/models/profile_model.dart';
 import 'package:digiq/services/auth_service.dart';
 import 'package:digiq/screens/customer_dashboard_screen.dart';
 import 'package:digiq/screens/edit_profile_screen.dart';
+import 'package:digiq/services/app_language.dart';
 
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     SharedPreferences.setMockInitialValues({});
+    AppLanguage.setLanguage(AppLang.id);
     try {
       await Supabase.initialize(
         url: 'https://placeholder.supabase.co',
@@ -62,7 +64,7 @@ void main() {
         await tester.pump();
 
         // Beralih ke tab Profil di bottom nav
-        final profileTab = find.text('Profil');
+        final profileTab = find.byIcon(Icons.person_outlined);
         expect(profileTab, findsOneWidget);
         await tester.tap(profileTab);
         await tester.pump();
@@ -106,7 +108,7 @@ void main() {
       await tester.pump();
 
       // Pindah ke tab Profil
-      final profileTab = find.text('Profil');
+      final profileTab = find.byIcon(Icons.person_outlined);
       await tester.tap(profileTab);
       await tester.pump();
 
@@ -137,7 +139,7 @@ void main() {
         await tester.pump();
 
         // Pindah ke tab Profil
-        final profileTab = find.text('Profil');
+        final profileTab = find.byIcon(Icons.person_outlined);
         await tester.tap(profileTab);
         await tester.pump();
 

@@ -183,13 +183,13 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const AlertDialog(
+      builder: (_) => AlertDialog(
         content: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(),
-            SizedBox(width: 16),
-            Text('Membuat transaksi...'),
+            const CircularProgressIndicator(),
+            const SizedBox(width: 16),
+            Text(AppLanguage.t('creating_transaction')),
           ],
         ),
       ),
@@ -856,7 +856,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          'Stok: ${product.stock}',
+                          '${AppLanguage.isId ? 'Stok' : 'Stock'}: ${product.stock}',
                           style: const TextStyle(
                             fontSize: 9.5,
                             fontWeight: FontWeight.bold,
@@ -916,8 +916,8 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                       child: ElevatedButton.icon(
                         onPressed: () => _openDirectQrisPayment(product),
                         icon: const Icon(Icons.qr_code_2_rounded, size: 15),
-                        label: const Text('Beli',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        label: Text(AppLanguage.t('buy_action_btn'),
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
@@ -1027,7 +1027,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                             const Icon(Icons.check_circle_rounded, size: 13, color: AppColors.success),
                             const SizedBox(width: 4),
                             Text(
-                              '${product.stock} Akun Siap Pakai',
+                              '${product.stock} ${AppLanguage.isId ? 'Akun Siap Pakai' : 'Accounts Ready'}',
                               style: const TextStyle(
                                 fontSize: 11.5,
                                 color: AppColors.success,
@@ -1041,14 +1041,14 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                     const SizedBox(height: 16),
                     // Info rows
                     _detailRow('Provider', product.provider),
-                    _detailRow('Deskripsi', product.description),
-                    _detailRow('Ketersediaan', '${product.stock} akun ready'),
-                    _detailRow('Pengiriman', 'Instan & Bergaransi Resmi'),
+                    _detailRow(AppLanguage.isId ? 'Deskripsi' : 'Description', product.description),
+                    _detailRow(AppLanguage.isId ? 'Ketersediaan' : 'Availability', '${product.stock} ${AppLanguage.isId ? 'akun ready' : 'ready accounts'}'),
+                    _detailRow(AppLanguage.isId ? 'Pengiriman' : 'Delivery', AppLanguage.isId ? 'Instan & Bergaransi Resmi' : 'Instant & Official Warranty'),
                     const Divider(height: 24),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Harga',
+                        Text(AppLanguage.t('price_label'),
                             style: TextStyle(
                                 fontSize: 15,
                                 color: AppColors.textSecondary)),
@@ -1074,8 +1074,8 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                               _addToCart(product);
                             },
                             icon: const Icon(Icons.add_shopping_cart_rounded, size: 18),
-                            label: const Text(
-                              '+ Keranjang',
+                            label: Text(
+                              AppLanguage.t('add_to_cart_btn'),
                               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
                             ),
                             style: OutlinedButton.styleFrom(
@@ -1095,8 +1095,8 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                               _openDirectQrisPayment(product);
                             },
                             icon: const Icon(Icons.qr_code_2_rounded, size: 20),
-                            label: const Text(
-                              'Beli Sekarang',
+                            label: Text(
+                              AppLanguage.t('buy_now'),
                               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                             ),
                             style: ElevatedButton.styleFrom(
@@ -1167,16 +1167,16 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
           Icon(Icons.search_off_rounded,
               size: 64, color: AppColors.textMuted.withValues(alpha: 0.5)),
           const SizedBox(height: 12),
-          const Text(
-            'Produk tidak ditemukan',
+          Text(
+            AppLanguage.t('no_products_found'),
             style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textMuted),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Coba kata kunci lain atau ubah filter kategori',
+          Text(
+            AppLanguage.t('no_products_desc'),
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 12.5, color: AppColors.textMuted),
           ),
@@ -1196,7 +1196,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
         automaticallyImplyLeading: false,
         title: Row(
           children: [
-            const Text('Keranjang',
+            Text(AppLanguage.t('cart_title'),
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -1228,26 +1228,25 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                 showDialog(
                   context: context,
                   builder: (_) => AlertDialog(
-                    title: const Text('Kosongkan Keranjang'),
-                    content: const Text(
-                        'Yakin ingin menghapus semua item dari keranjang?'),
+                    title: Text(AppLanguage.t('clear_cart')),
+                    content: Text(AppLanguage.t('clear_cart_confirm')),
                     actions: [
                       TextButton(
                           onPressed: () => Navigator.pop(context),
-                          child: const Text('Batal')),
+                          child: Text(AppLanguage.t('cancel'))),
                       TextButton(
                         onPressed: () {
                           Navigator.pop(context);
                           setState(() => _cart.clear());
                         },
-                        child: const Text('Hapus Semua',
+                        child: Text(AppLanguage.t('remove_all'),
                             style: TextStyle(color: AppColors.danger)),
                       ),
                     ],
                   ),
                 );
               },
-              child: const Text('Hapus Semua',
+              child: Text(AppLanguage.t('remove_all'),
                   style: TextStyle(
                       color: AppColors.danger, fontSize: 13)),
             ),
@@ -1266,16 +1265,16 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                       size: 72,
                       color: AppColors.textMuted.withValues(alpha: 0.4)),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Keranjang kosong',
+                  Text(
+                    AppLanguage.t('cart_empty_title'),
                     style: TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.bold,
                         color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 6),
-                  const Text(
-                    'Yuk, tambahkan produk favoritmu!',
+                  Text(
+                    AppLanguage.t('cart_empty_desc'),
                     style: TextStyle(
                         fontSize: 13, color: AppColors.textMuted),
                   ),
@@ -1283,7 +1282,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                   ElevatedButton.icon(
                     onPressed: () => setState(() => _currentTab = 0),
                     icon: const Icon(Icons.storefront_rounded, size: 18),
-                    label: const Text('Lihat Produk'),
+                    label: Text(AppLanguage.t('browse_products')),
                   ),
                 ],
               ),
@@ -1391,8 +1390,8 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               const SizedBox(height: 6),
               GestureDetector(
                 onTap: () => _removeFromCart(item.product.id),
-                child: const Text(
-                  'Hapus',
+                child: Text(
+                  AppLanguage.t('delete'),
                   style: TextStyle(
                     fontSize: 11.5,
                     color: AppColors.danger,
@@ -1451,7 +1450,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             padding: EdgeInsets.symmetric(vertical: 8),
             child: Divider(color: AppColors.cardBorder),
           ),
-          _summaryRow('Total Pembayaran', formatCurrency(_cartGrandTotal),
+          _summaryRow(AppLanguage.t('total_payment'), formatCurrency(_cartGrandTotal),
               isBold: true, valueColor: AppColors.primary),
           const SizedBox(height: 14),
           SizedBox(
@@ -1460,7 +1459,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             child: ElevatedButton.icon(
               onPressed: _openCheckout,
               icon: const Icon(Icons.qr_code_2_rounded),
-              label: const Text('Bayar dengan QRIS',
+              label: Text(AppLanguage.t('pay_with_qris'),
                   style: TextStyle(
                       fontSize: 15, fontWeight: FontWeight.bold)),
               style: ElevatedButton.styleFrom(
@@ -1510,7 +1509,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         automaticallyImplyLeading: false,
-        title: const Text('Riwayat Transaksi',
+        title: Text(AppLanguage.t('history_title'),
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -1530,16 +1529,16 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                       size: 72,
                       color: AppColors.textMuted.withValues(alpha: 0.4)),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Belum ada transaksi',
+                  Text(
+                    AppLanguage.t('history_empty_title'),
                     style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 6),
-                  const Text(
-                    'Transaksi yang berhasil akan muncul di sini',
+                  Text(
+                    AppLanguage.t('history_empty_desc'),
                     style: TextStyle(
                         fontSize: 13, color: AppColors.textMuted),
                   ),
@@ -1612,7 +1611,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                     color: AppColors.successLight,
                     borderRadius: BorderRadius.circular(5),
                   ),
-                  child: const Text('Berhasil',
+                  child: Text(AppLanguage.t('status_success'),
                       style: TextStyle(
                           fontSize: 10.5,
                           color: AppColors.success,
@@ -1785,21 +1784,21 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                 children: [
                   // User info card
                   _profileCard(
-                    title: 'Informasi Akun',
+                    title: AppLanguage.isId ? 'Informasi Akun' : 'Account Information',
                     children: [
-                      _profileInfoRow(Icons.person_outline_rounded, 'Nama',
+                      _profileInfoRow(Icons.person_outline_rounded, AppLanguage.t('name_label'),
                           _profile.fullName),
                       if (_profile.username.isNotEmpty)
                         _profileInfoRow(
                           Icons.alternate_email_rounded,
-                          'Username',
+                          AppLanguage.t('username_label'),
                           '@${_profile.username}',
                         ),
                       _profileInfoRow(
                           Icons.alternate_email_rounded,
-                          'ID Akun',
+                          AppLanguage.isId ? 'ID Akun' : 'Account ID',
                           _profile.id.substring(0, 8).toUpperCase()),
-                      _profileInfoRow(Icons.phone_outlined, 'No. HP',
+                      _profileInfoRow(Icons.phone_outlined, AppLanguage.t('phone_label'),
                           _profile.phone),
                     ],
                   ),
@@ -1813,13 +1812,13 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                       _statRow(
                         icon: Icons.receipt_long_rounded,
                         color: AppColors.primary,
-                        label: 'Total Transaksi',
+                        label: AppLanguage.isId ? 'Total Transaksi' : 'Total Transactions',
                         value: '${_transactions.length}x',
                       ),
                       _statRow(
                         icon: Icons.monetization_on_rounded,
                         color: AppColors.success,
-                        label: 'Total Pengeluaran',
+                        label: AppLanguage.isId ? 'Total Pengeluaran' : 'Total Expenses',
                         value: formatCurrency(_transactions.fold(
                             0.0, (s, t) => s + t.totalAmount)),
                       ),
@@ -1835,12 +1834,12 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                       _menuItem(
                         key: const Key('profile_menu_edit_item'),
                         icon: Icons.manage_accounts_rounded,
-                        label: 'Edit Profil',
+                        label: AppLanguage.t('edit_profile'),
                         onTap: _navigateToEditProfile,
                       ),
                       _menuItem(
                         icon: Icons.history_rounded,
-                        label: 'Riwayat Transaksi',
+                        label: AppLanguage.t('order_history'),
                         onTap: () => setState(() => _currentTab = 2),
                       ),
                       _menuItem(
@@ -1850,7 +1849,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                       ),
                       _menuItem(
                         icon: Icons.help_outline_rounded,
-                        label: 'Bantuan & FAQ',
+                        label: AppLanguage.isId ? 'Bantuan & FAQ' : 'Help & FAQ',
                         onTap: _showFaqDialog,
                       ),
                       _menuItem(
@@ -1898,8 +1897,8 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                         child: const Icon(Icons.logout_rounded,
                             color: AppColors.danger, size: 20),
                       ),
-                      title: const Text(
-                        'Keluar',
+                      title: Text(
+                        AppLanguage.t('logout'),
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -2136,8 +2135,8 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                 ),
               ),
               const SizedBox(height: 14),
-              const Text(
-                'Aplikasi mobile produk digital yang terintegrasi pembayaran QRIS dengan konsep DANA Bisnis.\n\nNotasi biaya otomatis terjumlah, simulasi notifikasi transaksi instan, katalog pulsa, paket data, PLN, dan top up e-wallet.',
+              Text(
+                AppLanguage.isId ? 'Aplikasi mobile produk digital yang terintegrasi pembayaran QRIS dengan konsep DANA Bisnis.\n\nNotasi biaya otomatis terjumlah, simulasi notifikasi transaksi instan, katalog pulsa, paket data, PLN, dan top up e-wallet.' : 'Digital product mobile app integrated with QRIS payments and DANA Bisnis concept.\n\nAutomatic fees calculation, instant transaction notifications, and instant delivery.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 12.5,
@@ -2157,8 +2156,8 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                     ),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
-                  child: const Text(
-                    'Tutup',
+                  child: Text(
+                    AppLanguage.t('close'),
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -2302,13 +2301,13 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               const SizedBox(height: 24),
               const Icon(Icons.notifications_off_outlined, size: 48, color: AppColors.textSecondary),
               const SizedBox(height: 12),
-              const Text(
-                'Belum Ada Notifikasi Baru',
+              Text(
+                AppLanguage.t('no_notifications_title'),
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
               ),
               const SizedBox(height: 6),
-              const Text(
-                'Pembaruan status pesanan dan informasi akun Anda akan muncul di sini.',
+              Text(
+                AppLanguage.t('no_notifications_desc'),
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
               ),
@@ -2317,7 +2316,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Mengerti'),
+                  child: Text(AppLanguage.t('understand_btn')),
                 ),
               ),
             ],
@@ -2356,32 +2355,40 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.help_outline_rounded, color: AppColors.primary),
-                    SizedBox(width: 10),
+                    const Icon(Icons.help_outline_rounded, color: AppColors.primary),
+                    const SizedBox(width: 10),
                     Text(
-                      'Bantuan & Tanya Jawab (FAQ)',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      AppLanguage.isId ? 'Bantuan & Tanya Jawab (FAQ)' : 'Help & Frequently Asked Questions (FAQ)',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
                 _buildFaqItem(
-                  q: 'Bagaimana cara membeli akun digital?',
-                  a: 'Pilih produk yang Anda inginkan di katalog, klik tombol "Beli Sekarang", lalu selesaikan pembayaran dengan scan kode QRIS.',
+                  q: AppLanguage.isId ? 'Bagaimana cara membeli akun digital?' : 'How do I purchase a digital account?',
+                  a: AppLanguage.isId
+                      ? 'Pilih produk yang Anda inginkan di katalog, klik tombol "Beli Sekarang", lalu selesaikan pembayaran dengan scan kode QRIS.'
+                      : 'Select your desired product from the catalog, click "Buy Now", and complete payment by scanning the QRIS code.',
                 ),
                 _buildFaqItem(
-                  q: 'Mengapa nominal pembayaran memiliki 3 digit unik?',
-                  a: 'Kode unik (1-300) ditambahkan agar sistem dapat mencocokkan pembayaran mutasi Anda secara instan dan otomatis tanpa perlu unggah bukti transfer manual.',
+                  q: AppLanguage.isId ? 'Mengapa nominal pembayaran memiliki 3 digit unik?' : 'Why does the payment have a 3-digit unique code?',
+                  a: AppLanguage.isId
+                      ? 'Kode unik (1-300) ditambahkan agar sistem dapat mencocokkan pembayaran mutasi Anda secara instan dan otomatis tanpa perlu unggah bukti transfer manual.'
+                      : 'A unique code (1-300) is added so our system can instantly and automatically match your bank mutation without uploading receipts.',
                 ),
                 _buildFaqItem(
-                  q: 'Berapa lama akun saya aktif?',
-                  a: 'Setelah pembayaran terverifikasi, status transaksi akan berubah menjadi Sukses dan detail kredensial akun langsung tersedia di riwayat transaksi.',
+                  q: AppLanguage.isId ? 'Berapa lama akun saya aktif?' : 'How long does account activation take?',
+                  a: AppLanguage.isId
+                      ? 'Setelah pembayaran terverifikasi, status transaksi akan berubah menjadi Sukses dan detail kredensial akun langsung tersedia di riwayat transaksi.'
+                      : 'Once payment is verified, status updates to Success and account credentials appear immediately in transaction history.',
                 ),
                 _buildFaqItem(
-                  q: 'Bagaimana jika mengalami kendala transaksi?',
-                  a: 'Silakan hubungi tim dukungan resmi kami melalui email: support@enikzrad.web.id.',
+                  q: AppLanguage.isId ? 'Bagaimana jika mengalami kendala transaksi?' : 'What if I encounter an issue with my transaction?',
+                  a: AppLanguage.isId
+                      ? 'Silakan hubungi tim dukungan resmi kami melalui email: support@enikzrad.web.id.'
+                      : 'Please contact our official support team via email at support@enikzrad.web.id.',
                 ),
               ],
             );

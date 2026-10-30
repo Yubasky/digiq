@@ -186,13 +186,13 @@ class _RegisterScreenState extends State<RegisterScreen>
       _showSnack(
         AppLanguage.current.value == AppLang.en
             ? 'This email is already registered. Please login or use Forgot Password.'
-            : 'Email ini sudah terdaftar. Silakan masuk atau gunakan Lupa Password.',
+            : (AppLanguage.isId ? 'Email ini sudah terdaftar. Silakan masuk atau gunakan Lupa Password.' : 'This email is already registered. Please login or use Forgot Password.'),
         isError: true,
       );
       return;
     }
     if (_emailStatus == EmailCheckStatus.invalidFormat) {
-      _showSnack(_emailErrorText ?? 'Periksa kembali format email Anda.', isError: true);
+      _showSnack(_emailErrorText ?? (AppLanguage.isId ? 'Periksa kembali format email Anda.' : 'Please check your email format.'), isError: true);
       return;
     }
 
@@ -210,7 +210,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     }
     if (_usernameStatus == UsernameCheckStatus.invalidFormat) {
       _showSnack(
-        _usernameErrorText ?? 'Periksa kembali format username.',
+        _usernameErrorText ?? (AppLanguage.isId ? 'Periksa kembali format username.' : 'Please check your username format.'),
         isError: true,
       );
       return;
@@ -226,7 +226,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     final cleanUsername = AuthService.normalizeUsername(_usernameController.text);
     if (cleanUsername.isNotEmpty) {
       if (_usernameStatus == UsernameCheckStatus.taken) {
-        _showSnack('Username @$cleanUsername sudah digunakan. Silakan pilih username lain.', isError: true);
+        _showSnack(AppLanguage.isId ? 'Username @$cleanUsername sudah digunakan. Silakan pilih username lain.' : 'Username @$cleanUsername is already taken. Please choose another username.', isError: true);
         return;
       }
       if (_usernameStatus != UsernameCheckStatus.available) {
@@ -239,7 +239,7 @@ class _RegisterScreenState extends State<RegisterScreen>
           _usernameErrorText = AuthService.getUsernameStatusMessage(status);
         });
         if (status == UsernameCheckStatus.taken) {
-          _showSnack('Username @$cleanUsername sudah digunakan. Silakan pilih username lain.', isError: true);
+          _showSnack(AppLanguage.isId ? 'Username @$cleanUsername sudah digunakan. Silakan pilih username lain.' : 'Username @$cleanUsername is already taken. Please choose another username.', isError: true);
           return;
         }
       }
@@ -265,20 +265,26 @@ class _RegisterScreenState extends State<RegisterScreen>
     setState(() => _isLoading = false);
 
     if (!result.success) {
-      _showSnack(result.message ?? 'Pendaftaran gagal.', isError: true);
+      _showSnack(result.message ?? (AppLanguage.isId ? 'Pendaftaran gagal.' : 'Registration failed.'), isError: true);
       return;
     }
 
-    if (result.isConfirmed) {
-      _showSnack(
-        AppLanguage.isId
-            ? 'Pendaftaran berhasil! Akun Anda langsung aktif.'
-            : 'Registration successful! Your account is active.',
-        isError: false,
-      );
-      final profile = result.profile ?? await AuthService.getCurrentProfile();
+    // Coba langsung masuk (sign in) agar pengguna langsung diarahkan ke katalog toko
+    final signInRes = await AuthService.signIn(
+      email: registeredEmail,
+      password: _passwordController.text,
+    );
+
+    if (signInRes.success) {
+      final profile = signInRes.profile ?? await AuthService.getCurrentProfile();
       if (!mounted) return;
       if (profile != null) {
+        _showSnack(
+          AppLanguage.isId
+              ? 'Pendaftaran berhasil! Selamat datang di DigiQ.'
+              : 'Registration successful! Welcome to DigiQ.',
+          isError: false,
+        );
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
             builder: (_) => profile.isAdmin
@@ -291,7 +297,8 @@ class _RegisterScreenState extends State<RegisterScreen>
       }
     }
 
-    // Arahkan ke layar verifikasi email (status waiting)
+    // Jika email masih belum terkonfirmasi oleh Supabase, arahkan ke layar verifikasi
+    if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => EmailVerificationScreen(
@@ -718,7 +725,7 @@ if (_isCheckingUsername) ...[
                                                 if (_emailStatus == EmailCheckStatus.taken) {
                                                   return AppLanguage.current.value == AppLang.en
                                                       ? 'This email is already registered'
-                                                      : 'Email ini sudah terdaftar';
+                                                      : (AppLanguage.isId ? 'Email ini sudah terdaftar' : 'This email is already registered');
                                                 }
                                                 if (v == null || v.trim().isEmpty) return AppLanguage.t('email_required');
                                                 final email = v.trim();
@@ -727,7 +734,7 @@ if (_isCheckingUsername) ...[
                                                 }
                                                 final parts = email.split('@');
                                                 if (parts.length != 2 || parts[0].isEmpty) {
-                                                  return 'Format email tidak valid (contoh: nama@gmail.com)';
+                                                  return AppLanguage.isId ? 'Format email tidak valid (contoh: nama@gmail.com)' : 'Invalid email format (e.g. name@gmail.com)';
                                                 }
                                                 final domain = parts[1].trim();
                                                 if (domain.isEmpty) {
@@ -738,11 +745,11 @@ if (_isCheckingUsername) ...[
                                                 }
                                                 final domainParts = domain.split('.');
                                                 if (domainParts[0].isEmpty || domainParts[1].isEmpty) {
-                                                  return 'Format domain email tidak valid (contoh: gmail.com)';
+                                                  return AppLanguage.isId ? 'Format domain email tidak valid (contoh: gmail.com)' : 'Invalid email domain format (e.g. gmail.com)';
                                                 }
                                                 final emailReg = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
                                                 if (!emailReg.hasMatch(email)) {
-                                                  return 'Format email tidak valid (contoh: nama@gmail.com)';
+                                                  return AppLanguage.isId ? 'Format email tidak valid (contoh: nama@gmail.com)' : 'Invalid email format (e.g. name@gmail.com)';
                                                 }
                                                 return null;
                                               },
@@ -764,7 +771,7 @@ if (_isCheckingUsername) ...[
                                                       child: Text(
                                                         AppLanguage.current.value == AppLang.en
                                                             ? 'This email is already registered. Please login or use Forgot Password.'
-                                                            : 'Email ini sudah terdaftar. Silakan masuk atau gunakan Lupa Password.',
+                                                            : (AppLanguage.isId ? 'Email ini sudah terdaftar. Silakan masuk atau gunakan Lupa Password.' : 'This email is already registered. Please login or use Forgot Password.'),
                                                         style: const TextStyle(
                                                           fontSize: 12,
                                                           color: AppColors.error,

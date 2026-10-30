@@ -134,7 +134,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       debugPrint('[AdminDashboard] getAdminTodayStats error: $e');
       if (mounted) {
         setState(() {
-          _statsError = 'Gagal memuat statistik ringkasan.';
+          _statsError = AppLanguage.isId ? 'Gagal memuat statistik ringkasan.' : 'Failed to load summary statistics.';
         });
       }
     }
@@ -158,8 +158,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final payload = _qrisPayloadCtrl.text.trim();
     if (payload.isNotEmpty && !QrisService.verifyCrc16(payload)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('CRC16 QRIS tidak valid! Pastikan string EMVCo lengkap beserta tag 63.'),
+        SnackBar(
+          content: Text(AppLanguage.isId ? 'CRC16 QRIS tidak valid! Pastikan string EMVCo lengkap beserta tag 63.' : 'Invalid QRIS CRC16! Ensure complete EMVCo string including tag 63.'),
           backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
         ),
@@ -184,8 +184,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       await _loadAdminQrisSettings();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✓ Pengaturan QRIS & Kode Unik berhasil diperbarui'),
+          SnackBar(
+            content: Text(AppLanguage.isId ? '✓ Pengaturan QRIS & Kode Unik berhasil diperbarui' : '✓ QRIS & Unique Code settings updated successfully'),
             backgroundColor: AppColors.success,
             behavior: SnackBarBehavior.floating,
           ),
@@ -195,7 +195,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Gagal menyimpan: ${e.toString().replaceAll('Exception:', '').trim()}'),
+            content: Text('${AppLanguage.isId ? 'Gagal menyimpan: ' : 'Failed to save: '}${e.toString().replaceAll('Exception:', '').trim()}'),
             backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
           ),
@@ -249,7 +249,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('✓ Akun "${created.name}" berhasil ditambahkan ke katalog toko!'),
+          content: Text(AppLanguage.isId ? '✓ Akun "${created.name}" berhasil ditambahkan ke katalog toko!' : '✓ Account "${created.name}" added to store catalog!'),
           backgroundColor: AppColors.primary,
           behavior: SnackBarBehavior.floating,
         ),
@@ -258,7 +258,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Gagal menambahkan produk: $e'),
+          content: Text('${AppLanguage.isId ? 'Gagal menambahkan produk: ' : 'Failed to add product: '}$e'),
           backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
         ),
@@ -284,7 +284,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('✓ Akun "${updated.name}" berhasil diperbarui!'),
+          content: Text(AppLanguage.isId ? '✓ Akun "${updated.name}" berhasil diperbarui!' : '✓ Account "${updated.name}" updated successfully!'),
           backgroundColor: AppColors.success,
           behavior: SnackBarBehavior.floating,
         ),
@@ -293,7 +293,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Gagal memperbarui produk: $e'),
+          content: Text('${AppLanguage.isId ? 'Gagal memperbarui produk: ' : 'Failed to update product: '}$e'),
           backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
         ),
@@ -324,7 +324,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(newStatus ? 'Produk "${item.name}" diaktifkan.' : 'Produk "${item.name}" dinonaktifkan.'),
+          content: Text(newStatus ? (AppLanguage.isId ? 'Produk "${item.name}" diaktifkan.' : 'Product "${item.name}" activated.') : (AppLanguage.isId ? 'Produk "${item.name}" dinonaktifkan.' : 'Product "${item.name}" deactivated.')),
           backgroundColor: AppColors.primary,
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 1),
@@ -341,7 +341,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Gagal mengubah status produk: $e'),
+          content: Text('${AppLanguage.isId ? 'Gagal mengubah status produk: ' : 'Failed to change product status: '}$e'),
           backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
         ),
@@ -355,12 +355,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Hapus Akun?'),
-        content: Text('Apakah Anda yakin ingin menghapus "${item.name}" dari katalog toko? Produk yang memiliki riwayat transaksi akan dinonaktifkan secara aman.'),
+        title: Text(AppLanguage.t('admin_delete_product_title')),
+        content: Text(AppLanguage.isId ? 'Apakah Anda yakin ingin menghapus "${item.name}" dari katalog toko? Produk yang memiliki riwayat transaksi akan dinonaktifkan secara aman.' : 'Are you sure you want to remove "${item.name}" from the store catalog? Products with transaction history will be safely deactivated.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Batal'),
+            child: Text(AppLanguage.t('cancel')),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -371,8 +371,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(hardDeleted
-                        ? 'Akun "${item.name}" telah dihapus.'
-                        : 'Akun "${item.name}" dinonaktifkan karena memiliki riwayat transaksi.'),
+                        ? (AppLanguage.isId ? 'Akun "${item.name}" telah dihapus.' : 'Account "${item.name}" deleted.')
+                        : (AppLanguage.isId ? 'Akun "${item.name}" dinonaktifkan karena memiliki riwayat transaksi.' : 'Account "${item.name}" deactivated due to transaction history.')),
                     behavior: SnackBarBehavior.floating,
                   ),
                 );
@@ -380,7 +380,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Gagal menghapus akun: $e'),
+                    content: Text('${AppLanguage.isId ? 'Gagal menghapus akun: ' : 'Failed to delete account: '}$e'),
                     backgroundColor: AppColors.error,
                     behavior: SnackBarBehavior.floating,
                   ),
@@ -388,7 +388,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
-            child: const Text('Hapus'),
+            child: Text(AppLanguage.t('admin_delete_action')),
           ),
         ],
       ),
@@ -449,7 +449,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   foregroundColor: Colors.white,
                   elevation: 4,
                   shape: const CircleBorder(),
-                  tooltip: 'Tambah Produk Digital',
+                  tooltip: AppLanguage.isId ? 'Tambah Produk Digital' : 'Add Digital Product',
                   child: const Icon(Icons.add_rounded, size: 28),
                 )
               : null,
@@ -493,8 +493,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 children: [
                   Row(
                     children: [
-                      const Text(
-                        'PEMBAYARAN QRIS MASUK!',
+                      Text(
+                        AppLanguage.isId ? 'PEMBAYARAN QRIS MASUK!' : 'INCOMING QRIS PAYMENT!',
                         style: TextStyle(
                           color: AppColors.primary,
                           fontWeight: FontWeight.w900,
@@ -765,8 +765,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Katalog Produk Digital',
+                      Text(
+                        AppLanguage.t('admin_digital_catalog'),
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w800,
@@ -774,7 +774,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         ),
                       ),
                       Text(
-                        '${_products.length} produk siap dijual via QRIS',
+                        '${_products.length} ${AppLanguage.t('admin_ready_sale_suffix')}',
                         style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                       ),
                     ],
@@ -783,7 +783,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 TextButton.icon(
                   onPressed: () => setState(() => _currentNavIndex = 1),
                   icon: const Icon(Icons.arrow_forward_rounded, size: 16),
-                  label: const Text('Kelola Semua'),
+                  label: Text(AppLanguage.t('admin_manage_all')),
                 ),
               ],
             ),
@@ -834,9 +834,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       child: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 14),
                     ),
                     const SizedBox(width: 7),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Saldo Toko (DANA Bisnis)',
+                        AppLanguage.isId ? 'Saldo Toko (DANA Bisnis)' : 'Store Balance (DANA Bisnis)',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 12,
@@ -890,8 +890,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Transaksi Masuk Hari Ini',
+                    Text(
+                      AppLanguage.t('admin_today_transactions'),
                       style: TextStyle(color: Colors.white70, fontSize: 10.5),
                     ),
                     const SizedBox(height: 2),
@@ -926,13 +926,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget _buildQuickActionBar() {
     final actions = [
       {
-        'title': 'Tambah Akun',
+        'title': AppLanguage.isId ? 'Tambah Akun' : 'Add Account',
         'icon': Icons.add_box_rounded,
         'color': AppColors.primary,
         'onTap': () => _showAddProductDialog(),
       },
       {
-        'title': 'Katalog Akun',
+        'title': AppLanguage.isId ? 'Katalog Akun' : 'Account Catalog',
         'icon': Icons.inventory_2_rounded,
         'color': const Color(0xFF0284C7),
         'onTap': () => setState(() => _currentNavIndex = 1),
@@ -1003,9 +1003,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       children: [
         const Icon(Icons.history_rounded, size: 18, color: AppColors.primary),
         const SizedBox(width: 6),
-        const Expanded(
+        Expanded(
           child: Text(
-            'Notifikasi Transaksi Terakhir',
+            AppLanguage.t('admin_recent_notif'),
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 15,
@@ -1037,8 +1037,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.cardBorder),
         ),
-        child: const Center(
-          child: Text('Belum ada transaksi QRIS hari ini.'),
+        child: Center(
+          child: Text(AppLanguage.t('admin_no_trx_today')),
         ),
       );
     }
@@ -1063,10 +1063,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ? Icons.access_time_rounded
                 : Icons.close_rounded;
         final String statusLabel = isSuccess
-            ? 'QRIS Lunas'
+            ? (AppLanguage.isId ? 'QRIS Lunas' : 'QRIS Paid')
             : isPending
-                ? 'Menunggu Bayar'
-                : 'Batal / Expired';
+                ? (AppLanguage.isId ? 'Menunggu Bayar' : 'Awaiting Payment')
+                : (AppLanguage.isId ? 'Batal / Expired' : 'Cancelled / Expired');
 
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
@@ -1167,7 +1167,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ElevatedButton.icon(
               onPressed: _showAddProductDialog,
               icon: const Icon(Icons.add, size: 16),
-              label: const Text('Tambah Produk Sekarang'),
+              label: Text(AppLanguage.isId ? 'Tambah Produk Sekarang' : 'Add Product Now'),
             ),
           ],
         ),
@@ -1364,7 +1364,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          'Stok: ${product.stock}',
+                          '${AppLanguage.isId ? 'Stok' : 'Stock'}: ${product.stock}',
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
@@ -1398,7 +1398,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        product.isActive ? 'Aktif' : 'Nonaktif',
+                        product.isActive ? (AppLanguage.isId ? 'Aktif' : 'Active') : (AppLanguage.isId ? 'Nonaktif' : 'Inactive'),
                         style: TextStyle(
                           fontSize: 10.5,
                           color: product.isActive ? AppColors.success : AppColors.textMuted,
@@ -1451,7 +1451,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             controller: _searchController,
             onChanged: (val) => setState(() => _searchQuery = val),
             decoration: InputDecoration(
-              hintText: 'Cari produk digital, game, pulsa...',
+              hintText: AppLanguage.isId ? 'Cari produk digital, game, pulsa...' : 'Search digital products, games, credit...',
               prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textMuted),
               suffixIcon: _searchQuery.isNotEmpty
                   ? IconButton(
@@ -1470,13 +1470,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Menampilkan ${_filteredProducts.length} Produk',
+                '${AppLanguage.isId ? 'Menampilkan' : 'Showing'} ${_filteredProducts.length} ${AppLanguage.isId ? 'Produk' : 'Products'}',
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
               TextButton.icon(
                 onPressed: _showAddProductDialog,
                 icon: const Icon(Icons.add, size: 16),
-                label: const Text('Tambah Baru'),
+                label: Text(AppLanguage.isId ? 'Tambah Baru' : 'Add New'),
               ),
             ],
           ),
@@ -1541,7 +1541,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               children: [
                 Column(
                   children: [
-                    const Text('Total Pendapatan', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                    Text(AppLanguage.t('admin_total_omset'), style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                     const SizedBox(height: 4),
                     Text(
                       formatCurrency(_todayOmset),
@@ -1552,7 +1552,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 Container(height: 30, width: 1, color: AppColors.cardBorder),
                 Column(
                   children: [
-                    const Text('Pending', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                    Text(AppLanguage.isId ? 'Pending' : 'Pending', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                     const SizedBox(height: 4),
                     Text(
                       '$_todayPendingCount TRX',
@@ -1566,7 +1566,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 Container(height: 30, width: 1, color: AppColors.cardBorder),
                 Column(
                   children: [
-                    const Text('Total', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                    Text(AppLanguage.isId ? 'Total' : 'Total', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                     const SizedBox(height: 4),
                     Text(
                       '$_todayTotalCount TRX',
@@ -1602,13 +1602,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       child: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primaryDark, size: 18),
                     ),
                     const SizedBox(width: 10),
-                    const Text('Verifikasi Pembayaran QRIS',
+                    Text(AppLanguage.isId ? 'Verifikasi Pembayaran QRIS' : 'QRIS Payment Verification',
                         style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
                   ],
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'Masukkan nominal transfer yang masuk persis sesuai mutasi rekening:',
+                Text(
+                  AppLanguage.isId ? 'Masukkan nominal transfer yang masuk persis sesuai mutasi rekening:' : 'Enter exact incoming transfer amount according to account mutation:',
                   style: TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.4),
                 ),
                 const SizedBox(height: 10),
@@ -1620,7 +1620,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9]'))],
                         decoration: InputDecoration(
-                          hintText: 'Nominal (misal: 10300)',
+                          hintText: AppLanguage.isId ? 'Nominal (misal: 10300)' : 'Amount (e.g. 10300)',
                           prefixText: 'Rp ',
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1639,7 +1639,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       child: _verifying
                           ? const SizedBox(width: 18, height: 18,
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Text('Cocokkan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          : Text(AppLanguage.isId ? 'Cocokkan' : 'Match', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -1647,7 +1647,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 TextField(
                   controller: _verifyNoteCtrl,
                   decoration: InputDecoration(
-                    hintText: 'Catatan (opsional)',
+                    hintText: AppLanguage.isId ? 'Catatan (opsional)' : 'Note (optional)',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     isDense: true,
@@ -1667,7 +1667,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
           // ── Transaksi Pending (butuh perhatian) ───────────────────────────────
           if (pendingList.isNotEmpty) ...[
-            const Text('Pending Aktif',
+            Text(AppLanguage.isId ? 'Pending Aktif' : 'Active Pending',
                 style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
             const SizedBox(height: 10),
             ...pendingList.map((t) => _buildTrxCard(t, isPending: true)),
@@ -1677,7 +1677,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Riwayat Transaksi',
+              Text(AppLanguage.t('history_title'),
                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1686,7 +1686,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  '$_todaySuccessCount Sukses',
+                  '$_todaySuccessCount ${AppLanguage.isId ? 'Sukses' : 'Success'}',
                   style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.success),
                 ),
               ),
@@ -1703,7 +1703,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   children: [
                     Icon(Icons.receipt_long_rounded, size: 48, color: Colors.grey.shade300),
                     const SizedBox(height: 8),
-                    Text('Belum ada transaksi', style: TextStyle(color: Colors.grey.shade500)),
+                    Text(AppLanguage.t('history_empty_title'), style: TextStyle(color: Colors.grey.shade500)),
                   ],
                 ),
               ),
@@ -1730,7 +1730,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final amount = double.tryParse(amountStr);
     if (amount == null || amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nominal tidak valid'), behavior: SnackBarBehavior.floating),
+        SnackBar(content: Text(AppLanguage.isId ? 'Nominal tidak valid' : 'Invalid amount'), behavior: SnackBarBehavior.floating),
       );
       return;
     }
@@ -1754,7 +1754,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Batal', style: TextStyle(color: AppColors.textSecondary)),
+            child: Text(AppLanguage.t('cancel'), style: const TextStyle(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -1798,17 +1798,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (status == 'matched') {
       bg    = AppColors.successLight;
       icon  = Icons.check_circle_rounded;
-      title = 'Cocok! Transaksi ${r['trx_code']} ditandai sukses.';
+      title = AppLanguage.isId ? 'Cocok! Transaksi ${r['trx_code']} ditandai sukses.' : 'Matched! Transaction ${r['trx_code']} marked success.';
       subtitle = 'Total: Rp${r['total_amount']}';
     } else if (status == 'unmatched') {
       bg    = Colors.orange.shade50;
       icon  = Icons.search_off_rounded;
-      title = 'Tidak ditemukan transaksi pending.';
+      title = AppLanguage.isId ? 'Tidak ditemukan transaksi pending.' : 'No pending transaction found.';
       subtitle = r['message']?.toString();
     } else if (status == 'already_processed') {
       bg    = Colors.blue.shade50;
       icon  = Icons.replay_rounded;
-      title = 'Sudah diproses sebelumnya.';
+      title = AppLanguage.isId ? 'Sudah diproses sebelumnya.' : 'Already processed earlier.';
       subtitle = null;
     } else {
       bg    = Colors.red.shade50;
@@ -1851,7 +1851,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         : t.isPending
             ? AppColors.warning
             : AppColors.error;
-    final statusText = t.isSuccess ? 'SUKSES' : t.isPending ? 'PENDING' : 'GAGAL';
+    final statusText = t.isSuccess ? (AppLanguage.isId ? 'SUKSES' : 'SUCCESS') : t.isPending ? (AppLanguage.isId ? 'MENUNGGU' : 'PENDING') : (AppLanguage.isId ? 'GAGAL' : 'FAILED');
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -2193,9 +2193,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 child: const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 16),
               ),
               const SizedBox(width: 8),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Mutasi Masuk Belum Terverifikasi (Unmatched)',
+                  AppLanguage.t('admin_unmatched_mutations'),
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF78350F)),
                 ),
               ),
@@ -2213,8 +2213,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Mutasi uang masuk berikut tidak menemukan transaksi pending yang cocok secara otomatis. Admin dapat menghubungkan manual ke transaksi atau mengabaikannya:',
+          Text(
+            AppLanguage.isId ? 'Mutasi uang masuk berikut tidak menemukan transaksi pending yang cocok secara otomatis. Admin dapat menghubungkan manual ke transaksi atau mengabaikannya:' : 'The following incoming mutations could not be matched with pending transactions. Admin may manually match or dismiss them:',
             style: TextStyle(fontSize: 11, color: Color(0xFF92400E), height: 1.3),
           ),
           const SizedBox(height: 12),
@@ -2342,16 +2342,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Pilih transaksi pending yang sesuai untuk diverifikasi:',
-                style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+              Text(
+                AppLanguage.isId ? 'Pilih transaksi pending yang sesuai untuk diverifikasi:' : 'Select matching pending transaction to verify:',
+                style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 12),
               if (pendingList.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                   child: Center(
-                    child: Text('Tidak ada transaksi pending yang aktif.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                    child: Text(AppLanguage.t('admin_no_pending_trx'), style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                   ),
                 )
               else
@@ -2383,7 +2383,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             if (mounted) {
                               ScaffoldMessenger.of(this.context).showSnackBar(
                                 SnackBar(
-                                  content: Text('Gagal menghubungkan: ${e.toString().replaceAll('Exception:', '').trim()}'),
+                                  content: Text('${AppLanguage.isId ? 'Gagal menghubungkan: ' : 'Failed to match: '}${e.toString().replaceAll('Exception:', '').trim()}'),
                                   backgroundColor: AppColors.error,
                                 ),
                               );
@@ -2425,7 +2425,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(AppLanguage.t('cancel'))),
         ],
       ),
     );
@@ -2466,9 +2466,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 child: const Icon(Icons.qr_code_2_rounded, color: AppColors.primaryDark, size: 20),
               ),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Pengaturan QRIS & Kode Unik',
+                  AppLanguage.isId ? 'Pengaturan QRIS & Kode Unik' : 'QRIS & Unique Code Settings',
                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                 ),
               ),
@@ -2589,7 +2589,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Kode Min:', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    Text(AppLanguage.isId ? 'Kode Min:' : 'Min Code:', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
                     TextField(
                       controller: _qrisMinCodeCtrl,
@@ -2608,7 +2608,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Kode Max:', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    Text(AppLanguage.isId ? 'Kode Max:' : 'Max Code:', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
                     TextField(
                       controller: _qrisMaxCodeCtrl,
@@ -2627,7 +2627,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('TTL (Menit):', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    Text(AppLanguage.isId ? 'TTL (Menit):' : 'TTL (Mins):', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
                     TextField(
                       controller: _qrisTtlCtrl,
@@ -2652,7 +2652,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               icon: _savingSettings
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.save_rounded, size: 16),
-              label: const Text('Simpan Pengaturan QRIS', style: TextStyle(fontWeight: FontWeight.bold)),
+              label: Text(AppLanguage.t('admin_save_qris_settings'), style: const TextStyle(fontWeight: FontWeight.bold)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
@@ -2819,7 +2819,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Tutup'),
+            child: Text(AppLanguage.t('close')),
           ),
         ],
       ),
@@ -2831,28 +2831,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.info_outline_rounded, color: AppColors.primary),
-            SizedBox(width: 10),
-            Text('Tentang DigiQ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Icon(Icons.info_outline_rounded, color: AppColors.primary),
+            const SizedBox(width: 10),
+            Text(AppLanguage.isId ? 'Tentang DigiQ' : 'About DigiQ', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ],
         ),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('DigiQ Digital Store & QRIS v1.0.0', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            SizedBox(height: 6),
-            Text('Aplikasi toko produk digital berbasis Flutter Web CanvasKit dan Supabase BaaS.', style: TextStyle(fontSize: 13)),
-            SizedBox(height: 8),
-            Text('© 2026 DigiQ Team. Hak cipta dilindungi undang-undang.', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+            const Text('DigiQ Digital Store & QRIS v1.0.0', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            const SizedBox(height: 6),
+            Text(AppLanguage.isId ? 'Aplikasi toko produk digital berbasis Flutter Web CanvasKit dan Supabase BaaS.' : 'Digital store web app powered by Flutter Web and Supabase BaaS.', style: const TextStyle(fontSize: 13)),
+            const SizedBox(height: 8),
+            Text(AppLanguage.isId ? '© 2026 Tim DigiQ. Hak cipta dilindungi undang-undang.' : '© 2026 DigiQ Team. All rights reserved.', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Tutup'),
+            child: Text(AppLanguage.t('close')),
           ),
         ],
       ),

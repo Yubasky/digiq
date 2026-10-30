@@ -22,6 +22,7 @@ import '../services/deep_link_auth_handler.dart';
 import '../services/supabase_config.dart';
 import '../services/web_url_cleaner.dart';
 import '../models/profile_model.dart';
+import '../services/app_language.dart';
 import 'auth/email_verification_screen.dart';
 import 'auth/set_new_password_screen.dart';
 import 'login_screen.dart';
@@ -81,7 +82,7 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
           query.containsKey('type')) {
         _tokenProcessed = true;
         _deepLinkError =
-            'Tautan verifikasi tidak lengkap. Parameter token tidak ditemukan.';
+            (AppLanguage.isId ? 'Tautan verifikasi tidak lengkap. Parameter token tidak ditemukan.' : 'Incomplete verification link. Token parameter not found.');
         _isRecoveryError = (type?.toLowerCase() == 'recovery');
       }
     }
@@ -262,14 +263,6 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
       return const LoginScreen();
     }
 
-    // 4b. Blokir akses dashboard jika email belum diverifikasi
-    final emailConfirmed = session.user.emailConfirmedAt != null && session.user.emailConfirmedAt!.isNotEmpty;
-    if (!emailConfirmed) {
-      return EmailVerificationScreen(
-        initialStatus: VerificationStatus.waiting,
-        email: session.user.email,
-      );
-    }
 
     // 5. Ada sesi — ambil profil dan arahkan ke dashboard yang sesuai
     return FutureBuilder<ProfileModel?>(

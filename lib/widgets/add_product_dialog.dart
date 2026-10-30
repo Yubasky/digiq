@@ -8,6 +8,7 @@ import '../services/avatar_picker.dart';
 import '../services/product_image_validator.dart';
 import '../services/product_service.dart';
 import '../theme/app_theme.dart';
+import '../services/app_language.dart';
 
 class AddProductDialog extends StatefulWidget {
   final Future<void> Function(ProductModel newProduct, PickedAvatarFile? imageFile)? onProductSaved;
@@ -229,7 +230,7 @@ class _AddProductDialogState extends State<AddProductDialog> {
         _imageError = null;
       });
     } catch (_) {
-      setState(() => _imageError = 'Gagal memilih gambar.');
+      setState(() => _imageError = AppLanguage.isId ? 'Gagal memilih gambar.' : 'Failed to pick image.');
     }
   }
 
@@ -293,7 +294,7 @@ class _AddProductDialogState extends State<AddProductDialog> {
         setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Gagal menyimpan akun: $e'),
+            content: Text('${AppLanguage.isId ? 'Gagal menyimpan akun: ' : 'Failed to save account: '}$e'),
             backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
           ),
@@ -341,7 +342,7 @@ class _AddProductDialogState extends State<AddProductDialog> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            isEdit ? 'Ubah Akun Digital' : 'Tambah Akun Digital',
+                            isEdit ? (AppLanguage.isId ? 'Ubah Akun Digital' : 'Edit Digital Account') : (AppLanguage.isId ? 'Tambah Akun Digital' : 'Add Digital Account'),
                             style: const TextStyle(
                               fontSize: 16.5,
                               fontWeight: FontWeight.bold,
@@ -351,9 +352,9 @@ class _AddProductDialogState extends State<AddProductDialog> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 2),
-                          const Text(
-                            'Katalog Penjualan Akun • DigiQ Admin',
-                            style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                          Text(
+                            AppLanguage.isId ? 'Katalog Penjualan Akun • DigiQ Admin' : 'Account Sales Catalog • DigiQ Admin',
+                            style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
                           ),
                         ],
                       ),
@@ -370,9 +371,9 @@ class _AddProductDialogState extends State<AddProductDialog> {
 
                 // Quick Preset Chips (hanya saat tambah produk baru)
                 if (!isEdit) ...[
-                  const Text(
-                    'Template Cepat Akun Populer:',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.textSecondary),
+                  Text(
+                    AppLanguage.isId ? 'Template Cepat Akun Populer:' : 'Quick Popular Account Templates:',
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 6),
                   SizedBox(
@@ -399,8 +400,8 @@ class _AddProductDialogState extends State<AddProductDialog> {
                 ],
 
                 // Gambar Produk (Opsi A - Upload Berkas ke Storage)
-                const Text(
-                  'Foto / Logo Produk',
+                Text(
+                  AppLanguage.isId ? 'Foto / Logo Produk' : 'Product Photo / Logo',
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary),
                 ),
                 const SizedBox(height: 6),
@@ -441,7 +442,7 @@ class _AddProductDialogState extends State<AddProductDialog> {
                             key: const Key('add_product_pick_image_button'),
                             onPressed: _isSubmitting ? null : _pickImage,
                             icon: const Icon(Icons.upload_file_rounded, size: 16),
-                            label: Text(_pickedImage != null ? 'Ganti Berkas Foto' : 'Unggah Foto (Maks 2MB)'),
+                            label: Text(_pickedImage != null ? (AppLanguage.isId ? 'Ganti Berkas Foto' : 'Change Photo File') : (AppLanguage.isId ? 'Unggah Foto (Maks 2MB)' : 'Upload Photo (Max 2MB)')),
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             ),
@@ -474,8 +475,8 @@ class _AddProductDialogState extends State<AddProductDialog> {
                 const SizedBox(height: 14),
 
                 // Nama Akun field
-                const Text(
-                  'Nama Akun *',
+                Text(
+                  AppLanguage.isId ? 'Nama Akun *' : 'Account Name *',
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary),
                 ),
                 const SizedBox(height: 6),
@@ -488,8 +489,8 @@ class _AddProductDialogState extends State<AddProductDialog> {
                     isDense: true,
                   ),
                   validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Nama akun wajib diisi';
-                    if (v.trim().length < 3) return 'Nama akun minimal 3 karakter';
+                    if (v == null || v.trim().isEmpty) return AppLanguage.isId ? 'Nama akun wajib diisi' : 'Account name is required';
+                    if (v.trim().length < 3) return AppLanguage.isId ? 'Nama akun minimal 3 karakter' : 'Account name must be at least 3 characters';
                     return null;
                   },
                 ),
@@ -504,8 +505,8 @@ class _AddProductDialogState extends State<AddProductDialog> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Kategori *',
+                          Text(
+                            AppLanguage.isId ? 'Kategori *' : 'Category *',
                             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, color: AppColors.textPrimary),
                           ),
                           const SizedBox(height: 6),
@@ -596,8 +597,8 @@ class _AddProductDialogState extends State<AddProductDialog> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Harga Promo (Rp)',
+                          Text(
+                            AppLanguage.isId ? 'Harga Promo (Rp)' : 'Promo Price (Rp)',
                             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, color: AppColors.textPrimary),
                           ),
                           const SizedBox(height: 6),
@@ -757,7 +758,7 @@ class _AddProductDialogState extends State<AddProductDialog> {
                     Expanded(
                       child: OutlinedButton(
                         onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-                        child: const Text('Batal'),
+                        child: Text(AppLanguage.t('cancel')),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -775,8 +776,8 @@ class _AddProductDialogState extends State<AddProductDialog> {
                             : const Icon(Icons.check_rounded, size: 18),
                         label: Text(
                           _isSubmitting
-                              ? 'Menyimpan...'
-                              : (isEdit ? 'Simpan Perubahan' : 'Tambahkan Akun'),
+                              ? (AppLanguage.isId ? 'Menyimpan...' : 'Saving...')
+                              : (isEdit ? (AppLanguage.isId ? 'Simpan Perubahan' : 'Save Changes') : (AppLanguage.isId ? 'Tambahkan Akun' : 'Add Account')),
                         ),
                       ),
                     ),

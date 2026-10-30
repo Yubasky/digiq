@@ -94,3 +94,4 @@ REVOKE ALL ON FUNCTION public.confirm_user_by_email(TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.confirm_user_by_email(TEXT) TO authenticated, service_role;
 
 COMMIT;
+

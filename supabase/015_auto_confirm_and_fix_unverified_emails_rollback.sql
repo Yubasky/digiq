@@ -4,3 +4,4 @@ BEGIN;
 DROP FUNCTION IF EXISTS public.confirm_user_by_email(TEXT);
 
 COMMIT;
+

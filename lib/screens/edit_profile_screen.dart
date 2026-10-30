@@ -17,6 +17,7 @@ import '../services/auth_service.dart';
 import '../services/avatar_picker.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
+import '../services/app_language.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final ProfileModel profile;
@@ -207,7 +208,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (_isUploadingAvatar) return;
 
     if (!kIsWeb && !EditProfileScreen.enableWebUploadForTesting) {
-      _showSnack('Fitur upload foto profil saat ini hanya tersedia di versi web.', isError: true);
+      _showSnack(AppLanguage.isId ? 'Fitur upload foto profil saat ini hanya tersedia di versi web.' : 'Profile photo upload is currently only available on web.', isError: true);
       return;
     }
 
@@ -227,7 +228,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       // Validasi ukuran maksimal 2 MB
       const maxBytes = 2 * 1024 * 1024;
       if (picked.sizeInBytes > maxBytes) {
-        _showSnack('Ukuran foto profil maksimal 2 MB.', isError: true);
+        _showSnack(AppLanguage.isId ? 'Ukuran foto profil maksimal 2 MB.' : 'Profile photo maximum size is 2 MB.', isError: true);
         return;
       }
 
@@ -278,10 +279,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         _isUploadingAvatar = false;
       });
 
-      _showSnack('Foto profil berhasil diperbarui.');
+      _showSnack(AppLanguage.isId ? 'Foto profil berhasil diperbarui.' : 'Profile picture updated successfully.');
     } catch (_) {
       setState(() => _isUploadingAvatar = false);
-      _showSnack('Gagal mengunggah foto profil. Periksa koneksi Anda.', isError: true);
+      _showSnack(AppLanguage.isId ? 'Gagal mengunggah foto profil. Periksa koneksi Anda.' : 'Failed to upload profile picture. Check your connection.', isError: true);
     }
   }
 
@@ -292,7 +293,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final isUsernameChanged = newUsername != _currentProfile.username.trim().toLowerCase();
 
     if (isUsernameChanged && _usernameStatus == UsernameCheckStatus.taken) {
-      _showSnack('Username ini telah digunakan pengguna lain.', isError: true);
+      _showSnack(AppLanguage.isId ? 'Username ini telah digunakan pengguna lain.' : 'This username is already taken.', isError: true);
       return;
     }
 
@@ -314,9 +315,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         _currentProfile = res.profile!;
         _hasUnsavedChanges = false;
       });
-      _showSnack(res.message ?? 'Profil berhasil diperbarui.');
+      _showSnack(res.message ?? (AppLanguage.isId ? 'Profil berhasil diperbarui.' : 'Profile updated successfully.'));
     } else {
-      _showSnack(res.message ?? 'Gagal memperbarui profil.', isError: true);
+      _showSnack(res.message ?? (AppLanguage.isId ? 'Gagal memperbarui profil.' : 'Failed to update profile.'), isError: true);
     }
   }
 
@@ -334,11 +335,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       return;
     }
     if (newPass.length < 8) {
-      _showSnack('Password baru minimal 8 karakter.', isError: true);
+      _showSnack(AppLanguage.isId ? 'Password baru minimal 8 karakter.' : 'New password must be at least 8 characters.', isError: true);
       return;
     }
     if (newPass != confirmPass) {
-      _showSnack('Konfirmasi password baru tidak cocok.', isError: true);
+      _showSnack(AppLanguage.isId ? 'Konfirmasi password baru tidak cocok.' : 'New password confirmation does not match.', isError: true);
       return;
     }
 
@@ -354,9 +355,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _oldPasswordController.clear();
       _newPasswordController.clear();
       _confirmPasswordController.clear();
-      _showSnack(res.message ?? 'Password berhasil diperbarui.');
+      _showSnack(res.message ?? (AppLanguage.isId ? 'Password berhasil diperbarui.' : 'Password updated successfully.'));
     } else {
-      _showSnack(res.message ?? 'Gagal mengubah password.', isError: true);
+      _showSnack(res.message ?? (AppLanguage.isId ? 'Gagal mengubah password.' : 'Failed to change password.'), isError: true);
     }
   }
 
@@ -369,7 +370,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
 
     if (_emailCheckStatus == EmailCheckStatus.taken) {
-      _showSnack('Email ini sudah terdaftar oleh pengguna lain.', isError: true);
+      _showSnack(AppLanguage.isId ? 'Email ini sudah terdaftar oleh pengguna lain.' : 'This email is already registered.', isError: true);
       return;
     }
 
@@ -380,9 +381,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     if (res.success) {
       _newEmailController.clear();
-      _showSnack(res.message ?? 'Tautan konfirmasi telah dikirim.');
+      _showSnack(res.message ?? (AppLanguage.isId ? 'Tautan konfirmasi telah dikirim.' : 'Confirmation link has been sent.'));
     } else {
-      _showSnack(res.message ?? 'Gagal mengajukan perubahan email.', isError: true);
+      _showSnack(res.message ?? (AppLanguage.isId ? 'Gagal mengajukan perubahan email.' : 'Failed to request email change.'), isError: true);
     }
   }
 
@@ -393,12 +394,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Perubahan Belum Disimpan'),
-        content: const Text('Anda memiliki perubahan profil yang belum disimpan. Keluar tanpa menyimpan?'),
+        title: Text(AppLanguage.isId ? 'Perubahan Belum Disimpan' : 'Unsaved Changes'),
+        content: Text(AppLanguage.isId ? 'Anda memiliki perubahan profil yang belum disimpan. Keluar tanpa menyimpan?' : 'You have unsaved profile changes. Leave without saving?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Tetap di Sini'),
+            child: Text(AppLanguage.isId ? 'Tetap di Sini' : 'Stay Here'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -406,7 +407,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               backgroundColor: AppColors.error,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Keluar'),
+            child: Text(AppLanguage.isId ? 'Keluar' : 'Leave'),
           ),
         ],
       ),
@@ -417,9 +418,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final userEmail = SupabaseConfig.supabase.auth.currentUser?.email ?? 'Tidak diketahui';
+    final userEmail = SupabaseConfig.supabase.auth.currentUser?.email ?? (AppLanguage.isId ? 'Tidak diketahui' : 'Unknown');
 
-    return PopScope(
+    return ValueListenableBuilder<AppLang>(
+      valueListenable: AppLanguage.current,
+      builder: (context, lang, _) {
+        return PopScope(
       canPop: !_hasUnsavedChanges,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
@@ -431,8 +435,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       child: Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
-          title: const Text(
-            'Edit Profil',
+          title: Text(
+            AppLanguage.t('edit_profile'),
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
           ),
           centerTitle: true,
@@ -475,6 +479,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
         ),
       ),
+    );
+      },
     );
   }
 
@@ -569,20 +575,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Informasi Pribadi',
+            Text(
+              AppLanguage.isId ? 'Informasi Pribadi' : 'Personal Information',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
             ),
             const SizedBox(height: 16),
 
             // Nama Lengkap
-            _buildLabel('Nama Lengkap'),
+            _buildLabel(AppLanguage.t('name_label')),
             const SizedBox(height: 6),
             TextFormField(
               key: const Key('edit_profile_name_field'),
               controller: _nameController,
               decoration: _inputDecoration(
-                hint: 'Nama Lengkap Anda',
+                hint: AppLanguage.t('name_hint'),
                 icon: Icons.person_outline_rounded,
               ),
               validator: AuthService.validateFullNameFormat,
@@ -590,13 +596,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             const SizedBox(height: 16),
 
             // Username
-            _buildLabel('Username'),
+            _buildLabel(AppLanguage.t('username_label')),
             const SizedBox(height: 6),
             TextFormField(
               key: const Key('edit_profile_username_field'),
               controller: _usernameController,
               decoration: _inputDecoration(
-                hint: 'username (5-20 alfanumerik)',
+                hint: AppLanguage.t('username_hint'),
                 icon: Icons.alternate_email_rounded,
                 suffixIcon: _isCheckingUsername
                     ? const Padding(
@@ -634,7 +640,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             const SizedBox(height: 16),
 
             // No. HP
-            _buildLabel('Nomor HP'),
+            _buildLabel(AppLanguage.t('phone_label')),
             const SizedBox(height: 6),
             TextFormField(
               key: const Key('edit_profile_phone_field'),
@@ -653,7 +659,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             const SizedBox(height: 16),
 
             // Email (Read-only)
-            _buildLabel('Alamat Email (Akun)'),
+            _buildLabel(AppLanguage.isId ? 'Alamat Email (Akun)' : 'Email Address (Account)'),
             const SizedBox(height: 6),
             TextFormField(
               key: const Key('edit_profile_email_field'),
@@ -663,14 +669,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               decoration: _inputDecoration(
                 hint: userEmail,
                 icon: Icons.email_outlined,
-                suffixIcon: const Padding(
-                  padding: EdgeInsets.only(right: 12),
+                suffixIcon: Padding(
+                  padding: const EdgeInsets.only(right: 12),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.lock_outline_rounded, size: 16, color: AppColors.textSecondary),
                       SizedBox(width: 4),
-                      Text('Terkunci', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      Text(AppLanguage.isId ? 'Terkunci' : 'Locked', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                     ],
                   ),
                 ),
@@ -693,7 +699,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       )
                     : const Icon(Icons.check_rounded, size: 20),
                 label: Text(
-                  _isSavingProfile ? 'Menyimpan...' : 'Simpan Perubahan Profil',
+                  _isSavingProfile ? (AppLanguage.isId ? 'Menyimpan...' : 'Saving...') : (AppLanguage.isId ? 'Simpan Perubahan Profil' : 'Save Profile Changes'),
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
                 ),
                 style: ElevatedButton.styleFrom(
@@ -721,25 +727,25 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.security_rounded, size: 20, color: AppColors.primary),
-              SizedBox(width: 8),
+              const Icon(Icons.security_rounded, size: 20, color: AppColors.primary),
+              const SizedBox(width: 8),
               Text(
-                'Keamanan: Ubah Password',
+                AppLanguage.isId ? 'Keamanan: Ubah Password' : 'Security: Change Password',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          _buildLabel('Password Saat Ini'),
+          _buildLabel(AppLanguage.isId ? 'Password Saat Ini' : 'Current Password'),
           const SizedBox(height: 6),
           TextFormField(
             key: const Key('edit_profile_old_password_field'),
             controller: _oldPasswordController,
             obscureText: _obscureOldPass,
             decoration: _inputDecoration(
-              hint: 'Password akun Anda saat ini',
+              hint: AppLanguage.isId ? 'Password akun Anda saat ini' : 'Your current account password',
               icon: Icons.lock_clock_outlined,
               suffixIcon: IconButton(
                 icon: Icon(
@@ -752,14 +758,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
           ),
           const SizedBox(height: 14),
-          _buildLabel('Password Baru (Minimal 8 Karakter)'),
+          _buildLabel(AppLanguage.isId ? 'Password Baru (Minimal 8 Karakter)' : 'New Password (Min. 8 Characters)'),
           const SizedBox(height: 6),
           TextFormField(
             key: const Key('edit_profile_new_password_field'),
             controller: _newPasswordController,
             obscureText: _obscureNewPass,
             decoration: _inputDecoration(
-              hint: 'Minimal 8 karakter',
+              hint: AppLanguage.isId ? 'Minimal 8 karakter' : 'At least 8 characters',
               icon: Icons.lock_outline_rounded,
               suffixIcon: IconButton(
                 icon: Icon(
@@ -772,14 +778,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
           ),
           const SizedBox(height: 14),
-          _buildLabel('Konfirmasi Password Baru'),
+          _buildLabel(AppLanguage.isId ? 'Konfirmasi Password Baru' : 'Confirm New Password'),
           const SizedBox(height: 6),
           TextFormField(
             key: const Key('edit_profile_confirm_password_field'),
             controller: _confirmPasswordController,
             obscureText: _obscureConfirmPass,
             decoration: _inputDecoration(
-              hint: 'Ulangi password baru',
+              hint: AppLanguage.isId ? 'Ulangi password baru' : 'Repeat new password',
               icon: Icons.lock_outline_rounded,
               suffixIcon: IconButton(
                 icon: Icon(
@@ -809,7 +815,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
                     )
-                  : const Text('Simpan Password Baru', style: TextStyle(fontWeight: FontWeight.bold)),
+                  : Text(AppLanguage.isId ? 'Simpan Password Baru' : 'Save New Password', style: const TextStyle(fontWeight: FontWeight.bold)),
             ),
           ),
         ],
@@ -828,12 +834,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.mark_email_read_outlined, size: 20, color: AppColors.primary),
-              SizedBox(width: 8),
+              const Icon(Icons.mark_email_read_outlined, size: 20, color: AppColors.primary),
+              const SizedBox(width: 8),
               Text(
-                'Perbarui Alamat Email',
+                AppLanguage.isId ? 'Perbarui Alamat Email' : 'Update Email Address',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
               ),
             ],
@@ -845,13 +851,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               color: AppColors.primaryLight,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Text(
-              'Tautan konfirmasi akan dikirimkan ke email baru Anda. Alamat email akun hanya akan berubah setelah Anda mengklik tautan konfirmasi tersebut.',
+            child: Text(
+              AppLanguage.isId ? 'Tautan konfirmasi akan dikirimkan ke email baru Anda. Alamat email akun hanya akan berubah setelah Anda mengklik tautan konfirmasi tersebut.' : 'A confirmation link will be sent to your new email. Your account email will only change after clicking the confirmation link.',
               style: TextStyle(fontSize: 12.5, color: AppColors.primaryDark, height: 1.4),
             ),
           ),
           const SizedBox(height: 14),
-          _buildLabel('Alamat Email Baru'),
+          _buildLabel(AppLanguage.isId ? 'Alamat Email Baru' : 'New Email Address'),
           const SizedBox(height: 6),
           TextFormField(
             key: const Key('edit_profile_new_email_field'),
@@ -908,7 +914,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
                     )
-                  : const Text('Kirim Tautan Perubahan Email', style: TextStyle(fontWeight: FontWeight.bold)),
+                  : Text(AppLanguage.isId ? 'Kirim Tautan Perubahan Email' : 'Send Email Change Link', style: const TextStyle(fontWeight: FontWeight.bold)),
             ),
           ),
         ],
