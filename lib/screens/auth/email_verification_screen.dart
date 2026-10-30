@@ -10,6 +10,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/auth_service.dart';
+import '../../services/app_language.dart';
 import '../../theme/app_theme.dart';
 import '../admin_dashboard_screen.dart';
 import '../customer_dashboard_screen.dart';
@@ -363,10 +364,10 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
           ),
           const SizedBox(height: 24),
 
-          const Text(
-            'Cek Gmail Anda',
+          Text(
+            AppLanguage.t('verify_email_waiting_title'),
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
               color: AppColors.textPrimary,
@@ -384,18 +385,17 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                 height: 1.5,
               ),
               children: [
-                const TextSpan(
-                    text: 'Kami telah mengirimkan tautan aktivasi akun ke '),
                 TextSpan(
-                  text: emailText.isNotEmpty ? emailText : 'alamat email Anda',
+                    text: AppLanguage.t('verify_email_waiting_desc_1')),
+                TextSpan(
+                  text: emailText.isNotEmpty ? emailText : (AppLanguage.isId ? 'alamat email Anda' : 'your email address'),
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     color: AppColors.textPrimary,
                   ),
                 ),
-                const TextSpan(
-                  text:
-                      '.\nSilakan buka aplikasi Gmail dan klik tombol verifikasi untuk mengaktifkan akun DigiQ Anda.',
+                TextSpan(
+                  text: AppLanguage.t('verify_email_waiting_desc_2'),
                 ),
               ],
             ),
@@ -410,14 +410,14 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.cardBorder),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.sync_rounded, size: 18, color: AppColors.primary),
-                SizedBox(width: 10),
+                const Icon(Icons.sync_rounded, size: 18, color: AppColors.primary),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Layar ini otomatis mengalihkan ke Beranda begitu link di Gmail diklik.',
-                    style: TextStyle(
+                    AppLanguage.t('verify_email_auto_redirect'),
+                    style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.textSecondary,
                     ),
@@ -447,8 +447,8 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                   : const Icon(Icons.refresh_rounded, size: 18),
               label: Text(
                 _resendCooldown > 0
-                    ? 'Kirim ulang dalam ${_resendCooldown}d'
-                    : 'Kirim Ulang Email Verifikasi',
+                    ? '${AppLanguage.t('resend_in_cooldown')}${_resendCooldown}s'
+                    : AppLanguage.t('verify_email_resend_btn'),
                 style:
                     const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
               ),
@@ -468,11 +468,13 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
           ),
           const SizedBox(height: 12),
 
-                    const SizedBox(height: 10),
-          const Text(
-            'Tidak menerima email? Periksa folder Spam/Promosi.',
+          const SizedBox(height: 10),
+          Text(
+            AppLanguage.isId
+                ? 'Tidak menerima email? Periksa folder Spam/Promosi.'
+                : 'Didn\'t receive the email? Check your Spam/Promotions folder.',
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 12,
               color: AppColors.textSecondary,
               fontWeight: FontWeight.w400,
@@ -483,9 +485,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
           TextButton.icon(
             onPressed: _navigateToLogin,
             icon: const Icon(Icons.logout_rounded, size: 16, color: AppColors.textSecondary),
-            label: const Text(
-              'Keluar / Ganti Akun',
-              style: TextStyle(
+            label: Text(
+              AppLanguage.isId ? 'Keluar / Ganti Akun' : 'Sign Out / Switch Account',
+              style: const TextStyle(
                 fontSize: 13,
                 color: AppColors.textSecondary,
                 fontWeight: FontWeight.w600,
@@ -538,10 +540,10 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
           const SizedBox(height: 24),
 
           // Judul tebal
-          const Text(
-            'Email Berhasil Diverifikasi!',
+          Text(
+            AppLanguage.t('verify_email_verified_title'),
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
               color: AppColors.textPrimary,
@@ -551,10 +553,10 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
           const SizedBox(height: 10),
 
           // Subjudul
-          const Text(
-            'Selamat datang di DigiQ. Akun Anda telah aktif dan siap digunakan.',
+          Text(
+            AppLanguage.t('verify_email_verified_desc'),
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 13.5,
               color: AppColors.textSecondary,
               height: 1.5,
@@ -582,7 +584,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Mengalihkan ke Beranda dalam $_redirectCountdown detik...',
+                  AppLanguage.isId
+                      ? 'Mengalihkan ke Beranda dalam $_redirectCountdown detik...'
+                      : 'Redirecting to Home in $_redirectCountdown seconds...',
                   style: const TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
@@ -594,16 +598,16 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
           ),
           const SizedBox(height: 28),
 
-          // Tombol utama Masuk ke Aplikasi Sekarang (Cyan #06ACDC)
+          // Tombol utama Masuk ke Aplikasi Sekarang
           SizedBox(
             width: double.infinity,
             height: 50,
             child: ElevatedButton.icon(
               onPressed: _navigateToDashboard,
               icon: const Icon(Icons.arrow_forward_rounded, size: 20),
-              label: const Text(
-                'Masuk ke Aplikasi Sekarang',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              label: Text(
+                AppLanguage.isId ? 'Masuk ke Aplikasi Sekarang' : 'Enter App Now',
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,

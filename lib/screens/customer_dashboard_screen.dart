@@ -108,7 +108,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                '${product.name} ditambahkan ke keranjang',
+                '${product.name} ${AppLanguage.t('added_to_cart')}',
                 style: const TextStyle(fontSize: 13),
               ),
             ),
@@ -120,7 +120,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         action: SnackBarAction(
-          label: 'Lihat',
+          label: AppLanguage.t('view_action'),
           textColor: Colors.white,
           onPressed: () => setState(() => _currentTab = 1),
         ),
@@ -501,7 +501,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               onChanged: (v) => setState(() => _searchQuery = v),
               style: const TextStyle(fontSize: 13),
               decoration: InputDecoration(
-                hintText: 'Cari akun Netflix, ChatGPT, Spotify, Google...',
+                hintText: AppLanguage.t('search_hint'),
                 hintStyle:
                     const TextStyle(color: AppColors.textMuted, fontSize: 13),
                 prefixIcon: const Icon(Icons.search_rounded,
@@ -551,12 +551,12 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
-                  children: const [
-                    Icon(Icons.workspace_premium_rounded, size: 20, color: AppColors.primary),
-                    SizedBox(width: 6),
+                  children: [
+                    const Icon(Icons.workspace_premium_rounded, size: 20, color: AppColors.primary),
+                    const SizedBox(width: 6),
                     Text(
-                      'Katalog Akun Premium',
-                      style: TextStyle(
+                      AppLanguage.t('premium_catalog'),
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: AppColors.textPrimary,
@@ -571,7 +571,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    '${_filteredProducts.length} Akun Ready',
+                    '${_filteredProducts.length} ${AppLanguage.t('ready_accounts_suffix')}',
                     style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
@@ -670,9 +670,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                           color: Colors.white.withValues(alpha: 0.25),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: const Text(
-                          '≡ƒÄë PROMO HARI INI',
-                          style: TextStyle(
+                        child: Text(
+                          AppLanguage.t('today_promo_badge'),
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
@@ -680,9 +680,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      const Text(
-                        'Bayar via QRIS,\nHemat Lebih Banyak!',
-                        style: TextStyle(
+                      Text(
+                        AppLanguage.t('today_promo_title'),
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 15,
                           fontWeight: FontWeight.bold,

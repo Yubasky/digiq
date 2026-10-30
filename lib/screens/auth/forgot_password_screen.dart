@@ -6,6 +6,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../../services/app_language.dart';
 import '../../theme/app_theme.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
@@ -74,70 +75,148 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     ));
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              color: AppColors.textSecondary),
-          onPressed: () => Navigator.of(context).pop(),
+  Widget _buildLanguageSwitch() {
+    return ValueListenableBuilder<AppLang>(
+      valueListenable: AppLanguage.current,
+      builder: (context, currentLang, _) {
+        return Container(
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.cardBorder, width: 1.2),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildLangChip(
+                label: 'ID',
+                flag: '🇮🇩',
+                isSelected: currentLang == AppLang.id,
+                onTap: () => AppLanguage.setLanguage(AppLang.id),
+              ),
+              const SizedBox(width: 2),
+              _buildLangChip(
+                label: 'EN',
+                flag: '🇬🇧',
+                isSelected: currentLang == AppLang.en,
+                onTap: () => AppLanguage.setLanguage(AppLang.en),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildLangChip({
+    required String label,
+    required String flag,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(flag, style: const TextStyle(fontSize: 10)),
+            const SizedBox(width: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? Colors.white : AppColors.textSecondary,
+              ),
+            ),
+          ],
         ),
       ),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Logo
-                  Center(
-                    child: Image.asset(
-                      'assets/img/Logo_digiq.png',
-                      height: 64,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, _, _) => Container(
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(
-                          gradient: AppColors.primaryGradient,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: const Icon(Icons.bolt_rounded,
-                            color: Colors.white, size: 36),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
+    );
+  }
 
-                  // Card
-                  Container(
-                    padding: const EdgeInsets.all(28),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.10),
-                          blurRadius: 32,
-                          offset: const Offset(0, 12),
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<AppLang>(
+      valueListenable: AppLanguage.current,
+      builder: (context, lang, _) {
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                  color: AppColors.textSecondary),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: Center(child: _buildLanguageSwitch()),
+              ),
+            ],
+          ),
+          body: SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 440),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Logo
+                      Center(
+                        child: Image.asset(
+                          'assets/img/Logo_digiq.png',
+                          height: 64,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, _, _) => Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              gradient: AppColors.primaryGradient,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Icon(Icons.bolt_rounded,
+                                color: Colors.white, size: 36),
+                          ),
                         ),
-                      ],
-                    ),
-                    child: _sent ? _buildSentState() : _buildFormState(),
+                      ),
+                      const SizedBox(height: 28),
+
+                      // Card
+                      Container(
+                        padding: const EdgeInsets.all(28),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primary.withValues(alpha: 0.10),
+                              blurRadius: 32,
+                              offset: const Offset(0, 12),
+                            ),
+                          ],
+                        ),
+                        child: _sent ? _buildSentState() : _buildFormState(),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -164,20 +243,23 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
           const SizedBox(height: 24),
 
-          const Text(
-            'Lupa Kata Sandi?',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-              letterSpacing: -0.5,
+          Center(
+            child: Text(
+              AppLanguage.t('forgot_pwd_title'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+                letterSpacing: -0.5,
+              ),
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Masukkan alamat email Anda dan kami akan mengirimkan tautan untuk mengatur ulang kata sandi.',
-            style: TextStyle(
+          Text(
+            AppLanguage.t('forgot_pwd_desc'),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
               fontSize: 13.5,
               color: AppColors.textSecondary,
               height: 1.5,
@@ -186,9 +268,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           const SizedBox(height: 24),
 
           // Email field
-          const Text(
-            'Alamat Email',
-            style: TextStyle(
+          Text(
+            AppLanguage.t('email_address_label'),
+            style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
@@ -225,10 +307,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               fillColor: AppColors.background,
             ),
             validator: (v) {
-              if (v == null || v.trim().isEmpty) return 'Email wajib diisi';
+              if (v == null || v.trim().isEmpty) return AppLanguage.t('email_required');
               final emailReg = RegExp(
                   r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
-              if (!emailReg.hasMatch(v.trim())) return 'Format email tidak valid';
+              if (!emailReg.hasMatch(v.trim())) return AppLanguage.t('email_invalid');
               return null;
             },
           ),
@@ -250,8 +332,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   : const Icon(Icons.send_rounded, size: 20),
               label: Text(
                 _cooldown > 0
-                    ? 'Kirim ulang dalam ${_cooldown}d'
-                    : 'Kirim Tautan Reset',
+                    ? '${AppLanguage.t('resend_in_cooldown')}${_cooldown}s'
+                    : AppLanguage.t('send_reset_link'),
                 style:
                     const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
               ),
@@ -269,9 +351,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           Center(
             child: TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text(
-                'Kembali ke Login',
-                style: TextStyle(
+              child: Text(
+                AppLanguage.t('back_to_login'),
+                style: const TextStyle(
                     fontSize: 13,
                     color: AppColors.textSecondary,
                     fontWeight: FontWeight.w600),
@@ -299,20 +381,20 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               size: 46, color: AppColors.success),
         ),
         const SizedBox(height: 24),
-        const Text(
-          'Cek Email Anda',
+        Text(
+          AppLanguage.t('check_email_title'),
           textAlign: TextAlign.center,
-          style: TextStyle(
+          style: const TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
               color: AppColors.textPrimary,
               letterSpacing: -0.5),
         ),
         const SizedBox(height: 10),
-        const Text(
-          'Jika email terdaftar, tautan reset kata sandi telah dikirim. Silakan periksa kotak masuk atau folder spam Anda.',
+        Text(
+          AppLanguage.t('check_email_desc'),
           textAlign: TextAlign.center,
-          style: TextStyle(
+          style: const TextStyle(
               fontSize: 13.5, color: AppColors.textSecondary, height: 1.5),
         ),
         const SizedBox(height: 28),
@@ -326,8 +408,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             icon: const Icon(Icons.refresh_rounded, size: 20),
             label: Text(
               _cooldown > 0
-                  ? 'Kirim ulang dalam ${_cooldown}d'
-                  : 'Kirim Ulang Tautan',
+                  ? '${AppLanguage.t('resend_in_cooldown')}${_cooldown}s'
+                  : AppLanguage.t('resend_link_btn'),
               style:
                   const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
@@ -348,9 +430,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           children: [
             TextButton(
               onPressed: () => setState(() => _sent = false),
-              child: const Text(
-                'Ubah Email',
-                style: TextStyle(
+              child: Text(
+                AppLanguage.t('change_email_btn'),
+                style: const TextStyle(
                     fontSize: 13,
                     color: AppColors.primary,
                     fontWeight: FontWeight.w600),
@@ -359,9 +441,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             const Text('•', style: TextStyle(color: AppColors.textMuted)),
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text(
-                'Kembali ke Login',
-                style: TextStyle(
+              child: Text(
+                AppLanguage.t('back_to_login'),
+                style: const TextStyle(
                     fontSize: 13,
                     color: AppColors.textSecondary,
                     fontWeight: FontWeight.w600),

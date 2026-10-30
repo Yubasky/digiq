@@ -9,6 +9,7 @@
 
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../../services/app_language.dart';
 import '../../theme/app_theme.dart';
 import '../login_screen.dart';
 
@@ -95,8 +96,7 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
       );
 
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: const Text(
-            'Kata sandi berhasil diubah. Silakan masuk dengan kata sandi baru Anda.'),
+        content: Text(AppLanguage.t('pwd_changed_snack')),
         backgroundColor: AppColors.success,
         behavior: SnackBarBehavior.floating,
         shape:
@@ -114,44 +114,47 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      // Jangan biarkan user menekan back ke dashboard selama recovery aktif.
-      // Jika mencoba pop atau navigasi keluar, lakukan cancel dan sign out.
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) async {
-        if (!didPop) {
-          await _cancelAndExit();
-        }
-      },
-      child: Scaffold(
-        backgroundColor: AppColors.background,
-        body: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 440),
-                child: Container(
-                  padding: const EdgeInsets.all(28),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.10),
-                        blurRadius: 32,
-                        offset: const Offset(0, 12),
+    return ValueListenableBuilder<AppLang>(
+      valueListenable: AppLanguage.current,
+      builder: (context, lang, _) {
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) async {
+            if (!didPop) {
+              await _cancelAndExit();
+            }
+          },
+          child: Scaffold(
+            backgroundColor: AppColors.background,
+            body: SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 440),
+                    child: Container(
+                      padding: const EdgeInsets.all(28),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.10),
+                            blurRadius: 32,
+                            offset: const Offset(0, 12),
+                          ),
+                        ],
                       ),
-                    ],
+                      child: _success ? _buildSuccessCard() : _buildForm(),
+                    ),
                   ),
-                  child: _success ? _buildSuccessCard() : _buildForm(),
                 ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -172,10 +175,10 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
               size: 54, color: AppColors.success),
         ),
         const SizedBox(height: 24),
-        const Text(
-          'Kata Sandi Berhasil Diubah!',
+        Text(
+          AppLanguage.t('pwd_changed_success_title'),
           textAlign: TextAlign.center,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.bold,
             color: AppColors.textPrimary,
@@ -183,10 +186,10 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
           ),
         ),
         const SizedBox(height: 10),
-        const Text(
-          'Anda akan dialihkan ke halaman login dalam beberapa saat...',
+        Text(
+          AppLanguage.t('pwd_changed_redirect'),
           textAlign: TextAlign.center,
-          style: TextStyle(
+          style: const TextStyle(
               fontSize: 13.5, color: AppColors.textSecondary, height: 1.5),
         ),
         const SizedBox(height: 24),
@@ -224,28 +227,33 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
           ),
           const SizedBox(height: 24),
 
-          const Text(
-            'Buat Kata Sandi Baru',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-              letterSpacing: -0.5,
+          Center(
+            child: Text(
+              AppLanguage.t('set_new_pwd_title'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+                letterSpacing: -0.5,
+              ),
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Masukkan kata sandi baru Anda di bawah. Pastikan minimal 8 karakter.',
-            style: TextStyle(
-                fontSize: 13.5, color: AppColors.textSecondary, height: 1.5),
+          Center(
+            child: Text(
+              AppLanguage.t('set_new_pwd_desc'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  fontSize: 13.5, color: AppColors.textSecondary, height: 1.5),
+            ),
           ),
           const SizedBox(height: 24),
 
           // Password baru
-          const Text(
-            'Kata Sandi Baru',
-            style: TextStyle(
+          Text(
+            AppLanguage.t('new_password_label'),
+            style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary),
@@ -257,23 +265,23 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
             textInputAction: TextInputAction.next,
             style: const TextStyle(fontSize: 14),
             decoration: _inputDecoration(
-              hint: 'Minimal 8 karakter',
+              hint: AppLanguage.t('password_min_hint'),
               icon: Icons.lock_outline_rounded,
               suffixIcon: _toggleIcon(_obscurePwd,
                   () => setState(() => _obscurePwd = !_obscurePwd)),
             ),
             validator: (v) {
-              if (v == null || v.isEmpty) return 'Kata sandi wajib diisi';
-              if (v.length < 8) return 'Kata sandi minimal 8 karakter';
+              if (v == null || v.isEmpty) return AppLanguage.t('password_required');
+              if (v.length < 8) return AppLanguage.t('password_min_error');
               return null;
             },
           ),
           const SizedBox(height: 14),
 
           // Konfirmasi
-          const Text(
-            'Konfirmasi Kata Sandi',
-            style: TextStyle(
+          Text(
+            AppLanguage.t('confirm_password_label'),
+            style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary),
@@ -286,14 +294,14 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
             onFieldSubmitted: (_) => _submit(),
             style: const TextStyle(fontSize: 14),
             decoration: _inputDecoration(
-              hint: 'Ulangi kata sandi',
+              hint: AppLanguage.t('confirm_password_hint'),
               icon: Icons.lock_outline_rounded,
               suffixIcon: _toggleIcon(_obscureConfirm,
                   () => setState(() => _obscureConfirm = !_obscureConfirm)),
             ),
             validator: (v) {
-              if (v == null || v.isEmpty) return 'Konfirmasi kata sandi wajib diisi';
-              if (v != _pwdCtrl.text) return 'Kata sandi tidak cocok';
+              if (v == null || v.isEmpty) return AppLanguage.t('confirm_password_required');
+              if (v != _pwdCtrl.text) return AppLanguage.t('passwords_not_match');
               return null;
             },
           ),
@@ -343,7 +351,7 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
                     )
                   : const Icon(Icons.check_rounded, size: 22),
               label: Text(
-                _isLoading ? 'Menyimpan...' : 'Simpan Kata Sandi Baru',
+                _isLoading ? '...' : AppLanguage.t('save_password_btn'),
                 style:
                     const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
               ),
@@ -358,13 +366,13 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Tombol Batal & Keluar (Sign Out demi keamanan)
+          // Tombol Batal & Keluar
           Center(
             child: TextButton(
               onPressed: _isLoading ? null : _cancelAndExit,
-              child: const Text(
-                'Batalkan dan Kembali ke Login',
-                style: TextStyle(
+              child: Text(
+                AppLanguage.t('back_to_login'),
+                style: const TextStyle(
                   fontSize: 13,
                   color: AppColors.textSecondary,
                   fontWeight: FontWeight.w600,
