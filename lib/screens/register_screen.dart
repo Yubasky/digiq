@@ -27,15 +27,16 @@ class _RegisterScreenState extends State<RegisterScreen>
   bool _obscureConfirm = true;
   bool _isLoading = false;
   bool _agreed = false;
+  bool _highlightAgreed = false;
 
-  Timer? _debounceTimer;
-  int _usernameCheckSeq = 0;
+  Timer? _debounceUsernameTimer;
+  int _usernameSeq = 0;
   bool _isCheckingUsername = false;
   UsernameCheckStatus? _usernameStatus;
   String? _usernameErrorText;
 
   Timer? _debounceEmailTimer;
-  int _emailCheckSeq = 0;
+  int _emailSeq = 0;
   bool _isCheckingEmail = false;
   EmailCheckStatus? _emailStatus;
   String? _emailErrorText;
@@ -61,9 +62,25 @@ class _RegisterScreenState extends State<RegisterScreen>
     _emailController.addListener(_onEmailChanged);
   }
 
+  @override
+  void dispose() {
+    _debounceUsernameTimer?.cancel();
+    _debounceEmailTimer?.cancel();
+    _usernameController.removeListener(_onUsernameChanged);
+    _emailController.removeListener(_onEmailChanged);
+    _animController.dispose();
+    _nameController.dispose();
+    _usernameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
   void _onUsernameChanged({bool force = false}) {
-    final currentInput = _usernameController.text.trim();
-    _debounceTimer?.cancel();
+    final currentInput = _usernameController.text.trim().toLowerCase();
+    _debounceUsernameTimer?.cancel();
 
     if (currentInput.isEmpty) {
       setState(() {
@@ -84,7 +101,7 @@ class _RegisterScreenState extends State<RegisterScreen>
       return;
     }
 
-    final seq = ++_usernameCheckSeq;
+    final seq = ++_usernameSeq;
     setState(() {
       _isCheckingUsername = true;
       _usernameErrorText = null;
@@ -92,7 +109,7 @@ class _RegisterScreenState extends State<RegisterScreen>
 
     void runCheck() async {
       final status = await AuthService.checkUsernameStatus(currentInput);
-      if (!mounted || seq != _usernameCheckSeq) {
+      if (!mounted || seq != _usernameSeq) {
         return; // Stale async response dibuang
       }
 
@@ -106,7 +123,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     if (force) {
       runCheck();
     } else {
-      _debounceTimer = Timer(const Duration(milliseconds: 500), runCheck);
+      _debounceUsernameTimer = Timer(const Duration(milliseconds: 450), runCheck);
     }
   }
 
@@ -133,7 +150,7 @@ class _RegisterScreenState extends State<RegisterScreen>
       return;
     }
 
-    final seq = ++_emailCheckSeq;
+    final seq = ++_emailSeq;
     setState(() {
       _isCheckingEmail = true;
       _emailErrorText = null;
@@ -141,7 +158,7 @@ class _RegisterScreenState extends State<RegisterScreen>
 
     void runCheck() async {
       final status = await AuthService.checkEmailStatus(currentInput);
-      if (!mounted || seq != _emailCheckSeq) {
+      if (!mounted || seq != _emailSeq) {
         return; // Stale async response discarded
       }
 
@@ -155,24 +172,8 @@ class _RegisterScreenState extends State<RegisterScreen>
     if (force) {
       runCheck();
     } else {
-      _debounceEmailTimer = Timer(const Duration(milliseconds: 500), runCheck);
+      _debounceEmailTimer = Timer(const Duration(milliseconds: 450), runCheck);
     }
-  }
-
-  @override
-  void dispose() {
-    _debounceTimer?.cancel();
-    _debounceEmailTimer?.cancel();
-    _usernameController.removeListener(_onUsernameChanged);
-    _emailController.removeListener(_onEmailChanged);
-    _animController.dispose();
-    _nameController.dispose();
-    _usernameController.dispose();
-    _emailController.dispose();
-    _phoneController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
-    super.dispose();
   }
 
   Future<void> _doRegister() async {
@@ -215,19 +216,47 @@ class _RegisterScreenState extends State<RegisterScreen>
 
     if (!_formKey.currentState!.validate()) return;
     if (!_agreed) {
+      setState(() => _highlightAgreed = true);
       _showSnack(AppLanguage.t('terms_error'), isError: true);
       return;
     }
 
+    final cleanUsername = AuthService.normalizeUsername(_usernameController.text);
+    if (cleanUsername.isNotEmpty) {
+      if (_usernameStatus == UsernameCheckStatus.taken) {
+        _showSnack('Username @$cleanUsername sudah digunakan. Silakan pilih username lain.', isError: true);
+        return;
+      }
+      if (_usernameStatus != UsernameCheckStatus.available) {
+        setState(() => _isCheckingUsername = true);
+        final status = await AuthService.checkUsernameStatus(cleanUsername);
+        if (!mounted) return;
+        setState(() {
+          _isCheckingUsername = false;
+          _usernameStatus = status;
+          _usernameErrorText = AuthService.getUsernameStatusMessage(status);
+        });
+        if (status == UsernameCheckStatus.taken) {
+          _showSnack('Username @$cleanUsername sudah digunakan. Silakan pilih username lain.', isError: true);
+          return;
+        }
+      }
+    }
+
     setState(() => _isLoading = true);
+
+    String cleanPhone = _phoneController.text.trim();
+    if (cleanPhone.startsWith('628')) {
+      cleanPhone = '0${cleanPhone.substring(2)}';
+    }
 
     final registeredEmail = _emailController.text.trim().toLowerCase();
     final result = await AuthService.signUp(
       email: registeredEmail,
       password: _passwordController.text,
       fullName: _nameController.text.trim(),
-      phone: _phoneController.text.trim(),
-      username: _usernameController.text.trim(),
+      phone: cleanPhone,
+      username: cleanUsername,
     );
 
     if (!mounted) return;
@@ -538,7 +567,45 @@ class _RegisterScreenState extends State<RegisterScreen>
                                                 return null;
                                               },
                                             ),
-                                            if (_usernameStatus == UsernameCheckStatus.serverNotReady ||
+if (_isCheckingUsername) ...[
+                                              const SizedBox(height: 5),
+                                              const Row(
+                                                children: [
+                                                  SizedBox(
+                                                    width: 12,
+                                                    height: 12,
+                                                    child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.primary),
+                                                  ),
+                                                  SizedBox(width: 6),
+                                                  Text('Memeriksa ketersediaan username...',
+                                                      style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                                                ],
+                                              ),
+                                            ] else if (_usernameStatus == UsernameCheckStatus.available) ...[
+                                              const SizedBox(height: 5),
+                                              Row(
+                                                children: [
+                                                  const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 14),
+                                                  const SizedBox(width: 4),
+                                                  Text('Username @ tersedia',
+                                                      style: const TextStyle(fontSize: 11, color: AppColors.success, fontWeight: FontWeight.w600)),
+                                                ],
+                                              ),
+                                            ] else if (_usernameStatus == UsernameCheckStatus.taken || _usernameStatus == UsernameCheckStatus.invalidFormat) ...[
+                                              if (_usernameErrorText != null) ...[
+                                                const SizedBox(height: 5),
+                                                Row(
+                                                  children: [
+                                                    const Icon(Icons.error_outline_rounded, color: AppColors.danger, size: 14),
+                                                    const SizedBox(width: 4),
+                                                    Expanded(
+                                                      child: Text(_usernameErrorText!,
+                                                          style: const TextStyle(fontSize: 11, color: AppColors.danger, fontWeight: FontWeight.w500)),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ] else if (_usernameStatus == UsernameCheckStatus.serverNotReady ||
                                                 _usernameStatus == UsernameCheckStatus.permissionDenied ||
                                                 _usernameStatus == UsernameCheckStatus.networkError ||
                                                 _usernameStatus == UsernameCheckStatus.unknownError) ...[
@@ -755,7 +822,10 @@ class _RegisterScreenState extends State<RegisterScreen>
                                               ],
                                               validator: (v) {
                                                 if (v == null || v.trim().isEmpty) return AppLanguage.t('phone_required');
-                                                final phone = v.trim();
+                                                String phone = v.trim();
+                                                if (phone.startsWith('628')) {
+                                                  phone = '0${phone.substring(2)}';
+                                                }
                                                 if (!phone.startsWith('08')) return AppLanguage.t('phone_prefix_error');
                                                 if (phone.length < 10) return '${AppLanguage.t('phone_min_error')} (${phone.length})';
                                                 if (phone.length > 13) return AppLanguage.t('phone_max_error');
@@ -832,8 +902,10 @@ class _RegisterScreenState extends State<RegisterScreen>
                                               color: _agreed ? AppColors.primary : Colors.white,
                                               borderRadius: BorderRadius.circular(5),
                                               border: Border.all(
-                                                color: _agreed ? AppColors.primary : AppColors.cardBorder,
-                                                width: 1.5,
+                                                color: _agreed
+                                                    ? AppColors.primary
+                                                    : (_highlightAgreed ? AppColors.danger : AppColors.cardBorder),
+                                                width: _highlightAgreed && !_agreed ? 2.0 : 1.5,
                                               ),
                                             ),
                                             child: _agreed

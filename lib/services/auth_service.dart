@@ -562,9 +562,22 @@ class AuthService {
     required String email,
     required String password,
   }) async {
+    String loginEmail = email.trim();
+    // Jika login menggunakan username (tanpa @), selesaikan ke email akun via RPC
+    if (!loginEmail.contains('@') && loginEmail.isNotEmpty) {
+      try {
+        final res = await _sb.rpc('resolve_login_email', params: {'p_identifier': loginEmail}).timeout(
+          const Duration(seconds: 4),
+        );
+        if (res != null && res is String && res.contains('@')) {
+          loginEmail = res.trim();
+        }
+      } catch (_) {}
+    }
+
     try {
       final res = await _sb.auth.signInWithPassword(
-        email: email.trim(),
+        email: loginEmail,
         password: password,
       );
 
@@ -616,12 +629,17 @@ class AuthService {
   static Future<ProfileModel?> getCurrentProfile() async {
     final uid = _sb.auth.currentUser?.id;
     if (uid == null) return null;
-    try {
-      final data = await _sb.from('profiles').select().eq('id', uid).single();
-      return ProfileModel.fromMap(data);
-    } catch (_) {
-      return null;
+    for (int i = 0; i < 3; i++) {
+      try {
+        final data = await _sb.from('profiles').select().eq('id', uid).single();
+        return ProfileModel.fromMap(data);
+      } catch (_) {
+        if (i < 2) {
+          await Future<void>.delayed(const Duration(milliseconds: 300));
+        }
+      }
     }
+    return null;
   }
 
   /// Ambil role dari profil (untuk routing di main.dart).
@@ -901,7 +919,7 @@ class AuthService {
     if (lower.contains('over_email_send_rate_limit') ||
         lower.contains('rate limit') ||
         lower.contains('for security purposes, you can only request')) {
-      return 'Terlalu banyak permintaan pengiriman email. Harap tunggu beberapa saat sebelum mencoba lagi.';
+      return 'Terlalu banyak permintaan pengiriman email. Batas keamanan tercapai, harap tunggu sekitar 1 menit sebelum mencoba kembali.';
     }
     if (lower.contains('otp_expired') ||
         lower.contains('token has expired') ||

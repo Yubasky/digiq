@@ -16,3 +16,4 @@ CREATE POLICY "products_select_admin"
   USING (public.is_admin());
 
 COMMIT;
+
