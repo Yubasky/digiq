@@ -55,3 +55,4 @@ audit/
 edge_audit_profile/
 edge_temp_profile/
 
+edge_temp_profile_log/
