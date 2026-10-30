@@ -51,187 +51,279 @@ void main() {
   );
 
   group('Layout & Viewport Verification (Desktop & Mobile)', () {
-    testWidgets('CustomerDashboardScreen at 1280x800 desktop viewport renders cleanly without overflow', (tester) async {
-      await tester.binding.setSurfaceSize(const Size(1280, 800));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+    testWidgets(
+      'CustomerDashboardScreen at 1280x800 desktop viewport renders cleanly without overflow',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(1280, 800));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: CustomerDashboardScreen(profile: dummyProfile),
-        ),
-      );
-      await tester.pump();
+        await tester.pumpWidget(
+          MaterialApp(home: CustomerDashboardScreen(profile: dummyProfile)),
+        );
+        await tester.pump();
 
-      expect(tester.takeException(), isNull, reason: 'No RenderFlex overflow on desktop viewport');
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: 'No RenderFlex overflow on desktop viewport',
+        );
 
-      // Verify home icon is visible in bottom nav
-      final homeIconFinder = find.byIcon(Icons.home_rounded);
-      expect(homeIconFinder, findsOneWidget);
+        // Verify home icon is visible in bottom nav
+        final homeIconFinder = find.byIcon(Icons.home_rounded);
+        expect(homeIconFinder, findsOneWidget);
 
-      // Verify bottom nav content width <= 800 and anchored to bottom
-      final navFinder = find.byKey(const Key('customer_bottom_nav'));
-      expect(navFinder, findsOneWidget);
-      final navRect = tester.getRect(navFinder);
-      expect(navRect.bottom, equals(800.0), reason: 'Customer bottom nav must be anchored to bottom of viewport');
-      expect(navRect.top, greaterThanOrEqualTo(700.0), reason: 'Customer bottom nav must not expand to full screen height');
+        // Verify bottom nav content width <= 800 and anchored to bottom
+        final navFinder = find.byKey(const Key('customer_bottom_nav'));
+        expect(navFinder, findsOneWidget);
+        final navRect = tester.getRect(navFinder);
+        expect(
+          navRect.bottom,
+          equals(800.0),
+          reason: 'Customer bottom nav must be anchored to bottom of viewport',
+        );
+        expect(
+          navRect.top,
+          greaterThanOrEqualTo(700.0),
+          reason: 'Customer bottom nav must not expand to full screen height',
+        );
 
-      final navContentFinder = find.byKey(const Key('customer_bottom_nav_content'));
-      if (navContentFinder.evaluate().isNotEmpty) {
-        final navSize = tester.getSize(navContentFinder);
-        expect(navSize.width, lessThanOrEqualTo(800.01), reason: 'Customer bottom nav constrained to <= 800');
-      }
+        final navContentFinder = find.byKey(
+          const Key('customer_bottom_nav_content'),
+        );
+        if (navContentFinder.evaluate().isNotEmpty) {
+          final navSize = tester.getSize(navContentFinder);
+          expect(
+            navSize.width,
+            lessThanOrEqualTo(800.01),
+            reason: 'Customer bottom nav constrained to <= 800',
+          );
+        }
 
-      // Clean unmount to cancel timers and drain pending timer queue
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump(const Duration(minutes: 2));
-    });
+        // Clean unmount to cancel timers and drain pending timer queue
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump(const Duration(minutes: 2));
+      },
+    );
 
-    testWidgets('CustomerDashboardScreen at 390x844 mobile viewport renders cleanly without overflow', (tester) async {
-      await tester.binding.setSurfaceSize(const Size(390, 844));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+    testWidgets(
+      'CustomerDashboardScreen at 390x844 mobile viewport renders cleanly without overflow',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: CustomerDashboardScreen(profile: dummyProfile),
-        ),
-      );
-      await tester.pump();
+        await tester.pumpWidget(
+          MaterialApp(home: CustomerDashboardScreen(profile: dummyProfile)),
+        );
+        await tester.pump();
 
-      expect(tester.takeException(), isNull, reason: 'No RenderFlex overflow on mobile viewport');
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: 'No RenderFlex overflow on mobile viewport',
+        );
 
-      final homeIconFinder = find.byIcon(Icons.home_rounded);
-      expect(homeIconFinder, findsOneWidget);
+        final homeIconFinder = find.byIcon(Icons.home_rounded);
+        expect(homeIconFinder, findsOneWidget);
 
-      // Verify customer bottom nav anchored to bottom of mobile viewport (844)
-      final navFinder = find.byKey(const Key('customer_bottom_nav'));
-      expect(navFinder, findsOneWidget);
-      final navRect = tester.getRect(navFinder);
-      expect(navRect.bottom, equals(844.0), reason: 'Customer bottom nav must be anchored to bottom of mobile viewport');
-      expect(navRect.top, greaterThanOrEqualTo(750.0), reason: 'Customer bottom nav must not expand to full screen height');
+        // Verify customer bottom nav anchored to bottom of mobile viewport (844)
+        final navFinder = find.byKey(const Key('customer_bottom_nav'));
+        expect(navFinder, findsOneWidget);
+        final navRect = tester.getRect(navFinder);
+        expect(
+          navRect.bottom,
+          equals(844.0),
+          reason: 'Customer bottom nav must be anchored to bottom of mobile viewport',
+        );
+        expect(
+          navRect.top,
+          greaterThanOrEqualTo(750.0),
+          reason: 'Customer bottom nav must not expand to full screen height',
+        );
 
-      final navContentFinder = find.byKey(const Key('customer_bottom_nav_content'));
-      if (navContentFinder.evaluate().isNotEmpty) {
-        final navSize = tester.getSize(navContentFinder);
-        expect(navSize.width, lessThanOrEqualTo(390.01), reason: 'Customer bottom nav fits mobile width');
-      }
+        final navContentFinder = find.byKey(
+          const Key('customer_bottom_nav_content'),
+        );
+        if (navContentFinder.evaluate().isNotEmpty) {
+          final navSize = tester.getSize(navContentFinder);
+          expect(
+            navSize.width,
+            lessThanOrEqualTo(390.01),
+            reason: 'Customer bottom nav fits mobile width',
+          );
+        }
 
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump(const Duration(minutes: 2));
-    });
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump(const Duration(minutes: 2));
+      },
+    );
 
-    testWidgets('CustomerDashboardScreen with 1.5x Text Scaling renders without RenderFlex overflow', (tester) async {
-      await tester.binding.setSurfaceSize(const Size(390, 844));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+    testWidgets(
+      'CustomerDashboardScreen with 1.5x Text Scaling renders without RenderFlex overflow',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      await tester.pumpWidget(
-        MediaQuery(
-          data: const MediaQueryData(
-            size: Size(390, 844),
-            textScaler: TextScaler.linear(1.5),
+        await tester.pumpWidget(
+          MediaQuery(
+            data: const MediaQueryData(
+              size: Size(390, 844),
+              textScaler: TextScaler.linear(1.5),
+            ),
+            child: MaterialApp(
+              home: CustomerDashboardScreen(profile: dummyProfile),
+            ),
           ),
-          child: MaterialApp(
-            home: CustomerDashboardScreen(profile: dummyProfile),
-          ),
-        ),
-      );
-      await tester.pump();
+        );
+        await tester.pump();
 
-      expect(tester.takeException(), isNull, reason: 'No RenderFlex overflow under 1.5x text scaler');
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: 'No RenderFlex overflow under 1.5x text scaler',
+        );
 
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump(const Duration(minutes: 2));
-    });
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump(const Duration(minutes: 2));
+      },
+    );
 
-    testWidgets('AdminDashboardScreen at 1280x800 desktop viewport renders cleanly without overflow', (tester) async {
-      await tester.binding.setSurfaceSize(const Size(1280, 800));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+    testWidgets(
+      'AdminDashboardScreen at 1280x800 desktop viewport renders cleanly without overflow',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(1280, 800));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: AdminDashboardScreen(),
-        ),
-      );
-      await tester.pump();
+        await tester.pumpWidget(
+          const MaterialApp(home: AdminDashboardScreen()),
+        );
+        await tester.pump();
 
-      expect(tester.takeException(), isNull, reason: 'Admin dashboard desktop renders without error');
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: 'Admin dashboard desktop renders without error',
+        );
 
-      final adminHomeFinder = find.byIcon(Icons.dashboard_rounded);
-      expect(adminHomeFinder, findsOneWidget);
+        final adminHomeFinder = find.byIcon(Icons.dashboard_rounded);
+        expect(adminHomeFinder, findsOneWidget);
 
-      // Verify admin bottom nav anchored to bottom of desktop viewport (800)
-      final navFinder = find.byKey(const Key('admin_bottom_nav'));
-      expect(navFinder, findsOneWidget);
-      final navRect = tester.getRect(navFinder);
-      expect(navRect.bottom, equals(800.0), reason: 'Admin bottom nav must be anchored to bottom of desktop viewport');
-      expect(navRect.top, greaterThanOrEqualTo(700.0), reason: 'Admin bottom nav must not expand to full screen height');
+        // Verify admin bottom nav anchored to bottom of desktop viewport (800)
+        final navFinder = find.byKey(const Key('admin_bottom_nav'));
+        expect(navFinder, findsOneWidget);
+        final navRect = tester.getRect(navFinder);
+        expect(
+          navRect.bottom,
+          equals(800.0),
+          reason:
+              'Admin bottom nav must be anchored to bottom of desktop viewport',
+        );
+        expect(
+          navRect.top,
+          greaterThanOrEqualTo(700.0),
+          reason: 'Admin bottom nav must not expand to full screen height',
+        );
 
-      final navContentFinder = find.byKey(const Key('admin_bottom_nav_content'));
-      if (navContentFinder.evaluate().isNotEmpty) {
-        final navSize = tester.getSize(navContentFinder);
-        expect(navSize.width, lessThanOrEqualTo(800.01), reason: 'Admin bottom nav constrained to <= 800');
-      }
+        final navContentFinder = find.byKey(
+          const Key('admin_bottom_nav_content'),
+        );
+        if (navContentFinder.evaluate().isNotEmpty) {
+          final navSize = tester.getSize(navContentFinder);
+          expect(
+            navSize.width,
+            lessThanOrEqualTo(800.01),
+            reason: 'Admin bottom nav constrained to <= 800',
+          );
+        }
 
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump(const Duration(minutes: 2));
-    });
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump(const Duration(minutes: 2));
+      },
+    );
 
-    testWidgets('AdminDashboardScreen at 390x844 mobile viewport renders cleanly without overflow', (tester) async {
-      await tester.binding.setSurfaceSize(const Size(390, 844));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+    testWidgets(
+      'AdminDashboardScreen at 390x844 mobile viewport renders cleanly without overflow',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: AdminDashboardScreen(),
-        ),
-      );
-      await tester.pump();
+        await tester.pumpWidget(
+          const MaterialApp(home: AdminDashboardScreen()),
+        );
+        await tester.pump();
 
-      expect(tester.takeException(), isNull, reason: 'Admin dashboard mobile renders without error');
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: 'Admin dashboard mobile renders without error',
+        );
 
-      final adminHomeFinder = find.byIcon(Icons.dashboard_rounded);
-      expect(adminHomeFinder, findsOneWidget);
+        final adminHomeFinder = find.byIcon(Icons.dashboard_rounded);
+        expect(adminHomeFinder, findsOneWidget);
 
-      // Verify admin bottom nav anchored to bottom of mobile viewport (844)
-      final navFinder = find.byKey(const Key('admin_bottom_nav'));
-      expect(navFinder, findsOneWidget);
-      final navRect = tester.getRect(navFinder);
-      expect(navRect.bottom, equals(844.0), reason: 'Admin bottom nav must be anchored to bottom of mobile viewport');
-      expect(navRect.top, greaterThanOrEqualTo(750.0), reason: 'Admin bottom nav must not expand to full screen height');
+        // Verify admin bottom nav anchored to bottom of mobile viewport (844)
+        final navFinder = find.byKey(const Key('admin_bottom_nav'));
+        expect(navFinder, findsOneWidget);
+        final navRect = tester.getRect(navFinder);
+        expect(
+          navRect.bottom,
+          equals(844.0),
+          reason:
+              'Admin bottom nav must be anchored to bottom of mobile viewport',
+        );
+        expect(
+          navRect.top,
+          greaterThanOrEqualTo(750.0),
+          reason: 'Admin bottom nav must not expand to full screen height',
+        );
 
-      final navContentFinder = find.byKey(const Key('admin_bottom_nav_content'));
-      if (navContentFinder.evaluate().isNotEmpty) {
-        final navSize = tester.getSize(navContentFinder);
-        expect(navSize.width, lessThanOrEqualTo(390.01), reason: 'Admin bottom nav fits mobile width');
-      }
+        final navContentFinder = find.byKey(
+          const Key('admin_bottom_nav_content'),
+        );
+        if (navContentFinder.evaluate().isNotEmpty) {
+          final navSize = tester.getSize(navContentFinder);
+          expect(
+            navSize.width,
+            lessThanOrEqualTo(390.01),
+            reason: 'Admin bottom nav fits mobile width',
+          );
+        }
 
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump(const Duration(minutes: 2));
-    });
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump(const Duration(minutes: 2));
+      },
+    );
 
-    testWidgets('Product card AspectRatio enforces ~16:9 proportion (tolerance +-0.02)', (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Center(
-              child: SizedBox(
-                width: 320,
-                child: AspectRatio(
-                  key: const Key('product_card_image'),
-                  aspectRatio: 16 / 9,
-                  child: Container(color: Colors.blue),
+    testWidgets(
+      'Product card AspectRatio enforces ~16:9 proportion (tolerance +-0.02)',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: 320,
+                  child: AspectRatio(
+                    key: const Key('product_card_image'),
+                    aspectRatio: 16 / 9,
+                    child: Container(color: Colors.blue),
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      );
-      await tester.pump();
+        );
+        await tester.pump();
 
-      final imgFinder = find.byKey(const Key('product_card_image'));
-      expect(imgFinder, findsOneWidget);
-      final size = tester.getSize(imgFinder);
-      final ratio = size.width / size.height;
-      expect((ratio - (16.0 / 9.0)).abs(), lessThanOrEqualTo(0.02), reason: 'AspectRatio is ~16:9');
-    });
+        final imgFinder = find.byKey(const Key('product_card_image'));
+        expect(imgFinder, findsOneWidget);
+        final size = tester.getSize(imgFinder);
+        final ratio = size.width / size.height;
+        expect(
+          (ratio - (16.0 / 9.0)).abs(),
+          lessThanOrEqualTo(0.02),
+          reason: 'AspectRatio is ~16:9',
+        );
+      },
+    );
   });
 }
