@@ -531,7 +531,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return Scaffold(
           backgroundColor: AppColors.background,
           appBar: PreferredSize(
-            preferredSize: const Size.fromHeight(62),
+            preferredSize: const Size.fromHeight(66),
             child: _buildTopAppBar(),
           ),
           body: IndexedStack(
@@ -666,7 +666,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1040),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
                 children: [
                   // Logo DigiQ Putih (seragam dengan customer)
@@ -707,12 +707,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       children: [
                         Row(
                           children: [
-                            Text(
-                              AppLanguage.t('admin_store_title'),
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
+                            Flexible(
+                              child: Text(
+                                AppLanguage.t('admin_store_title'),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -3381,32 +3385,39 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _navItem(
-                    0,
-                    Icons.dashboard_rounded,
-                    Icons.dashboard_outlined,
-                    AppLanguage.t('nav_admin_home'),
+                  Expanded(
+                    child: _navItem(
+                      0,
+                      Icons.dashboard_rounded,
+                      Icons.dashboard_outlined,
+                      AppLanguage.t('nav_admin_home'),
+                    ),
                   ),
-                  _navItem(
-                    1,
-                    Icons.inventory_2_rounded,
-                    Icons.inventory_2_outlined,
-                    AppLanguage.t('nav_admin_catalog'),
+                  Expanded(
+                    child: _navItem(
+                      1,
+                      Icons.inventory_2_rounded,
+                      Icons.inventory_2_outlined,
+                      AppLanguage.t('nav_admin_catalog'),
+                    ),
                   ),
-                  _navItemBadge(
-                    2,
-                    Icons.receipt_long_rounded,
-                    Icons.receipt_long_outlined,
-                    AppLanguage.t('nav_admin_trx'),
-                    _todayPendingCount,
+                  Expanded(
+                    child: _navItemBadge(
+                      2,
+                      Icons.receipt_long_rounded,
+                      Icons.receipt_long_outlined,
+                      AppLanguage.t('nav_admin_trx'),
+                      _todayPendingCount,
+                    ),
                   ),
-                  _navItem(
-                    3,
-                    Icons.storefront_rounded,
-                    Icons.storefront_outlined,
-                    AppLanguage.t('nav_admin_store'),
+                  Expanded(
+                    child: _navItem(
+                      3,
+                      Icons.storefront_rounded,
+                      Icons.storefront_outlined,
+                      AppLanguage.t('nav_admin_store'),
+                    ),
                   ),
                 ],
               ),
@@ -3429,7 +3440,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
         decoration: BoxDecoration(
           color: isActive ? AppColors.primaryLight : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
@@ -3445,6 +3457,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             const SizedBox(height: 3),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
@@ -3470,7 +3484,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
         decoration: BoxDecoration(
           color: isActive ? AppColors.primaryLight : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
@@ -3480,6 +3495,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           children: [
             Stack(
               clipBehavior: Clip.none,
+              alignment: Alignment.center,
               children: [
                 Icon(
                   isActive ? activeIcon : inactiveIcon,
@@ -3516,6 +3532,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             const SizedBox(height: 3),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: isActive ? FontWeight.bold : FontWeight.normal,

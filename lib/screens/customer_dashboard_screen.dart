@@ -329,32 +329,39 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _navItem(
-                    0,
-                    Icons.home_rounded,
-                    Icons.home_outlined,
-                    AppLanguage.t('nav_home'),
+                  Expanded(
+                    child: _navItem(
+                      0,
+                      Icons.home_rounded,
+                      Icons.home_outlined,
+                      AppLanguage.t('nav_home'),
+                    ),
                   ),
-                  _navItemBadge(
-                    1,
-                    Icons.shopping_cart_rounded,
-                    Icons.shopping_cart_outlined,
-                    AppLanguage.t('nav_cart'),
-                    _cartCount,
+                  Expanded(
+                    child: _navItemBadge(
+                      1,
+                      Icons.shopping_cart_rounded,
+                      Icons.shopping_cart_outlined,
+                      AppLanguage.t('nav_cart'),
+                      _cartCount,
+                    ),
                   ),
-                  _navItem(
-                    2,
-                    Icons.receipt_long_rounded,
-                    Icons.receipt_long_outlined,
-                    AppLanguage.t('nav_history'),
+                  Expanded(
+                    child: _navItem(
+                      2,
+                      Icons.receipt_long_rounded,
+                      Icons.receipt_long_outlined,
+                      AppLanguage.t('nav_history'),
+                    ),
                   ),
-                  _navItem(
-                    3,
-                    Icons.person_rounded,
-                    Icons.person_outlined,
-                    AppLanguage.t('nav_profile'),
+                  Expanded(
+                    child: _navItem(
+                      3,
+                      Icons.person_rounded,
+                      Icons.person_outlined,
+                      AppLanguage.t('nav_profile'),
+                    ),
                   ),
                 ],
               ),
@@ -377,7 +384,8 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
         decoration: BoxDecoration(
           color: isActive ? AppColors.primaryLight : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
@@ -393,6 +401,8 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             const SizedBox(height: 2),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 10.5,
                 fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
@@ -418,10 +428,12 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       behavior: HitTestBehavior.opaque,
       child: Stack(
         clipBehavior: Clip.none,
+        alignment: Alignment.center,
         children: [
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
             decoration: BoxDecoration(
               color: isActive ? AppColors.primaryLight : Colors.transparent,
               borderRadius: BorderRadius.circular(12),
@@ -437,6 +449,8 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                 const SizedBox(height: 2),
                 Text(
                   label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 10.5,
                     fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
