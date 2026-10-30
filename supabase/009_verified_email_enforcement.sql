@@ -2,10 +2,15 @@
 -- DigiQ Migration 009: Strict Verified Email Enforcement & Domain Filtering
 -- File: supabase/009_verified_email_enforcement.sql
 -- ==============================================================================
--- CATATAN KEAMANAN:
--- 1. File migrasi ini HANYA dibuat sebagai file lokal dan TIDAK dieksekusi secara otomatis.
--- 2. Jalankan melalui Supabase Dashboard > SQL Editor SETELAH membuat backup database.
--- 3. Seluruh fungsi menggunakan SECURITY DEFINER dan SET search_path = public.
+-- CATATAN KEAMANAN & ARSITEKTUR:
+-- 1. File migrasi ini HANYA dibuat sebagai file lokal dan TIDAK dieksekusi otomatis ke live DB.
+-- 2. Dijalankan melalui Supabase Dashboard > SQL Editor SETELAH membuat backup database.
+-- 3. Fungsi create_purchase_transaction dibangun PERSIS di atas definisi LIVE (002)
+--    dengan mempertahankan discount_price, cek AAL2 jika 2FA aktif, trx_seq ('#TRX-'),
+--    kolom amount & qris_payload, serta retry loop anti-collision 1..5.
+-- 4. SATU-SATUNYA penambahan pada create_purchase_transaction adalah verifikasi email:
+--    IF NOT public.is_email_verified() THEN ...
+-- 5. Tabel domain (blocked, allowed, settings) mengaktifkan RLS penuh dan tidak terbaca oleh anon.
 -- ==============================================================================
 
 BEGIN;
@@ -13,8 +18,6 @@ BEGIN;
 -- ------------------------------------------------------------------------------
 -- 1. Helper Function: public.is_email_verified()
 -- ------------------------------------------------------------------------------
--- Memeriksa apakah pengguna yang sedang login (auth.uid()) telah memiliki
--- email_confirmed_at yang valid di auth.users.
 CREATE OR REPLACE FUNCTION public.is_email_verified()
 RETURNS BOOLEAN
 LANGUAGE plpgsql
@@ -43,12 +46,12 @@ COMMENT ON FUNCTION public.is_email_verified() IS
   'Memeriksa status email_confirmed_at pengguna aktif (auth.uid()) di auth.users.';
 
 -- ------------------------------------------------------------------------------
--- 2. Perbarui RPC create_purchase_transaction dengan Proteksi Email Terverifikasi
---    (Dibangun di atas versi terbaru dari migrasi 005_remove_aal2_dependency.sql)
+-- 2. RPC: create_purchase_transaction
+--    (Basis PERSIS definisi LIVE dengan HANYA penambahan pengecekan is_email_verified)
 -- ------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.create_purchase_transaction(
   p_product_id    UUID,
-  p_target_number TEXT
+  p_target_number TEXT DEFAULT ''
 )
 RETURNS public.transactions
 LANGUAGE plpgsql
@@ -58,19 +61,20 @@ AS $$
 DECLARE
   v_user_id        UUID;
   v_product        public.products%ROWTYPE;
-  v_pending_count  INT;
+  v_profile        public.profiles%ROWTYPE;
   v_base_amount    NUMERIC;
-  v_min            INT := 1;
-  v_max            INT := 300;
-  v_ttl_minutes    INT := 15;
-  v_static_payload TEXT := '';
   v_unique_code    INT;
   v_total_amount   NUMERIC;
   v_trx_code       TEXT;
+  v_ttl_minutes    INT;
+  v_min            INT;
+  v_max            INT;
+  v_static_payload TEXT;
+  v_pending_count  INT;
   v_trx            public.transactions%ROWTYPE;
   v_attempt        INT;
 BEGIN
-  -- 1. Jalankan pembersihan transaksi kedaluwarsa secara otomatis
+  -- 1. Jalankan lazy-expire terlebih dahulu
   PERFORM public.expire_pending_transactions();
 
   -- 2. Validasi autentikasi
@@ -79,11 +83,18 @@ BEGIN
     RAISE EXCEPTION 'Akses ditolak: pengguna belum login' USING ERRCODE = '42501';
   END IF;
 
-  -- 3. HARDENING: Validasi status email terkonfirmasi
-  -- Pengguna yang belum klik link verifikasi email TIDAK BISA membuat transaksi.
+  -- TAMBAHAN 009: Validasi status email terkonfirmasi
   IF NOT public.is_email_verified() THEN
-    RAISE EXCEPTION 'Akses ditolak: Email akun Anda belum diverifikasi. Silakan periksa inbox email Anda untuk memverifikasi akun.' 
+    RAISE EXCEPTION 'Akses ditolak: Email akun Anda belum diverifikasi. Silakan periksa inbox email Anda untuk memverifikasi akun.'
       USING ERRCODE = '42501';
+  END IF;
+
+  -- 3. Cek profil dan proteksi 2FA jika diaktifkan
+  SELECT * INTO v_profile FROM public.profiles WHERE id = v_user_id;
+  IF FOUND AND v_profile.is_2fa_enabled THEN
+    IF COALESCE(auth.jwt()->>'aal', '') <> 'aal2' THEN
+      RAISE EXCEPTION 'Aksi membutuhkan autentikasi dua faktor (AAL2)' USING ERRCODE = '42501';
+    END IF;
   END IF;
 
   -- 4. Anti-Spam: Maksimal 3 transaksi pending aktif per user
@@ -98,7 +109,7 @@ BEGIN
       USING ERRCODE = 'P0001';
   END IF;
 
-  -- 5. Lock baris produk untuk mencegah race condition stok
+  -- 5. Kunci baris produk & validasi stok
   SELECT * INTO v_product
   FROM public.products
   WHERE id = p_product_id
@@ -112,87 +123,99 @@ BEGIN
     RAISE EXCEPTION 'Produk saat ini sedang tidak aktif' USING ERRCODE = 'P0001';
   END IF;
 
-  IF v_product.stock < 1 THEN
-    RAISE EXCEPTION 'Stok produk habis' USING ERRCODE = 'P0001';
+  IF v_product.stock <= 0 THEN
+    RAISE EXCEPTION 'Stok produk telah habis' USING ERRCODE = 'P0001';
   END IF;
 
-  v_base_amount := v_product.price;
+  -- 6. Hitung base_amount di sisi server (utamakan discount_price bila > 0)
+  IF v_product.discount_price IS NOT NULL AND v_product.discount_price > 0 THEN
+    v_base_amount := v_product.discount_price;
+  ELSE
+    v_base_amount := v_product.price;
+  END IF;
 
-  -- 6. Baca konfigurasi QRIS dinamis dari app_settings
-  SELECT COALESCE(NULLIF(value, '')::int, 1) INTO v_min
+  -- 7. Ambil konfigurasi QRIS & rentang kode unik
+  SELECT COALESCE(NULLIF(value, '')::INT, 1) INTO v_min
   FROM public.app_settings WHERE key = 'unique_code_min';
+  v_min := COALESCE(v_min, 1);
 
-  SELECT COALESCE(NULLIF(value, '')::int, 300) INTO v_max
+  SELECT COALESCE(NULLIF(value, '')::INT, 300) INTO v_max
   FROM public.app_settings WHERE key = 'unique_code_max';
+  v_max := COALESCE(v_max, 300);
 
-  SELECT COALESCE(NULLIF(value, '')::int, 15) INTO v_ttl_minutes
+  SELECT COALESCE(NULLIF(value, '')::INT, 15) INTO v_ttl_minutes
   FROM public.app_settings WHERE key = 'pending_ttl_minutes';
+  v_ttl_minutes := COALESCE(v_ttl_minutes, 15);
 
   SELECT COALESCE(value, '') INTO v_static_payload
   FROM public.app_settings WHERE key = 'qris_static_payload';
 
-  IF v_static_payload IS NULL OR v_static_payload = '' THEN
-    RAISE EXCEPTION 'Sistem QRIS belum dikonfigurasi oleh admin' USING ERRCODE = 'P0001';
-  END IF;
+  -- 8. Loop retry maksimal 5 kali untuk memilih kode unik dan insert transaksi secara atomik
+  FOR v_attempt IN 1..5 LOOP
+    -- Pilih kode unik acak yang total_amount (base + kode) belum ada di status pending
+    SELECT code INTO v_unique_code
+    FROM generate_series(v_min, v_max) AS code
+    WHERE NOT EXISTS (
+      SELECT 1 FROM public.transactions
+      WHERE status = 'pending'
+        AND total_amount = (v_base_amount + code)
+    )
+    ORDER BY random()
+    LIMIT 1;
 
-  -- 7. Alokasi kode unik 3-digit anti collision (maksimal 10 percobaan)
-  v_unique_code := NULL;
-  FOR v_attempt IN 1..10 LOOP
-    v_unique_code := floor(random() * (v_max - v_min + 1) + v_min)::INT;
-    v_total_amount := v_base_amount + v_unique_code;
-
-    PERFORM 1
-    FROM public.transactions
-    WHERE status = 'pending'
-      AND total_amount = v_total_amount
-      AND expired_at > now();
-
-    IF NOT FOUND THEN
-      EXIT;
+    IF v_unique_code IS NULL THEN
+      RAISE EXCEPTION 'Antrean pembayaran penuh, coba beberapa menit lagi' USING ERRCODE = 'P0001';
     END IF;
-    v_unique_code := NULL;
+
+    v_total_amount := v_base_amount + v_unique_code;
+    -- Sequence TRX code: terurut, unik tanpa tabrakan birthday paradox
+    v_trx_code     := '#TRX-' || to_char(now(), 'YYYYMMDD') || '-' || lpad(nextval('public.trx_seq')::text, 6, '0');
+
+    BEGIN
+      INSERT INTO public.transactions (
+        trx_code,
+        user_id,
+        product_id,
+        target_number,
+        base_amount,
+        unique_code,
+        total_amount,
+        amount,
+        status,
+        qris_payload,
+        expired_at
+      )
+      VALUES (
+        v_trx_code,
+        v_user_id,
+        p_product_id,
+        p_target_number,
+        v_base_amount,
+        v_unique_code,
+        v_total_amount,
+        v_total_amount,
+        'pending',
+        v_static_payload,
+        now() + (v_ttl_minutes || ' minutes')::interval
+      )
+      RETURNING * INTO v_trx;
+
+      -- Potong stok tepat 1 unit HANYA setelah insert transaksi berhasil
+      UPDATE public.products
+      SET stock = stock - 1
+      WHERE id = p_product_id;
+
+      RETURN v_trx;
+    EXCEPTION
+      WHEN unique_violation THEN
+        -- Terjadi bentrok konkurensi (race condition), coba lagi di iterasi berikutnya
+        IF v_attempt = 5 THEN
+          RAISE EXCEPTION 'Antrean pembayaran penuh, coba beberapa menit lagi' USING ERRCODE = 'P0001';
+        END IF;
+    END;
   END LOOP;
 
-  IF v_unique_code IS NULL THEN
-    RAISE EXCEPTION 'Antrean transaksi sedang padat. Silakan coba 1 menit lagi.' USING ERRCODE = 'P0001';
-  END IF;
-
-  -- 8. Generate kode transaksi unik format TRX-YYYYMMDD-XXXX
-  v_trx_code := 'TRX-' || to_char(now(), 'YYYYMMDD') || '-' || upper(substr(md5(random()::text), 1, 6));
-
-  -- 9. Insert transaksi baru
-  INSERT INTO public.transactions (
-    trx_code,
-    user_id,
-    product_id,
-    target_number,
-    base_amount,
-    unique_code,
-    total_amount,
-    status,
-    expired_at,
-    created_at
-  ) VALUES (
-    v_trx_code,
-    v_user_id,
-    p_product_id,
-    p_target_number,
-    v_base_amount,
-    v_unique_code,
-    v_total_amount,
-    'pending',
-    now() + (v_ttl_minutes || ' minutes')::INTERVAL,
-    now()
-  )
-  RETURNING * INTO v_trx;
-
-  -- 10. Potong stok produk
-  UPDATE public.products
-  SET stock = stock - 1,
-      updated_at = now()
-  WHERE id = p_product_id;
-
-  RETURN v_trx;
+  RAISE EXCEPTION 'Antrean pembayaran penuh, coba beberapa menit lagi' USING ERRCODE = 'P0001';
 END;
 $$;
 
@@ -200,9 +223,8 @@ REVOKE ALL ON FUNCTION public.create_purchase_transaction(UUID, TEXT) FROM PUBLI
 GRANT EXECUTE ON FUNCTION public.create_purchase_transaction(UUID, TEXT) TO authenticated, service_role;
 
 -- ------------------------------------------------------------------------------
--- 3. Tabel Filter Domain & Disposable Email
+-- 3. Tabel Filter Domain & Disposable Email (RLS Aktif, Tidak Terbaca Anon)
 -- ------------------------------------------------------------------------------
--- Tabel blacklist domain disposable / fake email
 CREATE TABLE IF NOT EXISTS public.blocked_email_domains (
   domain TEXT PRIMARY KEY,
   category TEXT NOT NULL DEFAULT 'disposable',
@@ -211,9 +233,9 @@ CREATE TABLE IF NOT EXISTS public.blocked_email_domains (
 
 ALTER TABLE public.blocked_email_domains ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.blocked_email_domains FROM PUBLIC, anon, authenticated;
-GRANT SELECT ON TABLE public.blocked_email_domains TO anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.blocked_email_domains TO service_role;
 
--- Isi starter pack ~50 disposable domain populer
+-- Starter pack domain disposable
 INSERT INTO public.blocked_email_domains (domain, category) VALUES
   ('10minutemail.com', 'disposable'),
   ('10minutemail.net', 'disposable'),
@@ -267,7 +289,7 @@ INSERT INTO public.blocked_email_domains (domain, category) VALUES
   ('wegwerfmail.net', 'disposable')
 ON CONFLICT (domain) DO NOTHING;
 
--- Tabel whitelist domain yang diizinkan (default: gmail.com)
+-- Tabel whitelist domain
 CREATE TABLE IF NOT EXISTS public.allowed_email_domains (
   domain TEXT PRIMARY KEY,
   is_active BOOLEAN NOT NULL DEFAULT true,
@@ -276,13 +298,13 @@ CREATE TABLE IF NOT EXISTS public.allowed_email_domains (
 
 ALTER TABLE public.allowed_email_domains ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.allowed_email_domains FROM PUBLIC, anon, authenticated;
-GRANT SELECT ON TABLE public.allowed_email_domains TO anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.allowed_email_domains TO service_role;
 
 INSERT INTO public.allowed_email_domains (domain, is_active) VALUES
   ('gmail.com', true)
 ON CONFLICT (domain) DO NOTHING;
 
--- Tabel konfigurasi kebijakan email (allow_plus_alias default: true)
+-- Tabel pengaturan email security: default allow_plus_alias = true, enforce_domain_allowlist = false
 CREATE TABLE IF NOT EXISTS public.email_security_settings (
   key TEXT PRIMARY KEY,
   value JSONB NOT NULL,
@@ -292,11 +314,11 @@ CREATE TABLE IF NOT EXISTS public.email_security_settings (
 
 ALTER TABLE public.email_security_settings ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.email_security_settings FROM PUBLIC, anon, authenticated;
-GRANT SELECT ON TABLE public.email_security_settings TO anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.email_security_settings TO service_role;
 
 INSERT INTO public.email_security_settings (key, value, description) VALUES
   ('allow_plus_alias', 'true'::jsonb, 'Jika false, email format user+alias@gmail.com akan ditolak. Default: true.'),
-  ('enforce_domain_allowlist', 'false'::jsonb, 'Jika true, hanya domain di public.allowed_email_domains yang diizinkan mendaftar.')
+  ('enforce_domain_allowlist', 'false'::jsonb, 'Jika true, hanya domain di public.allowed_email_domains yang diizinkan mendaftar. Default: false.')
 ON CONFLICT (key) DO NOTHING;
 
 -- ------------------------------------------------------------------------------
@@ -319,7 +341,7 @@ DECLARE
 BEGIN
   v_clean := lower(trim(p_email));
 
-  -- 1. Format regex dasar
+  -- Format regex standar RFC 5322 ringkas
   IF v_clean IS NULL OR v_clean !~ '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$' THEN
     RETURN jsonb_build_object('valid', false, 'error_code', 'INVALID_FORMAT', 'message', 'Format email tidak valid.');
   END IF;
@@ -327,8 +349,8 @@ BEGIN
   v_local := split_part(v_clean, '@', 1);
   v_domain := split_part(v_clean, '@', 2);
 
-  -- 2. Ambil pengaturan plus alias
-  SELECT (value)::boolean INTO v_allow_plus
+  -- Pengecekan plus alias (default: izinkan true)
+  SELECT COALESCE((value)::boolean, true) INTO v_allow_plus
   FROM public.email_security_settings
   WHERE key = 'allow_plus_alias';
 
@@ -336,7 +358,7 @@ BEGIN
     RETURN jsonb_build_object('valid', false, 'error_code', 'PLUS_ALIAS_NOT_ALLOWED', 'message', 'Pendaftaran menggunakan alias plus (+) tidak diizinkan.');
   END IF;
 
-  -- 3. Cek domain disposable / blocked
+  -- Pengecekan domain disposable / blacklist
   SELECT EXISTS(
     SELECT 1 FROM public.blocked_email_domains WHERE domain = v_domain
   ) INTO v_is_blocked;
@@ -345,8 +367,8 @@ BEGIN
     RETURN jsonb_build_object('valid', false, 'error_code', 'DISPOSABLE_DOMAIN', 'message', 'Domain email sementara/disposable tidak diizinkan. Gunakan email pribadi.');
   END IF;
 
-  -- 4. Cek allowlist jika diaktifkan
-  SELECT (value)::boolean INTO v_enforce_allowlist
+  -- Pengecekan allowlist (default: false)
+  SELECT COALESCE((value)::boolean, false) INTO v_enforce_allowlist
   FROM public.email_security_settings
   WHERE key = 'enforce_domain_allowlist';
 
@@ -367,17 +389,4 @@ $$;
 REVOKE ALL ON FUNCTION public.validate_signup_email(TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.validate_signup_email(TEXT) TO anon, authenticated, service_role;
 
--- ------------------------------------------------------------------------------
--- 5. Kueri Rutin Pembersihan Akun Belum Verifikasi (Hanya Dry-Run SELECT)
--- ------------------------------------------------------------------------------
--- Kueri berikut hanya untuk inspeksi (dry-run) tanpa melakukan DELETE otomatis:
---
--- SELECT id, email, created_at, (now() - created_at) AS usia_pendaftaran
--- FROM auth.users
--- WHERE email_confirmed_at IS NULL
---   AND created_at < now() - INTERVAL '24 hours'
--- ORDER BY created_at ASC;
--- ------------------------------------------------------------------------------
-
 COMMIT;
-
