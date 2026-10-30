@@ -14,7 +14,6 @@ import '../services/app_language.dart';
 import '../theme/app_theme.dart';
 import '../widgets/qris_modal.dart';
 import 'login_screen.dart';
-import 'auth/email_verification_screen.dart';
 
 // Shared in-memory CartItem model
 
@@ -265,9 +264,6 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       final String errorMsg = e is PostgrestException
           ? e.message
           : e.toString().replaceAll('Exception:', '').trim();
-      final isUnverified =
-          errorMsg.toLowerCase().contains('verifikasi') ||
-          errorMsg.toLowerCase().contains('verify');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(errorMsg, style: const TextStyle(color: Colors.white)),
