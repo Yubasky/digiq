@@ -43,7 +43,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   String? _statsError;
 
   double get _storeBalance => _todayOmset;
-  int get _todayTransactionCount => _todayTotalCount;
 
   // Real-time notification banner state
   QrisTransaction? _latestNotification;
@@ -824,7 +823,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            '$_todayTransactionCount Berhasil (QRIS)',
+                            '$_todaySuccessCount Berhasil (QRIS)${_todayPendingCount > 0 ? ' • $_todayPendingCount Pending' : ''}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -967,24 +966,49 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
 
     return Column(
-      children: _transactions.take(2).map((trx) {
+      children: _transactions.take(5).map((trx) {
+        final isSuccess = trx.status == 'SUCCESS';
+        final isPending = trx.status == 'PENDING';
+        final Color statusColor = isSuccess
+            ? AppColors.success
+            : isPending
+                ? AppColors.warning
+                : AppColors.error;
+        final Color statusBg = isSuccess
+            ? AppColors.successLight
+            : isPending
+                ? const Color(0xFFFEF3C7)
+                : AppColors.errorLight;
+        final IconData statusIcon = isSuccess
+            ? Icons.check_rounded
+            : isPending
+                ? Icons.access_time_rounded
+                : Icons.close_rounded;
+        final String statusLabel = isSuccess
+            ? 'QRIS Lunas'
+            : isPending
+                ? 'Menunggu Bayar'
+                : 'Batal / Expired';
+
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.cardBorder),
+            border: Border.all(
+              color: isPending ? AppColors.warning.withValues(alpha: 0.4) : AppColors.cardBorder,
+            ),
           ),
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppColors.successLight,
+                  color: statusBg,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.check_rounded, color: AppColors.success, size: 18),
+                child: Icon(statusIcon, color: statusColor, size: 18),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1009,16 +1033,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '+${formatCurrency(trx.totalAmount)}',
-                    style: const TextStyle(
+                    formatCurrency(trx.totalAmount),
+                    style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 13,
-                      color: AppColors.success,
+                      color: isSuccess ? AppColors.success : AppColors.textPrimary,
                     ),
                   ),
-                  const Text(
-                    'QRIS Lunas',
-                    style: TextStyle(fontSize: 10, color: AppColors.textMuted),
+                  Text(
+                    statusLabel,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: statusColor,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
