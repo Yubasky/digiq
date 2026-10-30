@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:digiq/models/product_model.dart';
+import 'package:digiq/services/product_service.dart';
 import 'package:digiq/services/avatar_picker.dart';
 import 'package:digiq/services/product_image_validator.dart';
 import 'package:digiq/widgets/add_product_dialog.dart';
@@ -200,6 +201,31 @@ void main() {
       expect(model.id, 'uuid-1234');
       expect(model.category, 'PLN');
       expect(model.price, 52000.0);
+    });
+
+    test('ProductService.generateUuidV4 menghasilkan format UUID v4 RFC 4122 yang valid', () {
+      final uuid1 = ProductService.generateUuidV4();
+      final uuid2 = ProductService.generateUuidV4();
+      expect(uuid1, isNot(equals(uuid2)));
+      expect(uuid1.length, 36);
+      expect(RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$').hasMatch(uuid1), isTrue);
+    });
+
+    test('ProductModel.toInsertMap tidak menyertakan id (mengandalkan UUID database gen_random_uuid)', () {
+      final model = ProductModel(
+        id: 'prod-uuid-123',
+        name: 'Test Product',
+        category: 'Games',
+        description: 'Deskripsi test produk',
+        price: 25000,
+        stock: 5,
+        isActive: true,
+        provider: 'DigiQ Store',
+        createdAt: DateTime.now(),
+      );
+      final map = model.toInsertMap();
+      expect(map.containsKey('id'), isFalse);
+      expect(map['name'], 'Test Product');
     });
   });
 

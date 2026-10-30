@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../models/product_model.dart';
 import '../services/avatar_picker.dart';
 import '../services/product_image_validator.dart';
+import '../services/product_service.dart';
 import '../theme/app_theme.dart';
 
 class AddProductDialog extends StatefulWidget {
@@ -250,9 +251,13 @@ class _AddProductDialogState extends State<AddProductDialog> {
 
     final String? imgUrl = _imageUrlController.text.trim().isNotEmpty ? _imageUrlController.text.trim() : null;
 
-    // Buat model produk
+    // Buat model produk dengan UUID konsisten
+    final String prodId = (widget.initialProduct != null && widget.initialProduct!.id.isNotEmpty)
+        ? widget.initialProduct!.id
+        : ProductService.generateUuidV4();
+
     final productModel = ProductModel(
-      id: widget.initialProduct?.id ?? '', // Supabase meng-generate ID jika insert
+      id: prodId,
       name: _nameController.text.trim(),
       category: _selectedCategory,
       description: _descController.text.trim().isEmpty

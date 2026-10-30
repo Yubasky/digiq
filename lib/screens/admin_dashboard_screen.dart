@@ -40,6 +40,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _todaySuccessCount = 0;
   int _todayPendingCount = 0;
   int _todayTotalCount = 0;
+  String? _statsError;
 
   double get _storeBalance => _todayOmset;
   int get _todayTransactionCount => _todayTotalCount;
@@ -111,8 +112,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         _todaySuccessCount = (stats['success_count'] as num?)?.toInt() ?? 0;
         _todayPendingCount = (stats['pending_count'] as num?)?.toInt() ?? 0;
         _todayTotalCount = (stats['total_count'] as num?)?.toInt() ?? 0;
+        _statsError = null;
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[AdminDashboard] getAdminTodayStats error: $e');
+      if (mounted) {
+        setState(() {
+          _statsError = 'Gagal memuat statistik ringkasan.';
+        });
+      }
+    }
   }
 
   Future<void> _loadAdminQrisSettings() async {
@@ -205,13 +214,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       String? imageUrl = model.imageUrl;
       if (imageFile != null) {
         imageUrl = await ProductService.uploadProductImage(
+          productId: model.id,
           bytes: imageFile.bytes,
           extension: imageFile.extension,
           mimeType: imageFile.mimeType,
         );
       }
       final toInsert = model.copyWith(imageUrl: imageUrl);
-      final created = await ProductService.addProduct(toInsert);
+      ProductModel created;
+      try {
+        created = await ProductService.addProduct(toInsert);
+      } catch (e) {
+        if (imageUrl != null) {
+          await ProductService.deleteStorageFile(imageUrl);
+        }
+        rethrow;
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -238,6 +256,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       String? imageUrl = model.imageUrl;
       if (imageFile != null) {
         imageUrl = await ProductService.uploadProductImage(
+          productId: model.id,
           bytes: imageFile.bytes,
           extension: imageFile.extension,
           mimeType: imageFile.mimeType,
@@ -1319,6 +1338,32 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (_statsError != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.errorLight,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _statsError!,
+                      style: const TextStyle(fontSize: 12, color: AppColors.error, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _refreshStats,
+                    child: const Text('Coba Lagi', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
           // Summary bar
           Container(
             padding: const EdgeInsets.all(16),
@@ -1914,13 +1959,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             icon: Icons.security_rounded,
             title: 'Keamanan & Autentikasi 2-User',
             subtitle: 'Akun Admin terlindungi enkripsi',
-            onTap: () {},
+            onTap: _showSecurityInfoDialog,
           ),
           _buildSettingsTile(
             icon: Icons.info_outline_rounded,
             title: 'Tentang Aplikasi DigiQ',
-            subtitle: 'Versi 1.0.0 (Prototype Preview)',
-            onTap: () {},
+            subtitle: 'Versi 1.0.0 (Production Release)',
+            onTap: _showAboutAppDialog,
           ),
         ],
       ),
@@ -2497,6 +2542,72 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showSecurityInfoDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.security_rounded, color: AppColors.primary),
+            SizedBox(width: 10),
+            Text('Keamanan Sistem', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('• Enkripsi Sesi: Token JWT Supabase diisolasi per pengguna.', style: TextStyle(fontSize: 13)),
+            SizedBox(height: 8),
+            Text('• Kebijakan Akses: Row Level Security (RLS) PostgreSQL memastikan hanya role admin yang dapat mengelola produk dan mutasi.', style: TextStyle(fontSize: 13)),
+            SizedBox(height: 8),
+            Text('• Proteksi Data: Perubahan saldo dan role dilindungi trigger basis data.', style: TextStyle(fontSize: 13)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Tutup'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAboutAppDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.info_outline_rounded, color: AppColors.primary),
+            SizedBox(width: 10),
+            Text('Tentang DigiQ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('DigiQ Digital Store & QRIS v1.0.0', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            SizedBox(height: 6),
+            Text('Aplikasi toko produk digital berbasis Flutter Web CanvasKit dan Supabase BaaS.', style: TextStyle(fontSize: 13)),
+            SizedBox(height: 8),
+            Text('© 2026 DigiQ Team. Hak cipta dilindungi undang-undang.', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Tutup'),
+          ),
+        ],
       ),
     );
   }

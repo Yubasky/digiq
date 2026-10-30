@@ -429,7 +429,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                     child: IconButton(
                       icon: const Icon(Icons.notifications_outlined,
                           color: Colors.white, size: 24),
-                      onPressed: () {},
+                      onPressed: _showCustomerNotifications,
                       constraints:
                           const BoxConstraints(minWidth: 42, minHeight: 42),
                       padding: EdgeInsets.zero,
@@ -1763,12 +1763,12 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                       _menuItem(
                         icon: Icons.notifications_outlined,
                         label: 'Notifikasi',
-                        onTap: () {},
+                        onTap: _showCustomerNotifications,
                       ),
                       _menuItem(
                         icon: Icons.help_outline_rounded,
                         label: 'Bantuan & FAQ',
-                        onTap: () {},
+                        onTap: _showFaqDialog,
                       ),
                       _menuItem(
                         icon: Icons.language_rounded,
@@ -2184,8 +2184,147 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       ),
     );
   }
+
+  void _showCustomerNotifications() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.cardBorder,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  const Icon(Icons.notifications_active_outlined, color: AppColors.primary),
+                  const SizedBox(width: 10),
+                  Text(
+                    AppLanguage.t('notifications'),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              const Icon(Icons.notifications_off_outlined, size: 48, color: AppColors.textSecondary),
+              const SizedBox(height: 12),
+              const Text(
+                'Belum Ada Notifikasi Baru',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Pembaruan status pesanan dan informasi akun Anda akan muncul di sini.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Mengerti'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showFaqDialog() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.65,
+          minChildSize: 0.4,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (_, scrollCtrl) {
+            return ListView(
+              controller: scrollCtrl,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.cardBorder,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Row(
+                  children: [
+                    Icon(Icons.help_outline_rounded, color: AppColors.primary),
+                    SizedBox(width: 10),
+                    Text(
+                      'Bantuan & Tanya Jawab (FAQ)',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _buildFaqItem(
+                  q: 'Bagaimana cara membeli akun digital?',
+                  a: 'Pilih produk yang Anda inginkan di katalog, klik tombol "Beli Sekarang", lalu selesaikan pembayaran dengan scan kode QRIS.',
+                ),
+                _buildFaqItem(
+                  q: 'Mengapa nominal pembayaran memiliki 3 digit unik?',
+                  a: 'Kode unik (1-300) ditambahkan agar sistem dapat mencocokkan pembayaran mutasi Anda secara instan dan otomatis tanpa perlu unggah bukti transfer manual.',
+                ),
+                _buildFaqItem(
+                  q: 'Berapa lama akun saya aktif?',
+                  a: 'Setelah pembayaran terverifikasi, status transaksi akan berubah menjadi Sukses dan detail kredensial akun langsung tersedia di riwayat transaksi.',
+                ),
+                _buildFaqItem(
+                  q: 'Bagaimana jika mengalami kendala transaksi?',
+                  a: 'Silakan hubungi tim dukungan resmi kami melalui email: support@enikzrad.web.id.',
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildFaqItem({required String q, required String a}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(q, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primaryDark)),
+          const SizedBox(height: 6),
+          Text(a, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.4)),
+        ],
+      ),
+    );
+  }
 }
-
-// ΓöÇΓöÇΓöÇ Category Header Delegate ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-
-
