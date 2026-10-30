@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'edit_profile_screen.dart';
 import '../models/product_model.dart';
 import '../models/profile_model.dart';
@@ -219,10 +220,13 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
     } catch (e) {
       if (!mounted) return;
       Navigator.of(context).pop(); // tutup loading
+      final String errorMsg = e is PostgrestException
+          ? e.message
+          : e.toString().replaceAll('Exception:', '').trim();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            e.toString().replaceAll('Exception:', '').trim(),
+            errorMsg,
             style: const TextStyle(color: Colors.white),
           ),
           backgroundColor: AppColors.error,
@@ -585,26 +589,51 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
         ),
 
         // Product Grid
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-          sliver: _filteredProducts.isEmpty
-              ? SliverToBoxAdapter(
+        _filteredProducts.isEmpty
+            ? SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                sliver: SliverToBoxAdapter(
                   child: _buildEmptyState(),
-                )
-              : SliverGrid(
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 0.67,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (ctx, i) => _buildProductCard(_filteredProducts[i]),
-                    childCount: _filteredProducts.length,
-                  ),
                 ),
-        ),
+              )
+            : SliverLayoutBuilder(
+                builder: (context, constraints) {
+                  final width = constraints.crossAxisExtent;
+                  final int crossAxisCount;
+                  final double childAspectRatio;
+                  final double imageHeight;
+
+                  if (width >= 1100) {
+                    crossAxisCount = 4;
+                    childAspectRatio = 0.74;
+                    imageHeight = 130;
+                  } else if (width >= 720) {
+                    crossAxisCount = 3;
+                    childAspectRatio = 0.72;
+                    imageHeight = 120;
+                  } else {
+                    crossAxisCount = 2;
+                    childAspectRatio = 0.69;
+                    imageHeight = 110;
+                  }
+
+                  return SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                    sliver: SliverGrid(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: crossAxisCount,
+                        mainAxisSpacing: 12,
+                        crossAxisSpacing: 12,
+                        childAspectRatio: childAspectRatio,
+                      ),
+                      delegate: SliverChildBuilderDelegate(
+                        (ctx, i) => _buildProductCard(_filteredProducts[i], imageHeight: imageHeight),
+                        childCount: _filteredProducts.length,
+                      ),
+                    ),
+                  );
+                },
+              ),
       ],
     );
   }
@@ -722,7 +751,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
     );
   }
 
-  Widget _buildProductCard(ProductItem product) {
+  Widget _buildProductCard(ProductItem product, {double imageHeight = 110}) {
     final color = Color(product.colorHex);
     return GestureDetector(
       onTap: () => _showProductDetail(product),
@@ -746,9 +775,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               child: Container(
                 width: double.infinity,
-                height: 78,
+                height: imageHeight,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.09),
+                  color: color.withValues(alpha: 0.08),
                 ),
                 child: product.imageUrl != null && product.imageUrl!.isNotEmpty
                     ? Image.network(

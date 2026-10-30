@@ -387,33 +387,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 540),
-          child: Column(
-            children: [
-              // Real-time Payment Notification Banner (DANA Bisnis Style)
-              if (_showNotificationBanner && _latestNotification != null)
-                _buildRealtimePaymentBanner(),
+      body: Column(
+        children: [
+          // Real-time Payment Notification Banner (DANA Bisnis Style)
+          if (_showNotificationBanner && _latestNotification != null)
+            _buildRealtimePaymentBanner(),
 
-              // Top App Bar
-              _buildTopAppBar(),
+          // Top App Bar
+          _buildTopAppBar(),
 
-              // Body content based on selected bottom navigation index
-              Expanded(
-                child: IndexedStack(
-                  index: _currentNavIndex,
-                  children: [
-                    _buildDashboardTab(),
-                    _buildProductsTab(),
-                    _buildTransactionsTab(),
-                    _buildStoreSettingsTab(),
-                  ],
-                ),
-              ),
-            ],
+          // Body content based on selected bottom navigation index
+          Expanded(
+            child: IndexedStack(
+              index: _currentNavIndex,
+              children: [
+                _buildDashboardTab(),
+                _buildProductsTab(),
+                _buildTransactionsTab(),
+                _buildStoreSettingsTab(),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
       bottomNavigationBar: _buildBottomNavigationBar(),
       floatingActionButton: _currentNavIndex == 0 || _currentNavIndex == 1
@@ -1073,19 +1068,38 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       );
     }
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.68,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-      ),
-      itemCount: list.length,
-      itemBuilder: (context, idx) {
-        final product = list[idx];
-        return _buildProductCard(product);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final int crossAxisCount;
+        final double childAspectRatio;
+
+        if (width >= 1100) {
+          crossAxisCount = 4;
+          childAspectRatio = 0.74;
+        } else if (width >= 720) {
+          crossAxisCount = 3;
+          childAspectRatio = 0.72;
+        } else {
+          crossAxisCount = 2;
+          childAspectRatio = 0.68;
+        }
+
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            childAspectRatio: childAspectRatio,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+          ),
+          itemCount: list.length,
+          itemBuilder: (context, idx) {
+            final product = list[idx];
+            return _buildProductCard(product);
+          },
+        );
       },
     );
   }
@@ -1150,7 +1164,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Center(
             child: Container(
               margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-              height: 56,
+              height: 90,
               width: double.infinity,
               decoration: BoxDecoration(
                 color: Color(product.colorHex).withValues(alpha: 0.1),
