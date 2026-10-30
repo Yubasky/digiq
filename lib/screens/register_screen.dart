@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
@@ -27,6 +28,18 @@ class _RegisterScreenState extends State<RegisterScreen>
   bool _isLoading = false;
   bool _agreed = false;
 
+  Timer? _debounceTimer;
+  int _usernameCheckSeq = 0;
+  bool _isCheckingUsername = false;
+  UsernameCheckStatus? _usernameStatus;
+  String? _usernameErrorText;
+
+  Timer? _debounceEmailTimer;
+  int _emailCheckSeq = 0;
+  bool _isCheckingEmail = false;
+  EmailCheckStatus? _emailStatus;
+  String? _emailErrorText;
+
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
@@ -44,10 +57,114 @@ class _RegisterScreenState extends State<RegisterScreen>
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOut));
     _animController.forward();
+    _usernameController.addListener(_onUsernameChanged);
+    _emailController.addListener(_onEmailChanged);
+  }
+
+  void _onUsernameChanged({bool force = false}) {
+    final currentInput = _usernameController.text.trim();
+    _debounceTimer?.cancel();
+
+    if (currentInput.isEmpty) {
+      setState(() {
+        _isCheckingUsername = false;
+        _usernameStatus = null;
+        _usernameErrorText = null;
+      });
+      return;
+    }
+
+    final formatErr = AuthService.validateUsernameFormat(currentInput);
+    if (formatErr != null) {
+      setState(() {
+        _isCheckingUsername = false;
+        _usernameStatus = UsernameCheckStatus.invalidFormat;
+        _usernameErrorText = formatErr;
+      });
+      return;
+    }
+
+    final seq = ++_usernameCheckSeq;
+    setState(() {
+      _isCheckingUsername = true;
+      _usernameErrorText = null;
+    });
+
+    void runCheck() async {
+      final status = await AuthService.checkUsernameStatus(currentInput);
+      if (!mounted || seq != _usernameCheckSeq) {
+        return; // Stale async response dibuang
+      }
+
+      setState(() {
+        _isCheckingUsername = false;
+        _usernameStatus = status;
+        _usernameErrorText = AuthService.getUsernameStatusMessage(status);
+      });
+    }
+
+    if (force) {
+      runCheck();
+    } else {
+      _debounceTimer = Timer(const Duration(milliseconds: 500), runCheck);
+    }
+  }
+
+  void _onEmailChanged({bool force = false}) {
+    final currentInput = _emailController.text.trim();
+    _debounceEmailTimer?.cancel();
+
+    if (currentInput.isEmpty) {
+      setState(() {
+        _isCheckingEmail = false;
+        _emailStatus = null;
+        _emailErrorText = null;
+      });
+      return;
+    }
+
+    final formatErr = AuthService.validateEmailFormat(currentInput);
+    if (formatErr != null) {
+      setState(() {
+        _isCheckingEmail = false;
+        _emailStatus = EmailCheckStatus.invalidFormat;
+        _emailErrorText = formatErr;
+      });
+      return;
+    }
+
+    final seq = ++_emailCheckSeq;
+    setState(() {
+      _isCheckingEmail = true;
+      _emailErrorText = null;
+    });
+
+    void runCheck() async {
+      final status = await AuthService.checkEmailStatus(currentInput);
+      if (!mounted || seq != _emailCheckSeq) {
+        return; // Stale async response discarded
+      }
+
+      setState(() {
+        _isCheckingEmail = false;
+        _emailStatus = status;
+        _emailErrorText = AuthService.getEmailStatusMessage(status);
+      });
+    }
+
+    if (force) {
+      runCheck();
+    } else {
+      _debounceEmailTimer = Timer(const Duration(milliseconds: 500), runCheck);
+    }
   }
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
+    _debounceEmailTimer?.cancel();
+    _usernameController.removeListener(_onUsernameChanged);
+    _emailController.removeListener(_onEmailChanged);
     _animController.dispose();
     _nameController.dispose();
     _usernameController.dispose();
@@ -59,7 +176,43 @@ class _RegisterScreenState extends State<RegisterScreen>
   }
 
   Future<void> _doRegister() async {
-    if (_isLoading) return;
+    if (_isLoading || _isCheckingUsername || _isCheckingEmail) return;
+
+    // Safe Fallback: Tolak jika email atau username sudah pasti dipakai
+    if (_emailStatus == EmailCheckStatus.taken) {
+      _showSnack(
+        AppLanguage.current.value == AppLang.en
+            ? 'This email is already registered. Please login or use Forgot Password.'
+            : 'Email ini sudah terdaftar. Silakan masuk atau gunakan Lupa Password.',
+        isError: true,
+      );
+      return;
+    }
+    if (_emailStatus == EmailCheckStatus.invalidFormat) {
+      _showSnack(_emailErrorText ?? 'Periksa kembali format email Anda.', isError: true);
+      return;
+    }
+
+    // Safe Fallback: Hanya tolak jika format salah atau username SUDAH PASTI dipakai.
+    // Jika status serverNotReady atau networkError, pengguna tetap dibiarkan submit pendaftaran,
+    // karena unique constraint di database & _translateAuthError menjadi benteng validasi terakhir.
+    if (_usernameStatus == UsernameCheckStatus.taken) {
+      _showSnack(
+        AppLanguage.current.value == AppLang.en
+            ? 'This username is already taken. Please choose another username.'
+            : 'Username ini telah digunakan. Silakan pilih username lain.',
+        isError: true,
+      );
+      return;
+    }
+    if (_usernameStatus == UsernameCheckStatus.invalidFormat) {
+      _showSnack(
+        _usernameErrorText ?? 'Periksa kembali format username.',
+        isError: true,
+      );
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) return;
     if (!_agreed) {
       _showSnack(AppLanguage.t('terms_error'), isError: true);
@@ -351,8 +504,94 @@ class _RegisterScreenState extends State<RegisterScreen>
                                               hint: AppLanguage.t('username_example'),
                                               icon: Icons.alternate_email_rounded,
                                               textInputAction: TextInputAction.next,
-                                              validator: (v) => AuthService.validateUsernameFormat(v),
+                                              suffixIcon: _isCheckingUsername
+                                                  ? const Padding(
+                                                      padding: EdgeInsets.all(12),
+                                                      child: SizedBox(
+                                                        width: 16,
+                                                        height: 16,
+                                                        child: CircularProgressIndicator(
+                                                          strokeWidth: 2,
+                                                          color: AppColors.primary,
+                                                        ),
+                                                      ),
+                                                    )
+                                                  : (_usernameStatus == UsernameCheckStatus.available
+                                                      ? const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 20)
+                                                      : (_usernameStatus == UsernameCheckStatus.taken
+                                                          ? const Icon(Icons.cancel_rounded, color: AppColors.danger, size: 20)
+                                                          : ((_usernameStatus == UsernameCheckStatus.networkError ||
+                                                                  _usernameStatus == UsernameCheckStatus.serverNotReady ||
+                                                                  _usernameStatus == UsernameCheckStatus.permissionDenied ||
+                                                                  _usernameStatus == UsernameCheckStatus.unknownError)
+                                                              ? const Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 20)
+                                                              : null))),
+                                              validator: (v) {
+                                                final formatErr = AuthService.validateUsernameFormat(v);
+                                                if (formatErr != null) return formatErr;
+                                                if (_usernameStatus == UsernameCheckStatus.taken) {
+                                                  return AppLanguage.current.value == AppLang.en
+                                                      ? 'This username is already taken'
+                                                      : 'Username ini telah digunakan';
+                                                }
+                                                // Error jaringan/server tidak memblokir submit form (safe fallback)
+                                                return null;
+                                              },
                                             ),
+                                            if (_usernameStatus == UsernameCheckStatus.serverNotReady ||
+                                                _usernameStatus == UsernameCheckStatus.permissionDenied ||
+                                                _usernameStatus == UsernameCheckStatus.networkError ||
+                                                _usernameStatus == UsernameCheckStatus.unknownError) ...[
+                                              const SizedBox(height: 8),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                                decoration: BoxDecoration(
+                                                  color: AppColors.warningLight,
+                                                  borderRadius: BorderRadius.circular(10),
+                                                  border: Border.all(color: AppColors.warning.withValues(alpha: 0.35)),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    const Icon(Icons.warning_amber_rounded, size: 18, color: AppColors.warning),
+                                                    const SizedBox(width: 8),
+                                                    Expanded(
+                                                      child: Text(
+                                                        _usernameErrorText ?? (AppLanguage.current.value == AppLang.en ? 'Username check unavailable at this moment.' : 'Pengecekan username tidak dapat diselesaikan saat ini.'),
+                                                        style: const TextStyle(
+                                                          fontSize: 12,
+                                                          color: Color(0xFF92400E),
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    TextButton(
+                                                      onPressed: _isCheckingUsername ? null : () => _onUsernameChanged(force: true),
+                                                      style: TextButton.styleFrom(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                        minimumSize: Size.zero,
+                                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          const Icon(Icons.refresh_rounded, size: 14, color: AppColors.warning),
+                                                          const SizedBox(width: 4),
+                                                          Text(
+                                                            AppLanguage.current.value == AppLang.en ? 'Try again' : 'Coba lagi',
+                                                            style: const TextStyle(
+                                                              fontSize: 12,
+                                                              fontWeight: FontWeight.bold,
+                                                              color: AppColors.warning,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
 
                                             const SizedBox(height: 14),
                                             _buildLabel(AppLanguage.t('email_label')),
@@ -363,7 +602,33 @@ class _RegisterScreenState extends State<RegisterScreen>
                                               icon: Icons.email_outlined,
                                               keyboardType: TextInputType.emailAddress,
                                               textInputAction: TextInputAction.next,
+                                              suffixIcon: _isCheckingEmail
+                                                  ? const Padding(
+                                                      padding: EdgeInsets.all(12),
+                                                      child: SizedBox(
+                                                        width: 18,
+                                                        height: 18,
+                                                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                                                      ),
+                                                    )
+                                                  : (_emailStatus == EmailCheckStatus.available
+                                                      ? const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 20)
+                                                      : (_emailStatus == EmailCheckStatus.taken
+                                                          ? const Icon(Icons.cancel_rounded, color: AppColors.error, size: 20)
+                                                          : ((_emailStatus == EmailCheckStatus.serverNotReady ||
+                                                                  _emailStatus == EmailCheckStatus.permissionDenied ||
+                                                                  _emailStatus == EmailCheckStatus.networkError ||
+                                                                  _emailStatus == EmailCheckStatus.unknownError)
+                                                              ? const Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 20)
+                                                              : null))),
                                               validator: (v) {
+                                                final formatErr = AuthService.validateEmailFormat(v);
+                                                if (formatErr != null) return formatErr;
+                                                if (_emailStatus == EmailCheckStatus.taken) {
+                                                  return AppLanguage.current.value == AppLang.en
+                                                      ? 'This email is already registered'
+                                                      : 'Email ini sudah terdaftar';
+                                                }
                                                 if (v == null || v.trim().isEmpty) return AppLanguage.t('email_required');
                                                 final email = v.trim();
                                                 if (!email.contains('@')) {
@@ -391,6 +656,89 @@ class _RegisterScreenState extends State<RegisterScreen>
                                                 return null;
                                               },
                                             ),
+                                            if (_emailStatus == EmailCheckStatus.taken) ...[
+                                              const SizedBox(height: 8),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                                decoration: BoxDecoration(
+                                                  color: AppColors.errorLight,
+                                                  borderRadius: BorderRadius.circular(10),
+                                                  border: Border.all(color: AppColors.error.withValues(alpha: 0.35)),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    const Icon(Icons.cancel_rounded, size: 18, color: AppColors.error),
+                                                    const SizedBox(width: 8),
+                                                    Expanded(
+                                                      child: Text(
+                                                        AppLanguage.current.value == AppLang.en
+                                                            ? 'This email is already registered. Please login or use Forgot Password.'
+                                                            : 'Email ini sudah terdaftar. Silakan masuk atau gunakan Lupa Password.',
+                                                        style: const TextStyle(
+                                                          fontSize: 12,
+                                                          color: AppColors.error,
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                            if (_emailStatus == EmailCheckStatus.serverNotReady ||
+                                                _emailStatus == EmailCheckStatus.permissionDenied ||
+                                                _emailStatus == EmailCheckStatus.networkError ||
+                                                _emailStatus == EmailCheckStatus.unknownError) ...[
+                                              const SizedBox(height: 8),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                                decoration: BoxDecoration(
+                                                  color: AppColors.warningLight,
+                                                  borderRadius: BorderRadius.circular(10),
+                                                  border: Border.all(color: AppColors.warning.withValues(alpha: 0.35)),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    const Icon(Icons.warning_amber_rounded, size: 18, color: AppColors.warning),
+                                                    const SizedBox(width: 8),
+                                                    Expanded(
+                                                      child: Text(
+                                                        _emailErrorText ?? (AppLanguage.current.value == AppLang.en ? 'Email check unavailable at this moment.' : 'Pengecekan email tidak dapat diselesaikan saat ini.'),
+                                                        style: const TextStyle(
+                                                          fontSize: 12,
+                                                          color: Color(0xFF92400E),
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    TextButton(
+                                                      onPressed: _isCheckingEmail ? null : () => _onEmailChanged(force: true),
+                                                      style: TextButton.styleFrom(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                        minimumSize: Size.zero,
+                                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          const Icon(Icons.refresh_rounded, size: 14, color: AppColors.warning),
+                                                          const SizedBox(width: 4),
+                                                          Text(
+                                                            AppLanguage.current.value == AppLang.en ? 'Try again' : 'Coba lagi',
+                                                            style: const TextStyle(
+                                                              fontSize: 12,
+                                                              fontWeight: FontWeight.bold,
+                                                              color: AppColors.warning,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
 
                                             const SizedBox(height: 14),
                                             _buildLabel(AppLanguage.t('phone_label')),
