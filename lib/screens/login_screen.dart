@@ -415,35 +415,21 @@ class _LoginScreenState extends State<LoginScreen>
                                                     crossAxisAlignment:
                                                         CrossAxisAlignment.start,
                                                     children: [
-                                                      Row(
-                                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                                        children: [
-                                                          Expanded(
-                                                            child: Column(
-                                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                                              children: [
-                                                                Text(
-                                                                  AppLanguage.t('welcome_title'),
-                                                                  style: const TextStyle(
-                                                                    fontSize: 20,
-                                                                    fontWeight: FontWeight.bold,
-                                                                    color: AppColors.textPrimary,
-                                                                  ),
-                                                                ),
-                                                                const SizedBox(height: 3),
-                                                                Text(
-                                                                  AppLanguage.t('welcome_subtitle'),
-                                                                  style: const TextStyle(
-                                                                    fontSize: 12.5,
-                                                                    color: AppColors.textSecondary,
-                                                                  ),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          ),
-                                                          _buildLanguageSwitch(inCard: true),
-                                                        ],
+                                                      Text(
+                                                        AppLanguage.t('welcome_title'),
+                                                        style: const TextStyle(
+                                                          fontSize: 20,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: AppColors.textPrimary,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 3),
+                                                      Text(
+                                                        AppLanguage.t('welcome_subtitle'),
+                                                        style: const TextStyle(
+                                                          fontSize: 12.5,
+                                                          color: AppColors.textSecondary,
+                                                        ),
                                                       ),
                                                       const SizedBox(height: 18),
 
@@ -900,70 +886,6 @@ class _LoginScreenState extends State<LoginScreen>
                                                                           12),
                                                             ),
                                                           ),
-                                                        ),
-                                                      ),
-
-                                                      const SizedBox(height: 16),
-
-                                                      // Hint for admin (neatly integrated inside card)
-                                                      Container(
-                                                        padding:
-                                                            const EdgeInsets
-                                                                .symmetric(
-                                                                horizontal: 14,
-                                                                vertical: 8),
-                                                        decoration:
-                                                            BoxDecoration(
-                                                          color: AppColors
-                                                              .primaryLight,
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(10),
-                                                          border: Border.all(
-                                                            color: AppColors
-                                                                .primary
-                                                                .withValues(
-                                                                    alpha:
-                                                                        0.15),
-                                                          ),
-                                                        ),
-                                                        child: Row(
-                                                          children: [
-                                                            const Icon(
-                                                                Icons
-                                                                    .info_outline_rounded,
-                                                                color: AppColors
-                                                                    .primaryDark,
-                                                                size: 15),
-                                                            const SizedBox(
-                                                                width: 8),
-                                                            Expanded(
-                                                              child: RichText(
-                                                                text: TextSpan(
-                                                                  style:
-                                                                      const TextStyle(
-                                                                    fontSize:
-                                                                        11.5,
-                                                                    color: AppColors
-                                                                        .primaryDark,
-                                                                  ),
-                                                                  children: [
-                                                                    TextSpan(
-                                                                        text: AppLanguage.t('admin_hint_prefix')),
-                                                                    const TextSpan(
-                                                                      text:
-                                                                          'admin / admin123',
-                                                                      style: TextStyle(
-                                                                          fontWeight:
-                                                                              FontWeight.bold,
-                                                                          fontFamily:
-                                                                              'monospace'),
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                              ),
-                                                            ),
-                                                          ],
                                                         ),
                                                       ),
                                                     ],

@@ -337,8 +337,8 @@ class _RegisterScreenState extends State<RegisterScreen>
                                               icon: Icons.person_outline_rounded,
                                               textInputAction: TextInputAction.next,
                                               validator: (v) {
-                                                if (v == null || v.trim().isEmpty) return 'Nama wajib diisi';
-                                                if (v.trim().length < 3) return 'Nama minimal 3 karakter';
+                                                if (v == null || v.trim().isEmpty) return AppLanguage.t('name_required');
+                                                if (v.trim().length < 3) return AppLanguage.t('name_min');
                                                 return null;
                                               },
                                             ),
@@ -348,7 +348,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                             const SizedBox(height: 6),
                                             _buildTextField(
                                               controller: _usernameController,
-                                              hint: 'Contoh: user123',
+                                              hint: AppLanguage.t('username_example'),
                                               icon: Icons.alternate_email_rounded,
                                               textInputAction: TextInputAction.next,
                                               validator: (v) => AuthService.validateUsernameFormat(v),
@@ -364,7 +364,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                               keyboardType: TextInputType.emailAddress,
                                               textInputAction: TextInputAction.next,
                                               validator: (v) {
-                                                if (v == null || v.trim().isEmpty) return 'Email wajib diisi';
+                                                if (v == null || v.trim().isEmpty) return AppLanguage.t('email_required');
                                                 final email = v.trim();
                                                 if (!email.contains('@')) {
                                                   return 'Email harus menyertakan tanda @ (contoh: nama@gmail.com)';
@@ -397,7 +397,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                             const SizedBox(height: 6),
                                             _buildTextField(
                                               controller: _phoneController,
-                                              hint: '08xxxxxxxxxx',
+                                              hint: AppLanguage.t('phone_hint'),
                                               icon: Icons.phone_outlined,
                                               keyboardType: TextInputType.phone,
                                               textInputAction: TextInputAction.next,
@@ -406,11 +406,11 @@ class _RegisterScreenState extends State<RegisterScreen>
                                                 LengthLimitingTextInputFormatter(13),
                                               ],
                                               validator: (v) {
-                                                if (v == null || v.trim().isEmpty) return 'Nomor HP wajib diisi';
+                                                if (v == null || v.trim().isEmpty) return AppLanguage.t('phone_required');
                                                 final phone = v.trim();
-                                                if (!phone.startsWith('08')) return 'Nomor HP harus diawali 08';
-                                                if (phone.length < 10) return 'Nomor HP minimal 10 digit (saat ini ${phone.length})';
-                                                if (phone.length > 13) return 'Nomor HP maksimal 13 digit';
+                                                if (!phone.startsWith('08')) return AppLanguage.t('phone_prefix_error');
+                                                if (phone.length < 10) return '${AppLanguage.t('phone_min_error')} (${phone.length})';
+                                                if (phone.length > 13) return AppLanguage.t('phone_max_error');
                                                 return null;
                                               },
                                             ),
@@ -420,7 +420,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                             const SizedBox(height: 6),
                                             _buildTextField(
                                               controller: _passwordController,
-                                              hint: 'Minimal 8 karakter',
+                                              hint: AppLanguage.t('password_min_hint'),
                                               icon: Icons.lock_outline_rounded,
                                               obscure: _obscurePassword,
                                               textInputAction: TextInputAction.next,
@@ -433,8 +433,8 @@ class _RegisterScreenState extends State<RegisterScreen>
                                                 onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                                               ),
                                               validator: (v) {
-                                                if (v == null || v.isEmpty) return 'Password wajib diisi';
-                                                if (v.length < 8) return 'Password minimal 8 karakter';
+                                                if (v == null || v.isEmpty) return AppLanguage.t('password_required');
+                                                if (v.length < 8) return AppLanguage.t('password_min_error');
                                                 return null;
                                               },
                                             ),
@@ -458,8 +458,8 @@ class _RegisterScreenState extends State<RegisterScreen>
                                                 onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
                                               ),
                                               validator: (v) {
-                                                if (v == null || v.isEmpty) return 'Konfirmasi password wajib diisi';
-                                                if (v != _passwordController.text) return 'Password tidak cocok';
+                                                if (v == null || v.isEmpty) return AppLanguage.t('confirm_password_required');
+                                                if (v != _passwordController.text) return AppLanguage.t('passwords_not_match');
                                                 return null;
                                               },
                                             ),
@@ -495,32 +495,32 @@ class _RegisterScreenState extends State<RegisterScreen>
                                           const SizedBox(width: 10),
                                           Expanded(
                                             child: RichText(
-                                              text: const TextSpan(
-                                                style: TextStyle(
+                                              text: TextSpan(
+                                                style: const TextStyle(
                                                   fontSize: 12.5,
                                                   color: AppColors.textSecondary,
                                                   height: 1.4,
                                                 ),
                                                 children: [
-                                                  TextSpan(text: 'Saya menyetujui '),
+                                                  TextSpan(text: AppLanguage.t('terms_prefix')),
                                                   TextSpan(
-                                                    text: 'Syarat & Ketentuan',
-                                                    style: TextStyle(
+                                                    text: AppLanguage.t('terms_link'),
+                                                    style: const TextStyle(
                                                       color: AppColors.primary,
                                                       fontWeight: FontWeight.w600,
                                                       decoration: TextDecoration.underline,
                                                     ),
                                                   ),
-                                                  TextSpan(text: ' serta '),
+                                                  TextSpan(text: AppLanguage.t('and_connector')),
                                                   TextSpan(
-                                                    text: 'Kebijakan Privasi',
-                                                    style: TextStyle(
+                                                    text: AppLanguage.t('privacy_link'),
+                                                    style: const TextStyle(
                                                       color: AppColors.primary,
                                                       fontWeight: FontWeight.w600,
                                                       decoration: TextDecoration.underline,
                                                     ),
                                                   ),
-                                                  TextSpan(text: ' DigiQ.'),
+                                                  TextSpan(text: AppLanguage.t('digiq_suffix')),
                                                 ],
                                               ),
                                             ),

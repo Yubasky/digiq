@@ -11,6 +11,7 @@ import '../services/transaction_service.dart';
 import '../services/avatar_picker.dart';
 import '../theme/app_theme.dart';
 import '../widgets/add_product_dialog.dart';
+import '../services/app_language.dart';
 import 'login_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -386,48 +387,53 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          // Real-time Payment Notification Banner (DANA Bisnis Style)
-          if (_showNotificationBanner && _latestNotification != null)
-            _buildRealtimePaymentBanner(),
+    return ValueListenableBuilder<AppLang>(
+      valueListenable: AppLanguage.current,
+      builder: (context, lang, _) {
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          body: Column(
+            children: [
+              // Real-time Payment Notification Banner (DANA Bisnis Style)
+              if (_showNotificationBanner && _latestNotification != null)
+                _buildRealtimePaymentBanner(),
 
-          // Top App Bar
-          _buildTopAppBar(),
+              // Top App Bar
+              _buildTopAppBar(),
 
-          // Body content based on selected bottom navigation index
-          Expanded(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1040),
-                child: IndexedStack(
-                  index: _currentNavIndex,
-                  children: [
-                    _buildDashboardTab(),
-                    _buildProductsTab(),
-                    _buildTransactionsTab(),
-                    _buildStoreSettingsTab(),
-                  ],
+              // Body content based on selected bottom navigation index
+              Expanded(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1040),
+                    child: IndexedStack(
+                      index: _currentNavIndex,
+                      children: [
+                        _buildDashboardTab(),
+                        _buildProductsTab(),
+                        _buildTransactionsTab(),
+                        _buildStoreSettingsTab(),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
-      bottomNavigationBar: _buildBottomNavigationBar(),
-      floatingActionButton: _currentNavIndex == 0 || _currentNavIndex == 1
-          ? FloatingActionButton(
-              onPressed: _showAddProductDialog,
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              elevation: 4,
-              shape: const CircleBorder(),
-              tooltip: 'Tambah Produk Digital',
-              child: const Icon(Icons.add_rounded, size: 28),
-            )
-          : null,
+          bottomNavigationBar: _buildBottomNavigationBar(),
+          floatingActionButton: _currentNavIndex == 0 || _currentNavIndex == 1
+              ? FloatingActionButton(
+                  onPressed: _showAddProductDialog,
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 4,
+                  shape: const CircleBorder(),
+                  tooltip: 'Tambah Produk Digital',
+                  child: const Icon(Icons.add_rounded, size: 28),
+                )
+              : null,
+        );
+      },
     );
   }
 
@@ -564,9 +570,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       children: [
                         Row(
                           children: [
-                            const Text(
-                              'DigiQ Store',
-                              style: TextStyle(
+                            Text(
+                              AppLanguage.t('admin_store_title'),
+                              style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w800,
                                 color: Colors.white,
@@ -603,9 +609,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               ),
                             ),
                             const SizedBox(width: 4),
-                            const Text(
-                              'Toko Buka 24 Jam • QRIS Aktif',
-                              style: TextStyle(fontSize: 10.5, color: Colors.white70),
+                            Flexible(
+                              child: Text(
+                                AppLanguage.t('admin_store_active'),
+                                style: const TextStyle(fontSize: 10.5, color: Colors.white70),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ],
                         ),
@@ -615,15 +625,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   // Segarkan Data
                   IconButton(
                     icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 21),
-                    tooltip: 'Segarkan Data',
+                    tooltip: AppLanguage.isId ? 'Segarkan Data' : 'Refresh Data',
                     padding: const EdgeInsets.all(6),
                     constraints: const BoxConstraints(),
                     onPressed: () {
                       _refreshStats();
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Memperbarui data statistik admin...'),
-                          duration: Duration(seconds: 1),
+                        SnackBar(
+                          content: Text(AppLanguage.isId ? 'Memperbarui data statistik admin...' : 'Refreshing admin stats...'),
+                          duration: const Duration(seconds: 1),
                         ),
                       );
                     },
@@ -641,12 +651,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           context: context,
                           builder: (_) => AlertDialog(
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            title: const Text('Keluar', style: TextStyle(fontWeight: FontWeight.bold)),
-                            content: const Text('Yakin ingin keluar dari akun Admin?'),
+                            title: Text(AppLanguage.t('admin_logout_title'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                            content: Text(AppLanguage.t('admin_logout_confirm')),
                             actions: [
                               TextButton(
                                 onPressed: () => Navigator.pop(context),
-                                child: const Text('Batal'),
+                                child: Text(AppLanguage.t('cancel')),
                               ),
                               ElevatedButton(
                                 onPressed: () async {
@@ -669,13 +679,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                   elevation: 0,
                                 ),
-                                child: const Text('Keluar'),
+                                child: Text(AppLanguage.t('logout')),
                               ),
                             ],
                           ),
                         );
                       },
-                      tooltip: 'Keluar',
+                      tooltip: AppLanguage.t('logout'),
                       icon: const Icon(Icons.logout_rounded, color: Colors.white, size: 19),
                       padding: const EdgeInsets.all(7),
                       constraints: const BoxConstraints(),
@@ -1999,23 +2009,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   'DigiQ Official Store',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                 ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Merchant Partner Terverifikasi QRIS & DANA Bisnis',
-                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.successLight,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    'Status Toko: Buka 24 Jam',
-                    style: TextStyle(color: AppColors.success, fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                ),
               ],
             ),
           ),
@@ -2025,25 +2018,32 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           // Pengaturan QRIS Merchant & Kode Unik
           _buildQrisSettingsCard(),
           _buildSettingsTile(
-            icon: Icons.support_agent_rounded,
-            title: 'Hubungi Customer Support Toko',
-            subtitle: 'Admin siap melayani pertanyaan pembeli',
+            icon: Icons.language_rounded,
+            title: AppLanguage.t('language_tile_title'),
+            subtitle: AppLanguage.isId
+                ? 'Bahasa Indonesia (Ketuk untuk beralih ke English)'
+                : 'English (Tap to switch to Bahasa Indonesia)',
             onTap: () {
+              AppLanguage.toggleLanguage();
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Membuka kontak CS DigiQ...')),
+                SnackBar(
+                  content: Text(AppLanguage.t('language_changed_toast')),
+                  duration: const Duration(seconds: 1),
+                  behavior: SnackBarBehavior.floating,
+                ),
               );
             },
           ),
           _buildSettingsTile(
             icon: Icons.security_rounded,
-            title: 'Keamanan & Autentikasi 2-User',
-            subtitle: 'Akun Admin terlindungi enkripsi',
+            title: AppLanguage.t('admin_security_title'),
+            subtitle: AppLanguage.t('admin_security_sub'),
             onTap: _showSecurityInfoDialog,
           ),
           _buildSettingsTile(
             icon: Icons.info_outline_rounded,
-            title: 'Tentang Aplikasi DigiQ',
-            subtitle: 'Versi 1.0.0 (Production Release)',
+            title: AppLanguage.t('admin_about_title'),
+            subtitle: AppLanguage.t('admin_about_sub'),
             onTap: _showAboutAppDialog,
           ),
         ],
@@ -2606,10 +2606,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _navItem(0, Icons.dashboard_rounded, Icons.dashboard_outlined, 'Beranda'),
-                  _navItem(1, Icons.inventory_2_rounded, Icons.inventory_2_outlined, 'Katalog'),
-                  _navItemBadge(2, Icons.receipt_long_rounded, Icons.receipt_long_outlined, 'Transaksi', _todayPendingCount),
-                  _navItem(3, Icons.storefront_rounded, Icons.storefront_outlined, 'Toko Admin'),
+                  _navItem(0, Icons.dashboard_rounded, Icons.dashboard_outlined, AppLanguage.t('nav_admin_home')),
+                  _navItem(1, Icons.inventory_2_rounded, Icons.inventory_2_outlined, AppLanguage.t('nav_admin_catalog')),
+                  _navItemBadge(2, Icons.receipt_long_rounded, Icons.receipt_long_outlined, AppLanguage.t('nav_admin_trx'), _todayPendingCount),
+                  _navItem(3, Icons.storefront_rounded, Icons.storefront_outlined, AppLanguage.t('nav_admin_store')),
                 ],
               ),
             ),
