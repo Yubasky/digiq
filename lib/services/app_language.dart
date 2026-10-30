@@ -84,6 +84,10 @@ class AppLanguage {
       AppLang.id: 'Email/username wajib diisi',
       AppLang.en: 'Email or username is required',
     },
+    'email_invalid': {
+      AppLang.id: 'Format email tidak valid',
+      AppLang.en: 'Invalid email format',
+    },
     'password_required': {
       AppLang.id: 'Password wajib diisi',
       AppLang.en: 'Password is required',
@@ -161,6 +165,10 @@ class AppLanguage {
     'phone_max_error': {
       AppLang.id: 'Nomor HP maksimal 13 digit',
       AppLang.en: 'Phone number must be at most 13 digits',
+    },
+    'phone_hint': {
+      AppLang.id: '08xxxxxxxxxx',
+      AppLang.en: '08xxxxxxxxxx',
     },
     'password_min_hint': {
       AppLang.id: 'Minimal 8 karakter',
@@ -611,6 +619,10 @@ class AppLanguage {
       AppLang.id: 'Riwayat Transaksi',
       AppLang.en: 'Transaction History',
     },
+    'order_history': {
+      AppLang.id: 'Riwayat Pesanan',
+      AppLang.en: 'Order History',
+    },
     'history_empty_title': {
       AppLang.id: 'Belum ada transaksi',
       AppLang.en: 'No transactions yet',
@@ -708,7 +720,7 @@ class AppLanguage {
       AppLang.en: 'Save QRIS Settings',
     },
     'admin_delete_product_title': {
-      AppLang.id: 'Hapus Akun?',
+      AppLang.id: 'Hapus Produk?',
       AppLang.en: 'Delete Product?',
     },
     'admin_delete_product_confirm': {
@@ -716,6 +728,10 @@ class AppLanguage {
       AppLang.en: 'Are you sure you want to remove this product from the store catalog?',
     },
     'admin_delete_action': {
+      AppLang.id: 'Hapus',
+      AppLang.en: 'Delete',
+    },
+    'delete': {
       AppLang.id: 'Hapus',
       AppLang.en: 'Delete',
     },
