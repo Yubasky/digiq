@@ -174,7 +174,10 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
       );
     } else {
       _showSnack(
-        result.message ?? (AppLanguage.isId ? 'Gagal mengirim ulang email verifikasi.' : 'Failed to resend verification email.'),
+        result.message ??
+            (AppLanguage.isId
+                ? 'Gagal mengirim ulang email verifikasi.'
+                : 'Failed to resend verification email.'),
         isError: true,
       );
     }
@@ -733,7 +736,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     if (widget.isRecovery) {
       final displayError =
           _errorMessage ??
-          (AppLanguage.isId ? 'Tautan reset kata sandi sudah kedaluwarsa atau sudah digunakan. Silakan minta tautan baru.' : 'Password reset link has expired or has already been used. Please request a new link.');
+          (AppLanguage.isId
+              ? 'Tautan reset kata sandi sudah kedaluwarsa atau sudah digunakan. Silakan minta tautan baru.'
+              : 'Password reset link has expired or has already been used. Please request a new link.');
 
       return Container(
         key: const ValueKey('recovery_error_card'),
@@ -771,7 +776,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
             ),
             const SizedBox(height: 24),
             Text(
-              AppLanguage.isId ? 'Tautan Reset Tidak Valid' : 'Invalid Reset Link',
+              AppLanguage.isId
+                  ? 'Tautan Reset Tidak Valid'
+                  : 'Invalid Reset Link',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 20,
@@ -821,7 +828,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
             TextButton(
               onPressed: _navigateToLogin,
               child: Text(
-                AppLanguage.isId ? 'Kembali ke Halaman Login' : 'Back to Login Page',
+                AppLanguage.isId
+                    ? 'Kembali ke Halaman Login'
+                    : 'Back to Login Page',
                 style: TextStyle(
                   fontSize: 13,
                   color: AppColors.textSecondary,
@@ -835,7 +844,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     }
     final displayError =
         _errorMessage ??
-        (AppLanguage.isId ? 'Tautan verifikasi sudah kedaluwarsa atau tidak valid saat kembali dari Gmail. Silakan kirim ulang tautan baru.' : 'Verification link has expired or is invalid. Please resend a new link.');
+        (AppLanguage.isId
+            ? 'Tautan verifikasi sudah kedaluwarsa atau tidak valid saat kembali dari Gmail. Silakan kirim ulang tautan baru.'
+            : 'Verification link has expired or is invalid. Please resend a new link.');
 
     return Container(
       key: const ValueKey('error_card'),
@@ -875,7 +886,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
           const SizedBox(height: 24),
 
           Text(
-            AppLanguage.isId ? 'Tautan Kedaluwarsa / Tidak Valid' : 'Expired / Invalid Link',
+            AppLanguage.isId
+                ? 'Tautan Kedaluwarsa / Tidak Valid'
+                : 'Expired / Invalid Link',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 20,
@@ -975,7 +988,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
 
           const SizedBox(height: 10),
           Text(
-            AppLanguage.isId ? 'Tidak menerima email? Periksa folder Spam/Promosi.' : 'Didn\'t receive the email? Check your Spam/Promotions folder.',
+            AppLanguage.isId
+                ? 'Tidak menerima email? Periksa folder Spam/Promosi.'
+                : 'Didn\'t receive the email? Check your Spam/Promotions folder.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 12,
@@ -988,7 +1003,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
           TextButton(
             onPressed: _navigateToLogin,
             child: Text(
-              AppLanguage.isId ? 'Kembali ke Halaman Login' : 'Back to Login Page',
+              AppLanguage.isId
+                  ? 'Kembali ke Halaman Login'
+                  : 'Back to Login Page',
               style: TextStyle(
                 fontSize: 13,
                 color: AppColors.textSecondary,

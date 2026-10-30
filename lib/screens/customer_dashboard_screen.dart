@@ -327,6 +327,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
           height: 66,
           child: Center(
             child: ConstrainedBox(
+              key: const Key('customer_bottom_nav_content'),
               constraints: const BoxConstraints(maxWidth: 800),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
@@ -913,6 +914,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             children: [
               // 16:9 Banner Image Header with Overlaid Badge and Stock Badge
               AspectRatio(
+                key: const Key('product_card_image'),
                 aspectRatio: 16 / 9,
                 child: Stack(
                   fit: StackFit.expand,

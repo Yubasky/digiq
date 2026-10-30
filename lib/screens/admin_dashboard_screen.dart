@@ -1430,6 +1430,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           children: [
             // 16:9 Banner Image Header with Overlaid Badge and Switch
             AspectRatio(
+              key: const Key('product_card_image'),
               aspectRatio: 16 / 9,
               child: Stack(
                 fit: StackFit.expand,
@@ -3363,6 +3364,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildBottomNavigationBar() {
     return Container(
+      key: const Key('admin_bottom_nav'),
       decoration: BoxDecoration(
         color: Colors.white,
         border: const Border(
@@ -3377,14 +3379,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ],
       ),
       child: SafeArea(
-        child: Align(
-          alignment: Alignment.center,
-          heightFactor: 1.0,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 800),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(
+        top: false,
+        child: SizedBox(
+          height: 66,
+          child: Center(
+            child: ConstrainedBox(
+              key: const Key('admin_bottom_nav_content'),
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
                 children: [
                   Expanded(
                     child: _navItem(
@@ -3425,8 +3429,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _navItem(
     int index,

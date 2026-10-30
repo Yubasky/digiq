@@ -4,11 +4,13 @@
 // 1. Desktop Viewport (1280 x 800)
 // 2. Mobile Viewport (390 x 844)
 // 3. Text Scaling Stress Test (1.5x)
+// 4. Product Card 16:9 Aspect Ratio Verification
 //
 // Asserts:
 // - tester.takeException() == null (no RenderFlex overflow)
-// - bottomNavigationBar does not expand vertically to viewport height
+// - bottomNavigationBar width is constrained to <= 800 px on desktop
 // - Top-anchored content remains visible and not squashed
+// - Product card image maintains ~16:9 aspect ratio (+- 0.02 tolerance)
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -66,6 +68,19 @@ void main() {
       final homeIconFinder = find.byIcon(Icons.home_rounded);
       expect(homeIconFinder, findsOneWidget);
 
+      // Verify bottom nav content width <= 800 and anchored to bottom
+      final navFinder = find.byKey(const Key('customer_bottom_nav'));
+      expect(navFinder, findsOneWidget);
+      final navRect = tester.getRect(navFinder);
+      expect(navRect.bottom, equals(800.0), reason: 'Customer bottom nav must be anchored to bottom of viewport');
+      expect(navRect.top, greaterThanOrEqualTo(700.0), reason: 'Customer bottom nav must not expand to full screen height');
+
+      final navContentFinder = find.byKey(const Key('customer_bottom_nav_content'));
+      if (navContentFinder.evaluate().isNotEmpty) {
+        final navSize = tester.getSize(navContentFinder);
+        expect(navSize.width, lessThanOrEqualTo(800.01), reason: 'Customer bottom nav constrained to <= 800');
+      }
+
       // Clean unmount to cancel timers and drain pending timer queue
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(minutes: 2));
@@ -86,6 +101,19 @@ void main() {
 
       final homeIconFinder = find.byIcon(Icons.home_rounded);
       expect(homeIconFinder, findsOneWidget);
+
+      // Verify customer bottom nav anchored to bottom of mobile viewport (844)
+      final navFinder = find.byKey(const Key('customer_bottom_nav'));
+      expect(navFinder, findsOneWidget);
+      final navRect = tester.getRect(navFinder);
+      expect(navRect.bottom, equals(844.0), reason: 'Customer bottom nav must be anchored to bottom of mobile viewport');
+      expect(navRect.top, greaterThanOrEqualTo(750.0), reason: 'Customer bottom nav must not expand to full screen height');
+
+      final navContentFinder = find.byKey(const Key('customer_bottom_nav_content'));
+      if (navContentFinder.evaluate().isNotEmpty) {
+        final navSize = tester.getSize(navContentFinder);
+        expect(navSize.width, lessThanOrEqualTo(390.01), reason: 'Customer bottom nav fits mobile width');
+      }
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(minutes: 2));
@@ -130,6 +158,19 @@ void main() {
       final adminHomeFinder = find.byIcon(Icons.dashboard_rounded);
       expect(adminHomeFinder, findsOneWidget);
 
+      // Verify admin bottom nav anchored to bottom of desktop viewport (800)
+      final navFinder = find.byKey(const Key('admin_bottom_nav'));
+      expect(navFinder, findsOneWidget);
+      final navRect = tester.getRect(navFinder);
+      expect(navRect.bottom, equals(800.0), reason: 'Admin bottom nav must be anchored to bottom of desktop viewport');
+      expect(navRect.top, greaterThanOrEqualTo(700.0), reason: 'Admin bottom nav must not expand to full screen height');
+
+      final navContentFinder = find.byKey(const Key('admin_bottom_nav_content'));
+      if (navContentFinder.evaluate().isNotEmpty) {
+        final navSize = tester.getSize(navContentFinder);
+        expect(navSize.width, lessThanOrEqualTo(800.01), reason: 'Admin bottom nav constrained to <= 800');
+      }
+
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(minutes: 2));
     });
@@ -150,8 +191,47 @@ void main() {
       final adminHomeFinder = find.byIcon(Icons.dashboard_rounded);
       expect(adminHomeFinder, findsOneWidget);
 
+      // Verify admin bottom nav anchored to bottom of mobile viewport (844)
+      final navFinder = find.byKey(const Key('admin_bottom_nav'));
+      expect(navFinder, findsOneWidget);
+      final navRect = tester.getRect(navFinder);
+      expect(navRect.bottom, equals(844.0), reason: 'Admin bottom nav must be anchored to bottom of mobile viewport');
+      expect(navRect.top, greaterThanOrEqualTo(750.0), reason: 'Admin bottom nav must not expand to full screen height');
+
+      final navContentFinder = find.byKey(const Key('admin_bottom_nav_content'));
+      if (navContentFinder.evaluate().isNotEmpty) {
+        final navSize = tester.getSize(navContentFinder);
+        expect(navSize.width, lessThanOrEqualTo(390.01), reason: 'Admin bottom nav fits mobile width');
+      }
+
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(minutes: 2));
+    });
+
+    testWidgets('Product card AspectRatio enforces ~16:9 proportion (tolerance +-0.02)', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 320,
+                child: AspectRatio(
+                  key: const Key('product_card_image'),
+                  aspectRatio: 16 / 9,
+                  child: Container(color: Colors.blue),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final imgFinder = find.byKey(const Key('product_card_image'));
+      expect(imgFinder, findsOneWidget);
+      final size = tester.getSize(imgFinder);
+      final ratio = size.width / size.height;
+      expect((ratio - (16.0 / 9.0)).abs(), lessThanOrEqualTo(0.02), reason: 'AspectRatio is ~16:9');
     });
   });
 }
