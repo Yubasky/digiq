@@ -348,19 +348,10 @@ class _RegisterScreenState extends State<RegisterScreen>
                                             const SizedBox(height: 6),
                                             _buildTextField(
                                               controller: _usernameController,
-                                              hint: 'Contoh: bayup99',
+                                              hint: 'Contoh: user123',
                                               icon: Icons.alternate_email_rounded,
                                               textInputAction: TextInputAction.next,
-                                              validator: (v) {
-                                                if (v == null || v.trim().isEmpty) return 'Username wajib diisi';
-                                                final u = v.trim();
-                                                if (u.length < 3) return 'Username minimal 3 karakter';
-                                                if (u.length > 20) return 'Username maksimal 20 karakter';
-                                                if (!RegExp(r'^[a-zA-Z0-9._]+$').hasMatch(u)) {
-                                                  return 'Hanya boleh huruf, angka, titik, atau garis bawah';
-                                                }
-                                                return null;
-                                              },
+                                              validator: (v) => AuthService.validateUsernameFormat(v),
                                             ),
 
                                             const SizedBox(height: 14),
