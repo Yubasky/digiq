@@ -1,6 +1,8 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'edit_profile_screen.dart';
 import '../models/product_model.dart';
 import '../models/profile_model.dart';
@@ -27,7 +29,8 @@ class CustomerDashboardScreen extends StatefulWidget {
   const CustomerDashboardScreen({super.key, required this.profile});
 
   @override
-  State<CustomerDashboardScreen> createState() => _CustomerDashboardScreenState();
+  State<CustomerDashboardScreen> createState() =>
+      _CustomerDashboardScreenState();
 }
 
 class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
@@ -40,38 +43,68 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   String _searchQuery = '';
   bool _productsLoading = true;
 
-  // Stream subscriptions
-  late final Stream<List<ProductModel>> _productStream;
-  late final Stream<List<TransactionModel>> _trxStream;
+  // Stream subscriptions & auto-retry timers
   StreamSubscription<List<ProductModel>>? _productSub;
   StreamSubscription<List<TransactionModel>>? _trxSub;
+  Timer? _productRetryTimer;
+  Timer? _trxRetryTimer;
 
   @override
   void initState() {
     super.initState();
     _profile = widget.profile;
-    _productStream = ProductService.watchProducts(activeOnly: true);
-    _trxStream = TransactionService.watchUserTransactions();
-    _productSub = _productStream.listen((list) {
+    _subscribeProducts();
+    _subscribeTransactions();
+    // Expire pending di server saat buka riwayat
+    TransactionService.expirePendingTransactions();
+  }
 
-      if (mounted) {
+  void _subscribeProducts() {
+    _productRetryTimer?.cancel();
+    _productSub?.cancel();
+    _productSub = ProductService.watchProducts(activeOnly: true).listen(
+      (list) {
+        if (!mounted) return;
         setState(() {
           _products = list;
           _productsLoading = false;
         });
-      }
-    }, onError: (_) {});
-    _trxSub = _trxStream.listen((list) {
-      if (mounted) {
+      },
+      onError: (err) {
+        debugPrint('[CustomerDashboard] _productSub stream error: $err');
+        if (!mounted) return;
+        _productRetryTimer?.cancel();
+        _productRetryTimer = Timer(const Duration(seconds: 5), () {
+          if (mounted) _subscribeProducts();
+        });
+      },
+    );
+  }
+
+  void _subscribeTransactions() {
+    _trxRetryTimer?.cancel();
+    _trxSub?.cancel();
+    _trxSub = TransactionService.watchUserTransactions().listen(
+      (list) {
+        if (!mounted) return;
         setState(() {
           _transactions = list
-              .map((m) => QrisTransaction.fromTransactionModel(m, _profile.fullName))
+              .map(
+                (m) =>
+                    QrisTransaction.fromTransactionModel(m, _profile.fullName),
+              )
               .toList();
         });
-      }
-    }, onError: (_) {});
-    // Expire pending di server saat buka riwayat
-    TransactionService.expirePendingTransactions();
+      },
+      onError: (err) {
+        debugPrint('[CustomerDashboard] _trxSub stream error: $err');
+        if (!mounted) return;
+        _trxRetryTimer?.cancel();
+        _trxRetryTimer = Timer(const Duration(seconds: 5), () {
+          if (mounted) _subscribeTransactions();
+        });
+      },
+    );
   }
 
   @override
@@ -84,6 +117,8 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
 
   @override
   void dispose() {
+    _productRetryTimer?.cancel();
+    _trxRetryTimer?.cancel();
     _productSub?.cancel();
     _trxSub?.cancel();
     _searchController.dispose();
@@ -105,8 +140,11 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.check_circle_outline_rounded,
-                color: Colors.white, size: 18),
+            const Icon(
+              Icons.check_circle_outline_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -153,16 +191,16 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
 
   List<ProductItem> get _filteredProducts {
     // Konversi ProductModel Supabase ke ProductItem untuk kompatibilitas widget lama
-    var list = _products
-        .map((m) => ProductItem.fromProductModel(m))
-        .toList();
+    var list = _products.map((m) => ProductItem.fromProductModel(m)).toList();
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
       list = list
-          .where((p) =>
-              p.name.toLowerCase().contains(q) ||
-              p.provider.toLowerCase().contains(q) ||
-              p.description.toLowerCase().contains(q))
+          .where(
+            (p) =>
+                p.name.toLowerCase().contains(q) ||
+                p.provider.toLowerCase().contains(q) ||
+                p.description.toLowerCase().contains(q),
+          )
           .toList();
     }
     return list;
@@ -178,7 +216,10 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
     _openDirectQrisPayment(first.product);
   }
 
-  Future<void> _openQrisPayment(ProductItem product, {String targetNumber = ''}) async {
+  Future<void> _openQrisPayment(
+    ProductItem product, {
+    String targetNumber = '',
+  }) async {
     // Tampilkan loading
     if (!mounted) return;
     showDialog(
@@ -224,13 +265,12 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       final String errorMsg = e is PostgrestException
           ? e.message
           : e.toString().replaceAll('Exception:', '').trim();
-      final isUnverified = errorMsg.toLowerCase().contains('verifikasi') || errorMsg.toLowerCase().contains('verify');
+      final isUnverified =
+          errorMsg.toLowerCase().contains('verifikasi') ||
+          errorMsg.toLowerCase().contains('verify');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            errorMsg,
-            style: const TextStyle(color: Colors.white),
-          ),
+          content: Text(errorMsg, style: const TextStyle(color: Colors.white)),
           backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
         ),
@@ -238,12 +278,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
     }
   }
 
-
   void _openDirectQrisPayment(ProductItem product) {
     _openQrisPayment(product);
   }
-
-
 
   // ΓöÇΓöÇΓöÇ Build ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
@@ -254,7 +291,8 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       builder: (context, lang, child) {
         return Scaffold(
           backgroundColor: AppColors.background,
-          body: Center(
+          body: Align(
+            alignment: Alignment.topCenter,
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 1140),
               child: IndexedStack(
@@ -287,7 +325,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
         ],
       ),
       child: SafeArea(
-        child: Center(
+        child: Align(
+          alignment: Alignment.center,
+          heightFactor: 1.0,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 800),
             child: Padding(
@@ -295,12 +335,31 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _navItem(0, Icons.home_rounded, Icons.home_outlined, AppLanguage.t('nav_home')),
-                  _navItemBadge(1, Icons.shopping_cart_rounded,
-                      Icons.shopping_cart_outlined, AppLanguage.t('nav_cart'), _cartCount),
-                  _navItem(2, Icons.receipt_long_rounded,
-                      Icons.receipt_long_outlined, AppLanguage.t('nav_history')),
-                  _navItem(3, Icons.person_rounded, Icons.person_outlined, AppLanguage.t('nav_profile')),
+                  _navItem(
+                    0,
+                    Icons.home_rounded,
+                    Icons.home_outlined,
+                    AppLanguage.t('nav_home'),
+                  ),
+                  _navItemBadge(
+                    1,
+                    Icons.shopping_cart_rounded,
+                    Icons.shopping_cart_outlined,
+                    AppLanguage.t('nav_cart'),
+                    _cartCount,
+                  ),
+                  _navItem(
+                    2,
+                    Icons.receipt_long_rounded,
+                    Icons.receipt_long_outlined,
+                    AppLanguage.t('nav_history'),
+                  ),
+                  _navItem(
+                    3,
+                    Icons.person_rounded,
+                    Icons.person_outlined,
+                    AppLanguage.t('nav_profile'),
+                  ),
                 ],
               ),
             ),
@@ -311,7 +370,11 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   }
 
   Widget _navItem(
-      int index, IconData activeIcon, IconData inactiveIcon, String label) {
+    int index,
+    IconData activeIcon,
+    IconData inactiveIcon,
+    String label,
+  ) {
     final isActive = _currentTab == index;
     return GestureDetector(
       onTap: () => setState(() => _currentTab = index),
@@ -326,9 +389,11 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(isActive ? activeIcon : inactiveIcon,
-                color: isActive ? AppColors.primary : AppColors.textMuted,
-                size: 22),
+            Icon(
+              isActive ? activeIcon : inactiveIcon,
+              color: isActive ? AppColors.primary : AppColors.textMuted,
+              size: 22,
+            ),
             const SizedBox(height: 2),
             Text(
               label,
@@ -344,8 +409,13 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
     );
   }
 
-  Widget _navItemBadge(int index, IconData activeIcon, IconData inactiveIcon,
-      String label, int count) {
+  Widget _navItemBadge(
+    int index,
+    IconData activeIcon,
+    IconData inactiveIcon,
+    String label,
+    int count,
+  ) {
     final isActive = _currentTab == index;
     return GestureDetector(
       onTap: () => setState(() => _currentTab = index),
@@ -363,9 +433,11 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(isActive ? activeIcon : inactiveIcon,
-                    color: isActive ? AppColors.primary : AppColors.textMuted,
-                    size: 22),
+                Icon(
+                  isActive ? activeIcon : inactiveIcon,
+                  color: isActive ? AppColors.primary : AppColors.textMuted,
+                  size: 22,
+                ),
                 const SizedBox(height: 2),
                 Text(
                   label,
@@ -443,11 +515,16 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(
-                      icon: const Icon(Icons.notifications_outlined,
-                          color: Colors.white, size: 24),
+                      icon: const Icon(
+                        Icons.notifications_outlined,
+                        color: Colors.white,
+                        size: 24,
+                      ),
                       onPressed: _showCustomerNotifications,
-                      constraints:
-                          const BoxConstraints(minWidth: 42, minHeight: 42),
+                      constraints: const BoxConstraints(
+                        minWidth: 42,
+                        minHeight: 42,
+                      ),
                       padding: EdgeInsets.zero,
                     ),
                   ),
@@ -518,14 +595,22 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               style: const TextStyle(fontSize: 13),
               decoration: InputDecoration(
                 hintText: AppLanguage.t('search_hint'),
-                hintStyle:
-                    const TextStyle(color: AppColors.textMuted, fontSize: 13),
-                prefixIcon: const Icon(Icons.search_rounded,
-                    color: AppColors.textMuted, size: 20),
+                hintStyle: const TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 13,
+                ),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  color: AppColors.textMuted,
+                  size: 20,
+                ),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear_rounded,
-                            color: AppColors.textMuted, size: 18),
+                        icon: const Icon(
+                          Icons.clear_rounded,
+                          color: AppColors.textMuted,
+                          size: 18,
+                        ),
                         onPressed: () {
                           _searchController.clear();
                           setState(() => _searchQuery = '');
@@ -534,18 +619,23 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                     : null,
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 11),
+                  horizontal: 14,
+                  vertical: 11,
+                ),
                 border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none),
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(color: AppColors.cardBorder),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide:
-                      const BorderSide(color: AppColors.primary, width: 1.5),
+                  borderSide: const BorderSide(
+                    color: AppColors.primary,
+                    width: 1.5,
+                  ),
                 ),
                 filled: true,
                 fillColor: Colors.white,
@@ -555,9 +645,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
         ),
 
         // Promo Banner
-        SliverToBoxAdapter(
-          child: _buildPromoBanner(),
-        ),
+        SliverToBoxAdapter(child: _buildPromoBanner()),
 
         // Accounts catalog header banner
         SliverToBoxAdapter(
@@ -568,7 +656,11 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.workspace_premium_rounded, size: 20, color: AppColors.primary),
+                    const Icon(
+                      Icons.workspace_premium_rounded,
+                      size: 20,
+                      color: AppColors.primary,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       AppLanguage.t('premium_catalog'),
@@ -581,7 +673,10 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                   ],
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.primaryLight,
                     borderRadius: BorderRadius.circular(12),
@@ -604,18 +699,23 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
         _filteredProducts.isEmpty
             ? SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-                sliver: SliverToBoxAdapter(
-                  child: _buildEmptyState(),
-                ),
+                sliver: SliverToBoxAdapter(child: _buildEmptyState()),
               )
             : SliverLayoutBuilder(
                 builder: (context, constraints) {
                   final width = constraints.crossAxisExtent;
-                  final int crossAxisCount = width >= 1100 ? 4 : (width >= 720 ? 3 : 2);
-                  final double itemWidth = (width - 32 - (crossAxisCount - 1) * 12) / crossAxisCount;
-                  final double textScale = MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 1.35);
-                  final double contentHeight = (width >= 720 ? 150.0 : 156.0) * textScale;
-                  final double itemHeight = (itemWidth * 9 / 16) + contentHeight;
+                  final int crossAxisCount = width >= 1100
+                      ? 4
+                      : (width >= 720 ? 3 : 2);
+                  final double itemWidth =
+                      (width - 32 - (crossAxisCount - 1) * 12) / crossAxisCount;
+                  final double textScale = MediaQuery.textScalerOf(context)
+                      .scale(1.0)
+                      .clamp(1.0, 1.35);
+                  final double contentHeight =
+                      (width >= 720 ? 150.0 : 156.0) * textScale;
+                  final double itemHeight =
+                      (itemWidth * 9 / 16) + contentHeight;
                   final double childAspectRatio = itemWidth / itemHeight;
 
                   return SliverPadding(
@@ -695,7 +795,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.25),
                           borderRadius: BorderRadius.circular(6),
@@ -725,7 +827,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                 GestureDetector(
                   onTap: () {
                     if (_products.isNotEmpty) {
-                      _openDirectQrisPayment(ProductItem.fromProductModel(_products.first));
+                      _openDirectQrisPayment(
+                        ProductItem.fromProductModel(_products.first),
+                      );
                     } else {
                       setState(() => _currentTab = 1);
                     }
@@ -760,7 +864,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.cardBorder.withValues(alpha: 0.6)),
+          border: Border.all(
+            color: AppColors.cardBorder.withValues(alpha: 0.6),
+          ),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
@@ -788,7 +894,11 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                             errorBuilder: (_, _, _) => Container(
                               color: color.withValues(alpha: 0.12),
                               child: Center(
-                                child: Icon(product.icon, color: color, size: 30),
+                                child: Icon(
+                                  product.icon,
+                                  color: color,
+                                  size: 30,
+                                ),
                               ),
                             ),
                           )
@@ -818,11 +928,17 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                       top: 8,
                       left: 8,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.65),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.25), width: 0.5),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.25),
+                            width: 0.5,
+                          ),
                         ),
                         child: Text(
                           product.provider,
@@ -841,9 +957,16 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                       top: 8,
                       right: 8,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2.5,
+                        ),
                         decoration: BoxDecoration(
-                          color: (product.stock > 0 ? AppColors.success : AppColors.danger).withValues(alpha: 0.9),
+                          color:
+                              (product.stock > 0
+                                      ? AppColors.success
+                                      : AppColors.danger)
+                                  .withValues(alpha: 0.9),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
@@ -908,33 +1031,39 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
 
               // Quick Buy Button at Bottom
               Padding(
-            padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
-            child: SizedBox(
-              width: double.infinity,
-              height: 32,
-              child: ElevatedButton.icon(
-                onPressed: () => _openDirectQrisPayment(product),
-                icon: const Icon(Icons.qr_code_2_rounded, size: 15),
-                label: Text(AppLanguage.t('buy_action_btn'),
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
-                  elevation: 0,
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 32,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _openDirectQrisPayment(product),
+                    icon: const Icon(Icons.qr_code_2_rounded, size: 15),
+                    label: Text(
+                      AppLanguage.t('buy_action_btn'),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      elevation: 0,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
-    ),
-  ),
-);
+    );
   }
 
   void _showProductDetail(ProductItem product) {
@@ -990,11 +1119,17 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(16),
-                          child: product.imageUrl != null && product.imageUrl!.isNotEmpty
+                          child:
+                              product.imageUrl != null &&
+                                  product.imageUrl!.isNotEmpty
                               ? Image.network(
                                   product.imageUrl!,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) => Icon(product.icon, color: color, size: 40),
+                                  errorBuilder: (_, _, _) => Icon(
+                                    product.icon,
+                                    color: color,
+                                    size: 40,
+                                  ),
                                 )
                               : Icon(product.icon, color: color, size: 40),
                         ),
@@ -1013,7 +1148,10 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                     const SizedBox(height: 6),
                     Center(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.successLight,
                           borderRadius: BorderRadius.circular(20),
@@ -1021,7 +1159,11 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.check_circle_rounded, size: 13, color: AppColors.success),
+                            const Icon(
+                              Icons.check_circle_rounded,
+                              size: 13,
+                              color: AppColors.success,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               '${product.stock} ${AppLanguage.isId ? 'Akun Siap Pakai' : 'Accounts Ready'}',
@@ -1038,17 +1180,31 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                     const SizedBox(height: 16),
                     // Info rows
                     _detailRow('Provider', product.provider),
-                    _detailRow(AppLanguage.isId ? 'Deskripsi' : 'Description', product.description),
-                    _detailRow(AppLanguage.isId ? 'Ketersediaan' : 'Availability', '${product.stock} ${AppLanguage.isId ? 'akun ready' : 'ready accounts'}'),
-                    _detailRow(AppLanguage.isId ? 'Pengiriman' : 'Delivery', AppLanguage.isId ? 'Instan & Bergaransi Resmi' : 'Instant & Official Warranty'),
+                    _detailRow(
+                      AppLanguage.isId ? 'Deskripsi' : 'Description',
+                      product.description,
+                    ),
+                    _detailRow(
+                      AppLanguage.isId ? 'Ketersediaan' : 'Availability',
+                      '${product.stock} ${AppLanguage.isId ? 'akun ready' : 'ready accounts'}',
+                    ),
+                    _detailRow(
+                      AppLanguage.isId ? 'Pengiriman' : 'Delivery',
+                      AppLanguage.isId
+                          ? 'Instan & Bergaransi Resmi'
+                          : 'Instant & Official Warranty',
+                    ),
                     const Divider(height: 24),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(AppLanguage.t('price_label'),
-                            style: TextStyle(
-                                fontSize: 15,
-                                color: AppColors.textSecondary)),
+                        Text(
+                          AppLanguage.t('price_label'),
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
                         Text(
                           formatCurrency(product.price),
                           style: const TextStyle(
@@ -1070,16 +1226,27 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                               Navigator.pop(sheetContext);
                               _addToCart(product);
                             },
-                            icon: const Icon(Icons.add_shopping_cart_rounded, size: 18),
+                            icon: const Icon(
+                              Icons.add_shopping_cart_rounded,
+                              size: 18,
+                            ),
                             label: Text(
                               AppLanguage.t('add_to_cart_btn'),
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12.5,
+                              ),
                             ),
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 14),
-                              side: const BorderSide(color: AppColors.primary, width: 1.5),
+                              side: const BorderSide(
+                                color: AppColors.primary,
+                                width: 1.5,
+                              ),
                               foregroundColor: AppColors.primary,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
                             ),
                           ),
                         ),
@@ -1094,13 +1261,18 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                             icon: const Icon(Icons.qr_code_2_rounded, size: 20),
                             label: Text(
                               AppLanguage.t('buy_now'),
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13.5,
+                              ),
                             ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
                               elevation: 0,
                             ),
                           ),
@@ -1128,11 +1300,15 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             child: Text(
               label,
               style: const TextStyle(
-                  fontSize: 13, color: AppColors.textSecondary),
+                fontSize: 13,
+                color: AppColors.textSecondary,
+              ),
             ),
           ),
-          const Text(' : ',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+          const Text(
+            ' : ',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          ),
           Expanded(
             child: Text(
               value,
@@ -1161,15 +1337,19 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       padding: const EdgeInsets.all(48),
       child: Column(
         children: [
-          Icon(Icons.search_off_rounded,
-              size: 64, color: AppColors.textMuted.withValues(alpha: 0.5)),
+          Icon(
+            Icons.search_off_rounded,
+            size: 64,
+            color: AppColors.textMuted.withValues(alpha: 0.5),
+          ),
           const SizedBox(height: 12),
           Text(
             AppLanguage.t('no_products_found'),
             style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textMuted),
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textMuted,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
@@ -1193,17 +1373,18 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
         automaticallyImplyLeading: false,
         title: Row(
           children: [
-            Text(AppLanguage.t('cart_title'),
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                )),
+            Text(
+              AppLanguage.t('cart_title'),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
             if (_cartCount > 0) ...[
               const SizedBox(width: 8),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: AppColors.primaryLight,
                   borderRadius: BorderRadius.circular(12),
@@ -1211,8 +1392,10 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                 child: Text(
                   '$_cartCount item',
                   style: const TextStyle(
-                      fontSize: 12, color: AppColors.primary,
-                      fontWeight: FontWeight.w600),
+                    fontSize: 12,
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
@@ -1229,23 +1412,27 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                     content: Text(AppLanguage.t('clear_cart_confirm')),
                     actions: [
                       TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: Text(AppLanguage.t('cancel'))),
+                        onPressed: () => Navigator.pop(context),
+                        child: Text(AppLanguage.t('cancel')),
+                      ),
                       TextButton(
                         onPressed: () {
                           Navigator.pop(context);
                           setState(() => _cart.clear());
                         },
-                        child: Text(AppLanguage.t('remove_all'),
-                            style: TextStyle(color: AppColors.danger)),
+                        child: Text(
+                          AppLanguage.t('remove_all'),
+                          style: TextStyle(color: AppColors.danger),
+                        ),
                       ),
                     ],
                   ),
                 );
               },
-              child: Text(AppLanguage.t('remove_all'),
-                  style: TextStyle(
-                      color: AppColors.danger, fontSize: 13)),
+              child: Text(
+                AppLanguage.t('remove_all'),
+                style: TextStyle(color: AppColors.danger, fontSize: 13),
+              ),
             ),
         ],
         bottom: const PreferredSize(
@@ -1258,22 +1445,24 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.shopping_cart_outlined,
-                      size: 72,
-                      color: AppColors.textMuted.withValues(alpha: 0.4)),
+                  Icon(
+                    Icons.shopping_cart_outlined,
+                    size: 72,
+                    color: AppColors.textMuted.withValues(alpha: 0.4),
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     AppLanguage.t('cart_empty_title'),
                     style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textSecondary),
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     AppLanguage.t('cart_empty_desc'),
-                    style: TextStyle(
-                        fontSize: 13, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 13, color: AppColors.textMuted),
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton.icon(
@@ -1342,7 +1531,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                 Text(
                   item.product.provider,
                   style: const TextStyle(
-                      fontSize: 11.5, color: AppColors.textMuted),
+                    fontSize: 11.5,
+                    color: AppColors.textMuted,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -1403,10 +1594,11 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
     );
   }
 
-  Widget _qtyBtn(
-      {required IconData icon,
-      required VoidCallback onTap,
-      required Color color}) {
+  Widget _qtyBtn({
+    required IconData icon,
+    required VoidCallback onTap,
+    required Color color,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -1441,14 +1633,20 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
           _summaryRow('Subtotal', formatCurrency(_cartTotal)),
           const SizedBox(height: 4),
           _summaryRow(
-              'Biaya QRIS (0.7%)', formatCurrency(_cartFee),
-              valueColor: AppColors.textMuted),
+            'Biaya QRIS (0.7%)',
+            formatCurrency(_cartFee),
+            valueColor: AppColors.textMuted,
+          ),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
             child: Divider(color: AppColors.cardBorder),
           ),
-          _summaryRow(AppLanguage.t('total_payment'), formatCurrency(_cartGrandTotal),
-              isBold: true, valueColor: AppColors.primary),
+          _summaryRow(
+            AppLanguage.t('total_payment'),
+            formatCurrency(_cartGrandTotal),
+            isBold: true,
+            valueColor: AppColors.primary,
+          ),
           const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
@@ -1456,14 +1654,16 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             child: ElevatedButton.icon(
               onPressed: _openCheckout,
               icon: const Icon(Icons.qr_code_2_rounded),
-              label: Text(AppLanguage.t('pay_with_qris'),
-                  style: TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.bold)),
+              label: Text(
+                AppLanguage.t('pay_with_qris'),
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
+                  borderRadius: BorderRadius.circular(14),
+                ),
                 elevation: 0,
               ),
             ),
@@ -1473,8 +1673,12 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
     );
   }
 
-  Widget _summaryRow(String label, String value,
-      {bool isBold = false, Color? valueColor}) {
+  Widget _summaryRow(
+    String label,
+    String value, {
+    bool isBold = false,
+    Color? valueColor,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -1506,12 +1710,14 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         automaticallyImplyLeading: false,
-        title: Text(AppLanguage.t('history_title'),
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            )),
+        title: Text(
+          AppLanguage.t('history_title'),
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary,
+          ),
+        ),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, color: AppColors.cardBorder),
@@ -1522,22 +1728,24 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.receipt_long_outlined,
-                      size: 72,
-                      color: AppColors.textMuted.withValues(alpha: 0.4)),
+                  Icon(
+                    Icons.receipt_long_outlined,
+                    size: 72,
+                    color: AppColors.textMuted.withValues(alpha: 0.4),
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     AppLanguage.t('history_empty_title'),
                     style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textSecondary),
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     AppLanguage.t('history_empty_desc'),
-                    style: TextStyle(
-                        fontSize: 13, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 13, color: AppColors.textMuted),
                   ),
                 ],
               ),
@@ -1574,8 +1782,11 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               color: AppColors.successLight,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.check_circle_rounded,
-                color: AppColors.success, size: 26),
+            child: const Icon(
+              Icons.check_circle_rounded,
+              color: AppColors.success,
+              size: 26,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1598,21 +1809,28 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                   '${tx.timestamp.hour.toString().padLeft(2, '0')}:'
                   '${tx.timestamp.minute.toString().padLeft(2, '0')}',
                   style: const TextStyle(
-                      fontSize: 11, color: AppColors.textMuted),
+                    fontSize: 11,
+                    color: AppColors.textMuted,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 7, vertical: 2),
+                    horizontal: 7,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.successLight,
                     borderRadius: BorderRadius.circular(5),
                   ),
-                  child: Text(AppLanguage.t('status_success'),
-                      style: TextStyle(
-                          fontSize: 10.5,
-                          color: AppColors.success,
-                          fontWeight: FontWeight.bold)),
+                  child: Text(
+                    AppLanguage.t('status_success'),
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: AppColors.success,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -1632,7 +1850,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               Text(
                 'via QRIS',
                 style: const TextStyle(
-                    fontSize: 11, color: AppColors.textMuted),
+                  fontSize: 11,
+                  color: AppColors.textMuted,
+                ),
               ),
             ],
           ),
@@ -1691,7 +1911,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                               color: Colors.white.withValues(alpha: 0.2),
                               shape: BoxShape.circle,
                               border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.5), width: 2),
+                                color: Colors.white.withValues(alpha: 0.5),
+                                width: 2,
+                              ),
                             ),
                             child: Center(
                               child: Text(
@@ -1753,7 +1975,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                       const SizedBox(height: 3),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 3),
+                          horizontal: 10,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
@@ -1761,9 +1985,10 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                         child: Text(
                           AppLanguage.t('customer_badge'),
                           style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w500),
+                            color: Colors.white,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],
@@ -1781,10 +2006,15 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                 children: [
                   // User info card
                   _profileCard(
-                    title: AppLanguage.isId ? 'Informasi Akun' : 'Account Information',
+                    title: AppLanguage.isId
+                        ? 'Informasi Akun'
+                        : 'Account Information',
                     children: [
-                      _profileInfoRow(Icons.person_outline_rounded, AppLanguage.t('name_label'),
-                          _profile.fullName),
+                      _profileInfoRow(
+                        Icons.person_outline_rounded,
+                        AppLanguage.t('name_label'),
+                        _profile.fullName,
+                      ),
                       if (_profile.username.isNotEmpty)
                         _profileInfoRow(
                           Icons.alternate_email_rounded,
@@ -1792,11 +2022,15 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                           '@${_profile.username}',
                         ),
                       _profileInfoRow(
-                          Icons.alternate_email_rounded,
-                          AppLanguage.isId ? 'ID Akun' : 'Account ID',
-                          _profile.id.substring(0, 8).toUpperCase()),
-                      _profileInfoRow(Icons.phone_outlined, AppLanguage.t('phone_label'),
-                          _profile.phone),
+                        Icons.alternate_email_rounded,
+                        AppLanguage.isId ? 'ID Akun' : 'Account ID',
+                        _profile.id.substring(0, 8).toUpperCase(),
+                      ),
+                      _profileInfoRow(
+                        Icons.phone_outlined,
+                        AppLanguage.t('phone_label'),
+                        _profile.phone,
+                      ),
                     ],
                   ),
 
@@ -1809,15 +2043,20 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                       _statRow(
                         icon: Icons.receipt_long_rounded,
                         color: AppColors.primary,
-                        label: AppLanguage.isId ? 'Total Transaksi' : 'Total Transactions',
+                        label: AppLanguage.isId
+                            ? 'Total Transaksi'
+                            : 'Total Transactions',
                         value: '${_transactions.length}x',
                       ),
                       _statRow(
                         icon: Icons.monetization_on_rounded,
                         color: AppColors.success,
-                        label: AppLanguage.isId ? 'Total Pengeluaran' : 'Total Expenses',
-                        value: formatCurrency(_transactions.fold(
-                            0.0, (s, t) => s + t.totalAmount)),
+                        label: AppLanguage.isId
+                            ? 'Total Pengeluaran'
+                            : 'Total Expenses',
+                        value: formatCurrency(
+                          _transactions.fold(0.0, (s, t) => s + t.totalAmount),
+                        ),
                       ),
                     ],
                   ),
@@ -1846,7 +2085,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                       ),
                       _menuItem(
                         icon: Icons.help_outline_rounded,
-                        label: AppLanguage.isId ? 'Bantuan & FAQ' : 'Help & FAQ',
+                        label: AppLanguage.isId
+                            ? 'Bantuan & FAQ'
+                            : 'Help & FAQ',
                         onTap: _showFaqDialog,
                       ),
                       _menuItem(
@@ -1891,8 +2132,11 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                           color: AppColors.danger.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(Icons.logout_rounded,
-                            color: AppColors.danger, size: 20),
+                        child: const Icon(
+                          Icons.logout_rounded,
+                          color: AppColors.danger,
+                          size: 20,
+                        ),
                       ),
                       title: Text(
                         AppLanguage.t('logout'),
@@ -1902,8 +2146,11 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                           color: AppColors.danger,
                         ),
                       ),
-                      trailing: const Icon(Icons.chevron_right_rounded,
-                          color: AppColors.danger, size: 20),
+                      trailing: const Icon(
+                        Icons.chevron_right_rounded,
+                        color: AppColors.danger,
+                        size: 20,
+                      ),
                       onTap: _confirmLogout,
                     ),
                   ),
@@ -1918,8 +2165,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
     );
   }
 
-  Widget _profileCard(
-      {required String title, required List<Widget> children}) {
+  Widget _profileCard({required String title, required List<Widget> children}) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1960,9 +2206,13 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
           const SizedBox(width: 10),
           SizedBox(
             width: 70,
-            child: Text(label,
-                style: const TextStyle(
-                    fontSize: 13, color: AppColors.textSecondary)),
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+              ),
+            ),
           ),
           Expanded(
             child: Text(
@@ -1979,11 +2229,12 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
     );
   }
 
-  Widget _statRow(
-      {required IconData icon,
-      required Color color,
-      required String label,
-      required String value}) {
+  Widget _statRow({
+    required IconData icon,
+    required Color color,
+    required String label,
+    required String value,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -1999,9 +2250,13 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(label,
-                style: const TextStyle(
-                    fontSize: 13, color: AppColors.textSecondary)),
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+              ),
+            ),
           ),
           Text(
             value,
@@ -2016,11 +2271,12 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
     );
   }
 
-  Widget _menuItem(
-      {Key? key,
-      required IconData icon,
-      required String label,
-      required VoidCallback onTap}) {
+  Widget _menuItem({
+    Key? key,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
     return InkWell(
       key: key,
       onTap: onTap,
@@ -2049,8 +2305,11 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                 ),
               ),
             ),
-            const Icon(Icons.chevron_right_rounded,
-                color: AppColors.textMuted, size: 18),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.textMuted,
+              size: 18,
+            ),
           ],
         ),
       ),
@@ -2117,7 +2376,10 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               ),
               const SizedBox(height: 3),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 3,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.primaryLight,
                   borderRadius: BorderRadius.circular(8),
@@ -2133,7 +2395,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               ),
               const SizedBox(height: 14),
               Text(
-                AppLanguage.isId ? 'Aplikasi mobile produk digital yang terintegrasi pembayaran QRIS dengan konsep DANA Bisnis.\n\nNotasi biaya otomatis terjumlah, simulasi notifikasi transaksi instan, katalog pulsa, paket data, PLN, dan top up e-wallet.' : 'Digital product mobile app integrated with QRIS payments and DANA Bisnis concept.\n\nAutomatic fees calculation, instant transaction notifications, and instant delivery.',
+                AppLanguage.isId
+                    ? 'Aplikasi mobile produk digital yang terintegrasi pembayaran QRIS dengan konsep DANA Bisnis.\n\nNotasi biaya otomatis terjumlah, simulasi notifikasi transaksi instan, katalog pulsa, paket data, PLN, dan top up e-wallet.'
+                    : 'Digital product mobile app integrated with QRIS payments and DANA Bisnis concept.\n\nAutomatic fees calculation, instant transaction notifications, and instant delivery.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 12.5,
@@ -2186,8 +2450,11 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                   color: AppColors.danger.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.logout_rounded,
-                    color: AppColors.danger, size: 30),
+                child: const Icon(
+                  Icons.logout_rounded,
+                  color: AppColors.danger,
+                  size: 30,
+                ),
               ),
               const SizedBox(height: 16),
               Text(
@@ -2218,11 +2485,14 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                         foregroundColor: AppColors.textSecondary,
                         side: const BorderSide(color: AppColors.cardBorder),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
-                      child: Text(AppLanguage.t('cancel'),
-                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                      child: Text(
+                        AppLanguage.t('cancel'),
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -2237,8 +2507,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                             pageBuilder: (_, anim, _) => const LoginScreen(),
                             transitionsBuilder: (_, anim, _, child) =>
                                 FadeTransition(opacity: anim, child: child),
-                            transitionDuration:
-                                const Duration(milliseconds: 400),
+                            transitionDuration: const Duration(
+                              milliseconds: 400,
+                            ),
                           ),
                           (route) => false,
                         );
@@ -2248,11 +2519,14 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
-                      child: Text(AppLanguage.t('logout'),
-                          style: const TextStyle(fontWeight: FontWeight.bold)),
+                      child: Text(
+                        AppLanguage.t('logout'),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ),
                 ],
@@ -2287,16 +2561,26 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  const Icon(Icons.notifications_active_outlined, color: AppColors.primary),
+                  const Icon(
+                    Icons.notifications_active_outlined,
+                    color: AppColors.primary,
+                  ),
                   const SizedBox(width: 10),
                   Text(
                     AppLanguage.t('notifications'),
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 24),
-              const Icon(Icons.notifications_off_outlined, size: 48, color: AppColors.textSecondary),
+              const Icon(
+                Icons.notifications_off_outlined,
+                size: 48,
+                color: AppColors.textSecondary,
+              ),
               const SizedBox(height: 12),
               Text(
                 AppLanguage.t('no_notifications_title'),
@@ -2354,35 +2638,51 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    const Icon(Icons.help_outline_rounded, color: AppColors.primary),
+                    const Icon(
+                      Icons.help_outline_rounded,
+                      color: AppColors.primary,
+                    ),
                     const SizedBox(width: 10),
                     Text(
-                      AppLanguage.isId ? 'Bantuan & Tanya Jawab (FAQ)' : 'Help & Frequently Asked Questions (FAQ)',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      AppLanguage.isId
+                          ? 'Bantuan & Tanya Jawab (FAQ)'
+                          : 'Help & Frequently Asked Questions (FAQ)',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
                 _buildFaqItem(
-                  q: AppLanguage.isId ? 'Bagaimana cara membeli akun digital?' : 'How do I purchase a digital account?',
+                  q: AppLanguage.isId
+                      ? 'Bagaimana cara membeli akun digital?'
+                      : 'How do I purchase a digital account?',
                   a: AppLanguage.isId
                       ? 'Pilih produk yang Anda inginkan di katalog, klik tombol "Beli Sekarang", lalu selesaikan pembayaran dengan scan kode QRIS.'
                       : 'Select your desired product from the catalog, click "Buy Now", and complete payment by scanning the QRIS code.',
                 ),
                 _buildFaqItem(
-                  q: AppLanguage.isId ? 'Mengapa nominal pembayaran memiliki 3 digit unik?' : 'Why does the payment have a 3-digit unique code?',
+                  q: AppLanguage.isId
+                      ? 'Mengapa nominal pembayaran memiliki 3 digit unik?'
+                      : 'Why does the payment have a 3-digit unique code?',
                   a: AppLanguage.isId
                       ? 'Kode unik (1-300) ditambahkan agar sistem dapat mencocokkan pembayaran mutasi Anda secara instan dan otomatis tanpa perlu unggah bukti transfer manual.'
                       : 'A unique code (1-300) is added so our system can instantly and automatically match your bank mutation without uploading receipts.',
                 ),
                 _buildFaqItem(
-                  q: AppLanguage.isId ? 'Berapa lama akun saya aktif?' : 'How long does account activation take?',
+                  q: AppLanguage.isId
+                      ? 'Berapa lama akun saya aktif?'
+                      : 'How long does account activation take?',
                   a: AppLanguage.isId
                       ? 'Setelah pembayaran terverifikasi, status transaksi akan berubah menjadi Sukses dan detail kredensial akun langsung tersedia di riwayat transaksi.'
                       : 'Once payment is verified, status updates to Success and account credentials appear immediately in transaction history.',
                 ),
                 _buildFaqItem(
-                  q: AppLanguage.isId ? 'Bagaimana jika mengalami kendala transaksi?' : 'What if I encounter an issue with my transaction?',
+                  q: AppLanguage.isId
+                      ? 'Bagaimana jika mengalami kendala transaksi?'
+                      : 'What if I encounter an issue with my transaction?',
                   a: AppLanguage.isId
                       ? 'Silakan hubungi tim dukungan resmi kami melalui email: support@enikzrad.web.id.'
                       : 'Please contact our official support team via email at support@enikzrad.web.id.',
@@ -2407,9 +2707,23 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(q, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primaryDark)),
+          Text(
+            q,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+              color: AppColors.primaryDark,
+            ),
+          ),
           const SizedBox(height: 6),
-          Text(a, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.4)),
+          Text(
+            a,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+              height: 1.4,
+            ),
+          ),
         ],
       ),
     );
