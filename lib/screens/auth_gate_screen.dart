@@ -263,8 +263,15 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
       return const LoginScreen();
     }
 
+    // 4b. Sesi ada tetapi email belum terverifikasi -> arahkan ke verifikasi email
+    if (session.user.emailConfirmedAt == null) {
+      return EmailVerificationScreen(
+        initialStatus: VerificationStatus.waiting,
+        email: session.user.email,
+      );
+    }
 
-    // 5. Ada sesi — ambil profil dan arahkan ke dashboard yang sesuai
+    // 5. Ada sesi & email terkonfirmasi — ambil profil dan arahkan ke dashboard yang sesuai
     return FutureBuilder<ProfileModel?>(
       future: AuthService.getCurrentProfile(),
       builder: (context, profileSnap) {

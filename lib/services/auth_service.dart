@@ -996,6 +996,7 @@ class AuthService {
 
   static Future<void> signOut() async {
     isPasswordRecovery = false;
+    clearUsernameCache();
     await _sb.auth.signOut();
   }
 
