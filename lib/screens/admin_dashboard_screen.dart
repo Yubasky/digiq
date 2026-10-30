@@ -7,6 +7,7 @@ import '../models/transaction_model.dart';
 import '../services/product_service.dart';
 import '../services/qris_service.dart';
 import '../services/transaction_service.dart';
+import '../services/avatar_picker.dart';
 import '../theme/app_theme.dart';
 import '../widgets/add_product_dialog.dart';
 import 'login_screen.dart';
@@ -88,7 +89,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       }
       _refreshStats();
     });
-    _productSub = ProductService.watchProducts().listen((list) {
+    _productSub = ProductService.watchProducts(activeOnly: false).listen((list) {
       if (mounted) {
         setState(() {
           _products = list.map((m) => ProductItem.fromProductModel(m)).toList();
@@ -199,65 +200,136 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
 
 
-  void _addNewProduct(ProductItem item) {
-    setState(() {
-      ProductStore.addProduct(item);
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('✓ Akun "${item.name}" berhasil ditambahkan ke katalog toko!'),
-        backgroundColor: AppColors.primary,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  Future<void> _addNewProduct(ProductModel model, PickedAvatarFile? imageFile) async {
+    try {
+      String? imageUrl = model.imageUrl;
+      if (imageFile != null) {
+        imageUrl = await ProductService.uploadProductImage(
+          bytes: imageFile.bytes,
+          extension: imageFile.extension,
+          mimeType: imageFile.mimeType,
+        );
+      }
+      final toInsert = model.copyWith(imageUrl: imageUrl);
+      final created = await ProductService.addProduct(toInsert);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✓ Akun "${created.name}" berhasil ditambahkan ke katalog toko!'),
+          backgroundColor: AppColors.primary,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal menambahkan produk: $e'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      rethrow;
+    }
   }
 
-  void _updateProduct(ProductItem item) {
-    setState(() {
-      ProductStore.updateProduct(item);
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('✓ Akun "${item.name}" berhasil diperbarui!'),
-        backgroundColor: AppColors.success,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  Future<void> _updateProduct(ProductModel model, PickedAvatarFile? imageFile) async {
+    try {
+      String? imageUrl = model.imageUrl;
+      if (imageFile != null) {
+        imageUrl = await ProductService.uploadProductImage(
+          bytes: imageFile.bytes,
+          extension: imageFile.extension,
+          mimeType: imageFile.mimeType,
+          oldImageUrl: model.imageUrl,
+        );
+      }
+      final toUpdate = model.copyWith(imageUrl: imageUrl);
+      final updated = await ProductService.updateProduct(toUpdate);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✓ Akun "${updated.name}" berhasil diperbarui!'),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal memperbarui produk: $e'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      rethrow;
+    }
   }
 
-  void _toggleProductStatus(String id) {
-    setState(() {
-      ProductStore.toggleStatus(id);
-    });
+  Future<void> _toggleProductStatus(String id) async {
+    final item = _products.firstWhere((p) => p.id == id, orElse: () => _products.first);
+    final newStatus = !item.isActive;
+    try {
+      await ProductService.setProductActive(id, active: newStatus);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(newStatus ? 'Produk "${item.name}" diaktifkan.' : 'Produk "${item.name}" dinonaktifkan.'),
+          backgroundColor: AppColors.primary,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 1),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal mengubah status produk: $e'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   void _deleteProduct(String id) {
-    final item = _products.firstWhere((p) => p.id == id);
+    final item = _products.firstWhere((p) => p.id == id, orElse: () => _products.first);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Hapus Akun?'),
-        content: Text('Apakah Anda yakin ingin menghapus "${item.name}" dari katalog toko?'),
+        content: Text('Apakah Anda yakin ingin menghapus "${item.name}" dari katalog toko? Produk yang memiliki riwayat transaksi akan dinonaktifkan secara aman.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Batal'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(ctx).pop();
-              setState(() {
-                ProductStore.deleteProduct(id);
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Akun "${item.name}" telah dihapus.'),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
+              try {
+                final hardDeleted = await ProductService.deleteProduct(id);
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(hardDeleted
+                        ? 'Akun "${item.name}" telah dihapus.'
+                        : 'Akun "${item.name}" dinonaktifkan karena memiliki riwayat transaksi.'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Gagal menghapus akun: $e'),
+                    backgroundColor: AppColors.error,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
             child: const Text('Hapus'),
@@ -272,11 +344,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       context: context,
       builder: (context) => AddProductDialog(
         initialProduct: productToEdit,
-        onProductAdded: (item) {
+        onProductSaved: (model, imageFile) async {
           if (productToEdit != null) {
-            _updateProduct(item);
+            await _updateProduct(model, imageFile);
           } else {
-            _addNewProduct(item);
+            await _addNewProduct(model, imageFile);
           }
         },
       ),

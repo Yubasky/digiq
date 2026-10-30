@@ -77,3 +77,4 @@ class ProductImageValidator {
     return null;
   }
 }
+

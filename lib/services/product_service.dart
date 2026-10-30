@@ -102,8 +102,8 @@ class ProductService {
   }) async {
     final ext = extension.toLowerCase().replaceAll('.', '');
     final randSuffix = 1000 + (DateTime.now().microsecond % 9000);
-    final fileName = 'prod_' + DateTime.now().millisecondsSinceEpoch.toString() + '_' + randSuffix.toString() + '.' + ext;
-    final filePath = 'products/' + fileName;
+    final fileName = 'prod_${DateTime.now().millisecondsSinceEpoch}_$randSuffix.$ext';
+    final filePath = 'products/$fileName';
 
     // Hapus file lama jika berada di bucket product-images
     if (oldImageUrl != null && oldImageUrl.contains('/product-images/')) {
@@ -127,6 +127,6 @@ class ProductService {
     );
 
     final baseUrl = _sb.storage.from('product-images').getPublicUrl(filePath);
-    return baseUrl + '?v=' + DateTime.now().millisecondsSinceEpoch.toString();
+    return '$baseUrl?v=${DateTime.now().millisecondsSinceEpoch}';
   }
 }

@@ -1,30 +1,32 @@
 ==================================================
            DIGIQ CODE COVERAGE REPORT             
 ==================================================
-Total Source Lines Evaluated : 4290
-Total Lines Covered (Hit)    : 1006
-Unit Test Line Coverage      : 23.45%
+Total Source Lines Evaluated : 4613
+Total Lines Covered (Hit)    : 1377
+Unit Test Line Coverage      : 29.85%
 
 Files Analyzed:
   • lib\models\payment_mutation_model.dart             :  18/34  ( 52.9%)
-  • lib\models\product_model.dart                      :   0/101 (  0.0%)
+  • lib\models\product_model.dart                      :  46/103 ( 44.7%)
   • lib\models\profile_model.dart                      :  32/34  ( 94.1%)
   • lib\models\transaction_model.dart                  :  26/45  ( 57.8%)
-  • lib\screens\admin_dashboard_screen.dart            :   1/920 (  0.1%)
-  • lib\screens\auth\email_verification_screen.dart    :   0/265 (  0.0%)
+  • lib\screens\admin_dashboard_screen.dart            :   1/956 (  0.1%)
+  • lib\screens\auth\email_verification_screen.dart    :   0/267 (  0.0%)
   • lib\screens\auth\forgot_password_screen.dart       :   1/115 (  0.9%)
-  • lib\screens\customer_dashboard_screen.dart         : 326/756 ( 43.1%)
+  • lib\screens\customer_dashboard_screen.dart         : 319/753 ( 42.4%)
   • lib\screens\edit_profile_screen.dart               : 319/379 ( 84.2%)
-  • lib\screens\login_screen.dart                      :   1/203 (  0.5%)
-  • lib\screens\register_screen.dart                   :   1/306 (  0.3%)
+  • lib\screens\login_screen.dart                      :   1/315 (  0.3%)
+  • lib\screens\register_screen.dart                   :   1/243 (  0.4%)
+  • lib\services\app_language.dart                     :  67/74  ( 90.5%)
   • lib\services\auth_service.dart                     : 160/316 ( 50.6%)
   • lib\services\avatar_picker_stub.dart               :   1/2   ( 50.0%)
   • lib\services\deep_link_auth_handler.dart           :   0/23  (  0.0%)
-  • lib\services\product_service.dart                  :   7/41  ( 17.1%)
+  • lib\services\product_image_validator.dart          :  32/32  (100.0%)
+  • lib\services\product_service.dart                  :   7/61  ( 11.5%)
   • lib\services\qris_service.dart                     : 102/114 ( 89.5%)
   • lib\services\supabase_config.dart                  :   1/14  (  7.1%)
   • lib\services\transaction_service.dart              :   5/167 (  3.0%)
   • lib\theme\app_theme.dart                           :   5/23  ( 21.7%)
-  • lib\widgets\add_product_dialog.dart                :   0/163 (  0.0%)
+  • lib\widgets\add_product_dialog.dart                : 233/274 ( 85.0%)
   • lib\widgets\qris_modal.dart                        :   0/269 (  0.0%)
 ==================================================

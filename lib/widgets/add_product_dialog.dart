@@ -1,14 +1,25 @@
+// lib/widgets/add_product_dialog.dart
+// Dialog Tambah/Ubah Produk Digital dengan validasi ketat, Dropdown kategori DB,
+// upload gambar (Opsi A - JPG/PNG/WEBP maks 2MB & magic bytes), dan proteksi double submit.
+
 import 'package:flutter/material.dart';
 import '../models/product_model.dart';
+import '../services/avatar_picker.dart';
+import '../services/product_image_validator.dart';
 import '../theme/app_theme.dart';
 
 class AddProductDialog extends StatefulWidget {
-  final Function(ProductItem newProduct) onProductAdded;
+  final Future<void> Function(ProductModel newProduct, PickedAvatarFile? imageFile)? onProductSaved;
+  final Function(ProductItem newProduct)? onProductAdded;
   final ProductItem? initialProduct;
+
+  @visibleForTesting
+  static Future<PickedAvatarFile?> Function()? pickImageOverride;
 
   const AddProductDialog({
     super.key,
-    required this.onProductAdded,
+    this.onProductSaved,
+    this.onProductAdded,
     this.initialProduct,
   });
 
@@ -20,13 +31,27 @@ class _AddProductDialogState extends State<AddProductDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _priceController;
+  late final TextEditingController _discountPriceController;
   late final TextEditingController _providerController;
   late final TextEditingController _descController;
   late final TextEditingController _stockController;
   late final TextEditingController _imageUrlController;
 
+  static const List<String> _allowedCategories = [
+    'Streaming',
+    'Games',
+    'Pulsa',
+    'PLN',
+    'E-Wallet',
+  ];
+
+  late String _selectedCategory;
   late int _selectedColor;
   late IconData _selectedIcon;
+
+  PickedAvatarFile? _pickedImage;
+  String? _imageError;
+  bool _isSubmitting = false;
 
   final List<int> _palette = const [
     0xFF06ACDC, // DigiQ Sky Blue
@@ -42,56 +67,68 @@ class _AddProductDialogState extends State<AddProductDialog> {
     {
       'label': 'Netflix',
       'provider': 'Netflix',
+      'category': 'Streaming',
       'name': 'Netflix Premium 4K UHD',
       'desc': 'Akun Netflix 1 Profile Private (PIN Khusus). 4K Ultra HD, semua perangkat.',
       'color': 0xFFE50914,
       'icon': Icons.movie_filter_rounded,
-      'imageUrl': 'https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=500&q=80',
+      'price': '45000',
+      'stock': '25',
     },
     {
       'label': 'ChatGPT',
       'provider': 'OpenAI',
+      'category': 'Streaming',
       'name': 'ChatGPT Plus (GPT-4o)',
       'desc': 'Akun ChatGPT Plus resmi GPT-4o, DALL-E 3, Browsing, Voice Mode aktif.',
       'color': 0xFF10B981,
       'icon': Icons.smart_toy_rounded,
-      'imageUrl': 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500&q=80',
+      'price': '85000',
+      'stock': '15',
     },
     {
       'label': 'Spotify',
       'provider': 'Spotify',
+      'category': 'Streaming',
       'name': 'Spotify Premium 3 Bulan',
       'desc': 'Akun Spotify Premium Individual 3 Bulan. No ads, offline download.',
       'color': 0xFF1DB954,
       'icon': Icons.music_note_rounded,
-      'imageUrl': 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&q=80',
+      'price': '40000',
+      'stock': '30',
     },
     {
       'label': 'Google Pro',
       'provider': 'Google Official',
+      'category': 'Streaming',
       'name': 'Google One / Pro 2TB',
       'desc': 'Akses Akun Google One 2TB + Gemini Advanced resmi bergaransi.',
       'color': 0xFF0284C7,
       'icon': Icons.cloud_done_rounded,
-      'imageUrl': 'https://images.unsplash.com/photo-1573804633927-bfcbcd909acd?w=500&q=80',
+      'price': '60000',
+      'stock': '20',
     },
     {
       'label': 'Canva',
       'provider': 'Canva Official',
+      'category': 'Streaming',
       'name': 'Canva Pro 1 Tahun',
       'desc': 'Lisensi Akun Canva Pro 1 Tahun. Brand Kit, background remover tanpa batas.',
       'color': 0xFF8B5CF6,
       'icon': Icons.brush_rounded,
-      'imageUrl': 'https://images.unsplash.com/photo-1626785774573-4b799315345d?w=500&q=80',
+      'price': '50000',
+      'stock': '20',
     },
     {
       'label': 'YouTube',
       'provider': 'YouTube',
+      'category': 'Streaming',
       'name': 'YouTube Premium 1 Bulan',
       'desc': 'YouTube Premium & Music bebas iklan, putar latar belakang HD.',
       'color': 0xFFE50914,
       'icon': Icons.play_circle_fill_rounded,
-      'imageUrl': 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=500&q=80',
+      'price': '35000',
+      'stock': '20',
     },
   ];
 
@@ -112,10 +149,20 @@ class _AddProductDialogState extends State<AddProductDialog> {
     final p = widget.initialProduct;
     _nameController = TextEditingController(text: p?.name ?? '');
     _priceController = TextEditingController(text: p != null ? p.price.toInt().toString() : '');
+    _discountPriceController = TextEditingController();
     _providerController = TextEditingController(text: p?.provider ?? '');
     _descController = TextEditingController(text: p?.description ?? '');
     _stockController = TextEditingController(text: p != null ? p.stock.toString() : '15');
     _imageUrlController = TextEditingController(text: p?.imageUrl ?? '');
+
+    String initCat = 'Streaming';
+    if (p != null) {
+      final s = p.categoryString;
+      if (_allowedCategories.contains(s)) {
+        initCat = s;
+      }
+    }
+    _selectedCategory = initCat;
 
     _selectedColor = p?.colorHex ?? 0xFF06ACDC;
     _selectedIcon = p?.icon ?? Icons.account_circle_rounded;
@@ -125,6 +172,7 @@ class _AddProductDialogState extends State<AddProductDialog> {
   void dispose() {
     _nameController.dispose();
     _priceController.dispose();
+    _discountPriceController.dispose();
     _providerController.dispose();
     _descController.dispose();
     _stockController.dispose();
@@ -139,32 +187,113 @@ class _AddProductDialogState extends State<AddProductDialog> {
       _descController.text = preset['desc'];
       _selectedColor = preset['color'];
       _selectedIcon = preset['icon'];
-      _imageUrlController.text = preset['imageUrl'];
+      _priceController.text = preset['price'];
+      _stockController.text = preset['stock'];
+      if (_allowedCategories.contains(preset['category'])) {
+        _selectedCategory = preset['category'];
+      }
     });
   }
 
-  void _saveProduct() {
-    if (_formKey.currentState!.validate()) {
-      final double price = double.tryParse(_priceController.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-      final int stock = int.tryParse(_stockController.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 10;
-      final String? imgUrl = _imageUrlController.text.trim().isNotEmpty ? _imageUrlController.text.trim() : null;
+  Future<void> _pickImage() async {
+    try {
+      final file = AddProductDialog.pickImageOverride != null
+          ? await AddProductDialog.pickImageOverride!()
+          : await pickAvatarImage();
 
-      final newProduct = ProductItem(
-        id: widget.initialProduct?.id ?? 'acc_${DateTime.now().millisecondsSinceEpoch}',
-        name: _nameController.text.trim(),
-        category: widget.initialProduct?.category ?? ProductCategory.streaming,
-        price: price,
-        provider: _providerController.text.trim().isEmpty ? 'DigiQ Store' : _providerController.text.trim(),
-        description: _descController.text.trim().isEmpty ? 'Akun premium resmi bergaransi DigiQ. Pengiriman instan otomatis.' : _descController.text.trim(),
-        stock: stock,
-        isActive: widget.initialProduct?.isActive ?? true,
-        icon: _selectedIcon,
-        colorHex: _selectedColor,
-        imageUrl: imgUrl,
+      if (file == null) return;
+
+      final validationErr = ProductImageValidator.validateFile(
+        extension: file.extension,
+        sizeInBytes: file.sizeInBytes,
+        bytes: file.bytes,
       );
 
-      widget.onProductAdded(newProduct);
-      Navigator.of(context).pop();
+      if (validationErr != null) {
+        setState(() => _imageError = validationErr);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(validationErr),
+              backgroundColor: AppColors.error,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        return;
+      }
+
+      setState(() {
+        _pickedImage = file;
+        _imageError = null;
+      });
+    } catch (_) {
+      setState(() => _imageError = 'Gagal memilih gambar.');
+    }
+  }
+
+  Future<void> _saveProduct() async {
+    if (_isSubmitting) return;
+
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    final double price = double.tryParse(_priceController.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    final int stock = int.tryParse(_stockController.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+
+    double? discountPrice;
+    final discRaw = _discountPriceController.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (discRaw.isNotEmpty) {
+      discountPrice = double.tryParse(discRaw);
+    }
+
+    final String? imgUrl = _imageUrlController.text.trim().isNotEmpty ? _imageUrlController.text.trim() : null;
+
+    // Buat model produk
+    final productModel = ProductModel(
+      id: widget.initialProduct?.id ?? '', // Supabase meng-generate ID jika insert
+      name: _nameController.text.trim(),
+      category: _selectedCategory,
+      description: _descController.text.trim().isEmpty
+          ? 'Akun premium resmi bergaransi DigiQ. Pengiriman instan otomatis.'
+          : _descController.text.trim(),
+      price: price,
+      discountPrice: discountPrice,
+      stock: stock,
+      isActive: widget.initialProduct?.isActive ?? true,
+      imageUrl: imgUrl,
+      provider: _providerController.text.trim().isEmpty ? 'DigiQ Store' : _providerController.text.trim(),
+      createdAt: DateTime.now(),
+    );
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      if (widget.onProductSaved != null) {
+        await widget.onProductSaved!(productModel, _pickedImage);
+      } else if (widget.onProductAdded != null) {
+        // Fallback untuk kompabilitas
+        final item = ProductItem.fromProductModel(productModel).copyWith(
+          colorHex: _selectedColor,
+          icon: _selectedIcon,
+        );
+        widget.onProductAdded!(item);
+      }
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal menyimpan akun: $e'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
@@ -177,7 +306,7 @@ class _AddProductDialogState extends State<AddProductDialog> {
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       backgroundColor: Colors.white,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 480),
+        constraints: const BoxConstraints(maxWidth: 500),
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Form(
@@ -225,7 +354,7 @@ class _AddProductDialogState extends State<AddProductDialog> {
                       ),
                     ),
                     IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
+                      onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close_rounded, color: AppColors.textSecondary),
                       padding: const EdgeInsets.all(4),
                       constraints: const BoxConstraints(),
@@ -234,75 +363,104 @@ class _AddProductDialogState extends State<AddProductDialog> {
                 ),
                 const Divider(height: 22),
 
-                // Quick Preset Chips
-                const Text(
-                  'Template Cepat Akun Populer:',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.textSecondary),
-                ),
-                const SizedBox(height: 6),
-                SizedBox(
-                  height: 32,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _quickPresets.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: 6),
-                    itemBuilder: (context, idx) {
-                      final item = _quickPresets[idx];
-                      return ActionChip(
-                        avatar: Icon(item['icon'], size: 14, color: Color(item['color'])),
-                        label: Text(item['label'], style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                        backgroundColor: AppColors.background,
-                        side: const BorderSide(color: AppColors.cardBorder),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        onPressed: () => _applyPreset(item),
-                      );
-                    },
+                // Quick Preset Chips (hanya saat tambah produk baru)
+                if (!isEdit) ...[
+                  const Text(
+                    'Template Cepat Akun Populer:',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.textSecondary),
                   ),
-                ),
+                  const SizedBox(height: 6),
+                  SizedBox(
+                    height: 32,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _quickPresets.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 6),
+                      itemBuilder: (context, idx) {
+                        final item = _quickPresets[idx];
+                        return ActionChip(
+                          avatar: Icon(item['icon'], size: 14, color: Color(item['color'])),
+                          label: Text(item['label'], style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          backgroundColor: AppColors.background,
+                          side: const BorderSide(color: AppColors.cardBorder),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          onPressed: _isSubmitting ? null : () => _applyPreset(item),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
 
-                const SizedBox(height: 16),
-
-                // Image URL & Live Preview
+                // Gambar Produk (Opsi A - Upload Berkas ke Storage)
                 const Text(
-                  'Gambar Akun / Produk (URL)',
+                  'Foto / Logo Produk',
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary),
                 ),
                 const SizedBox(height: 6),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Preview thumbnail box
+                    // Preview box
                     Container(
-                      width: 52,
-                      height: 52,
+                      width: 64,
+                      height: 64,
                       decoration: BoxDecoration(
                         color: Color(_selectedColor).withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: AppColors.cardBorder),
                       ),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(9),
-                        child: _imageUrlController.text.trim().isNotEmpty
-                            ? Image.network(
-                                _imageUrlController.text.trim(),
+                        borderRadius: BorderRadius.circular(11),
+                        child: _pickedImage != null
+                            ? Image.memory(
+                                _pickedImage!.bytes,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) => Icon(_selectedIcon, color: Color(_selectedColor), size: 26),
                               )
-                            : Icon(_selectedIcon, color: Color(_selectedColor), size: 26),
+                            : (_imageUrlController.text.trim().isNotEmpty
+                                ? Image.network(
+                                    _imageUrlController.text.trim(),
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, _, _) => Icon(_selectedIcon, color: Color(_selectedColor), size: 28),
+                                  )
+                                : Icon(_selectedIcon, color: Color(_selectedColor), size: 28)),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 14),
                     Expanded(
-                      child: TextFormField(
-                        controller: _imageUrlController,
-                        onChanged: (_) => setState(() {}),
-                        decoration: const InputDecoration(
-                          hintText: 'https://images.unsplash.com/...',
-                          isDense: true,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        ),
-                        style: const TextStyle(fontSize: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          OutlinedButton.icon(
+                            key: const Key('add_product_pick_image_button'),
+                            onPressed: _isSubmitting ? null : _pickImage,
+                            icon: const Icon(Icons.upload_file_rounded, size: 16),
+                            label: Text(_pickedImage != null ? 'Ganti Berkas Foto' : 'Unggah Foto (Maks 2MB)'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _pickedImage != null
+                                ? '✓ Terpilih: ${_pickedImage!.extension.toUpperCase()} (${(_pickedImage!.sizeInBytes / 1024).toStringAsFixed(1)} KB)'
+                                : 'Format: JPG, PNG, WEBP (maks 2 MB)',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: _pickedImage != null ? AppColors.success : AppColors.textSecondary,
+                              fontWeight: _pickedImage != null ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                          if (_imageError != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                _imageError!,
+                                style: const TextStyle(fontSize: 11, color: AppColors.error),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ],
@@ -310,28 +468,65 @@ class _AddProductDialogState extends State<AddProductDialog> {
 
                 const SizedBox(height: 14),
 
-                // Name field
+                // Nama Akun field
                 const Text(
-                  'Nama Akun',
+                  'Nama Akun *',
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary),
                 ),
                 const SizedBox(height: 6),
                 TextFormField(
+                  key: const Key('add_product_name_field'),
                   controller: _nameController,
+                  enabled: !_isSubmitting,
                   decoration: const InputDecoration(
                     hintText: 'Contoh: Netflix Premium 4K / ChatGPT Plus',
                     isDense: true,
                   ),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Nama akun wajib diisi' : null,
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'Nama akun wajib diisi';
+                    if (v.trim().length < 3) return 'Nama akun minimal 3 karakter';
+                    return null;
+                  },
                 ),
 
                 const SizedBox(height: 14),
 
-                // Provider & Price & Stock Row
+                // Kategori & Provider Row
                 Row(
                   children: [
                     Expanded(
-                      flex: 4,
+                      flex: 5,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Kategori *',
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, color: AppColors.textPrimary),
+                          ),
+                          const SizedBox(height: 6),
+                          DropdownButtonFormField<String>(
+                            key: const Key('add_product_category_dropdown'),
+                            initialValue: _selectedCategory,
+                            isDense: true,
+                            decoration: const InputDecoration(isDense: true),
+                            items: _allowedCategories.map((c) {
+                              return DropdownMenuItem<String>(
+                                value: c,
+                                child: Text(c, style: const TextStyle(fontSize: 13)),
+                              );
+                            }).toList(),
+                            onChanged: _isSubmitting
+                                ? null
+                                : (val) {
+                                    if (val != null) setState(() => _selectedCategory = val);
+                                  },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      flex: 5,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -342,6 +537,7 @@ class _AddProductDialogState extends State<AddProductDialog> {
                           const SizedBox(height: 6),
                           TextFormField(
                             controller: _providerController,
+                            enabled: !_isSubmitting,
                             decoration: const InputDecoration(
                               hintText: 'Netflix / OpenAI',
                               isDense: true,
@@ -350,19 +546,29 @@ class _AddProductDialogState extends State<AddProductDialog> {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 10),
+                  ],
+                ),
+
+                const SizedBox(height: 14),
+
+                // Harga Jual & Harga Diskon & Stok Row
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Expanded(
                       flex: 4,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Harga Jual (Rp)',
+                            'Harga Jual (Rp) *',
                             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, color: AppColors.textPrimary),
                           ),
                           const SizedBox(height: 6),
                           TextFormField(
+                            key: const Key('add_product_price_field'),
                             controller: _priceController,
+                            enabled: !_isSubmitting,
                             keyboardType: TextInputType.number,
                             decoration: const InputDecoration(
                               hintText: '35000',
@@ -370,35 +576,73 @@ class _AddProductDialogState extends State<AddProductDialog> {
                               isDense: true,
                             ),
                             validator: (v) {
-                              if (v == null || v.trim().isEmpty) return 'Harga wajib diisi';
-                              if (double.tryParse(v.replaceAll(RegExp(r'[^0-9]'), '')) == null) return 'Nominal salah';
+                              if (v == null || v.trim().isEmpty) return 'Harga wajib';
+                              final numVal = double.tryParse(v.replaceAll(RegExp(r'[^0-9]'), ''));
+                              if (numVal == null || numVal <= 0) return '> 0';
                               return null;
                             },
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 4,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Harga Promo (Rp)',
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, color: AppColors.textPrimary),
+                          ),
+                          const SizedBox(height: 6),
+                          TextFormField(
+                            key: const Key('add_product_discount_field'),
+                            controller: _discountPriceController,
+                            enabled: !_isSubmitting,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              hintText: 'Opsional',
+                              prefixText: 'Rp ',
+                              isDense: true,
+                            ),
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) return null;
+                              final disc = double.tryParse(v.replaceAll(RegExp(r'[^0-9]'), ''));
+                              final price = double.tryParse(_priceController.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+                              if (disc == null) return 'Salah';
+                              if (disc >= price) return '< Harga';
+                              if (disc < 0) return '>= 0';
+                              return null;
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     Expanded(
                       flex: 3,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Stok Akun',
+                            'Stok *',
                             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, color: AppColors.textPrimary),
                           ),
                           const SizedBox(height: 6),
                           TextFormField(
+                            key: const Key('add_product_stock_field'),
                             controller: _stockController,
+                            enabled: !_isSubmitting,
                             keyboardType: TextInputType.number,
                             decoration: const InputDecoration(
                               hintText: '10',
-                              suffixText: 'akun',
                               isDense: true,
                             ),
                             validator: (v) {
                               if (v == null || v.trim().isEmpty) return 'Wajib';
+                              final s = int.tryParse(v.replaceAll(RegExp(r'[^0-9]'), ''));
+                              if (s == null || s < 0) return '>= 0';
                               return null;
                             },
                           ),
@@ -418,6 +662,7 @@ class _AddProductDialogState extends State<AddProductDialog> {
                 const SizedBox(height: 6),
                 TextFormField(
                   controller: _descController,
+                  enabled: !_isSubmitting,
                   maxLines: 2,
                   decoration: const InputDecoration(
                     hintText: 'Contoh: Akun private 1 profile PIN khusus, 4K UHD, garansi 30 hari penuh.',
@@ -444,7 +689,7 @@ class _AddProductDialogState extends State<AddProductDialog> {
                       final IconData icon = item['icon'] as IconData;
                       final bool isSelected = _selectedIcon == icon;
                       return InkWell(
-                        onTap: () => setState(() => _selectedIcon = icon),
+                        onTap: _isSubmitting ? null : () => setState(() => _selectedIcon = icon),
                         borderRadius: BorderRadius.circular(10),
                         child: Container(
                           width: 42,
@@ -472,7 +717,7 @@ class _AddProductDialogState extends State<AddProductDialog> {
                   children: _palette.map((colorHex) {
                     final isSelected = _selectedColor == colorHex;
                     return GestureDetector(
-                      onTap: () => setState(() => _selectedColor = colorHex),
+                      onTap: _isSubmitting ? null : () => setState(() => _selectedColor = colorHex),
                       child: Container(
                         margin: const EdgeInsets.only(right: 8),
                         width: 26,
@@ -506,7 +751,7 @@ class _AddProductDialogState extends State<AddProductDialog> {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
                         child: const Text('Batal'),
                       ),
                     ),
@@ -514,9 +759,20 @@ class _AddProductDialogState extends State<AddProductDialog> {
                     Expanded(
                       flex: 2,
                       child: ElevatedButton.icon(
-                        onPressed: _saveProduct,
-                        icon: const Icon(Icons.check_rounded, size: 18),
-                        label: Text(isEdit ? 'Simpan Perubahan' : 'Tambahkan Akun'),
+                        key: const Key('add_product_submit_button'),
+                        onPressed: _isSubmitting ? null : _saveProduct,
+                        icon: _isSubmitting
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Icon(Icons.check_rounded, size: 18),
+                        label: Text(
+                          _isSubmitting
+                              ? 'Menyimpan...'
+                              : (isEdit ? 'Simpan Perubahan' : 'Tambahkan Akun'),
+                        ),
                       ),
                     ),
                   ],
