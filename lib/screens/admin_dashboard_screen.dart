@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../models/product_model.dart';
 import '../models/transaction_model.dart';
+import '../services/auth_service.dart';
 import '../services/product_service.dart';
 import '../services/qris_service.dart';
 import '../services/transaction_service.dart';
@@ -386,6 +387,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       body: Column(
         children: [
           // Real-time Payment Notification Banner (DANA Bisnis Style)
@@ -397,14 +399,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
           // Body content based on selected bottom navigation index
           Expanded(
-            child: IndexedStack(
-              index: _currentNavIndex,
-              children: [
-                _buildDashboardTab(),
-                _buildProductsTab(),
-                _buildTransactionsTab(),
-                _buildStoreSettingsTab(),
-              ],
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1040),
+                child: IndexedStack(
+                  index: _currentNavIndex,
+                  children: [
+                    _buildDashboardTab(),
+                    _buildProductsTab(),
+                    _buildTransactionsTab(),
+                    _buildStoreSettingsTab(),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
@@ -503,151 +510,181 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildTopAppBar() {
     return Container(
-      padding: const EdgeInsets.only(top: 14, left: 16, right: 16, bottom: 12),
       decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: AppColors.cardBorder, width: 1)),
+        gradient: LinearGradient(
+          colors: [Color(0xFF06ACDC), Color(0xFF0077B6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: SafeArea(
         bottom: false,
-        child: Row(
-          children: [
-            // Logo DigiQ
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Image.asset(
-                'assets/img/Logo_digiq.png',
-                height: 38,
-                width: 38,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    height: 38,
-                    width: 38,
-                    decoration: BoxDecoration(
-                      gradient: AppColors.primaryGradient,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        'DQ',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(width: 10),
-            // Brand and Admin tag
-            // Brand and Admin tag
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1040),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          'DigiQ Store',
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.textPrimary,
+                  // Logo DigiQ Putih (seragam dengan customer)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.asset(
+                      'assets/img/logo digiq putih.png',
+                      height: 30,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(6),
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryLight,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Text(
-                          'ADMIN',
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.primaryDark,
+                          child: const Text(
+                            'DigiQ',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                           ),
-                        ),
-                      ),
-                    ],
+                        );
+                      },
+                    ),
                   ),
-                  Row(
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: const BoxDecoration(
-                          color: AppColors.success,
-                          shape: BoxShape.circle,
+                  const SizedBox(width: 12),
+                  // Brand & Admin Panel Pill
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            const Text(
+                              'DigiQ Store',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.22),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Text(
+                                'PANEL ADMIN',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                  letterSpacing: 0.4,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Flexible(
-                        child: Text(
-                          'Toko Aktif • QRIS',
-                          style: TextStyle(fontSize: 10.5, color: AppColors.textSecondary),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF10B981),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Text(
+                              'Toko Buka 24 Jam • QRIS Aktif',
+                              style: TextStyle(fontSize: 10.5, color: Colors.white70),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
+                  ),
+                  // Segarkan Data
+                  IconButton(
+                    icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 21),
+                    tooltip: 'Segarkan Data',
+                    padding: const EdgeInsets.all(6),
+                    constraints: const BoxConstraints(),
+                    onPressed: () {
+                      _refreshStats();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Memperbarui data statistik admin...'),
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 6),
+                  // Tombol Logout
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            title: const Text('Keluar', style: TextStyle(fontWeight: FontWeight.bold)),
+                            content: const Text('Yakin ingin keluar dari akun Admin?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Batal'),
+                              ),
+                              ElevatedButton(
+                                onPressed: () async {
+                                  Navigator.pop(context);
+                                  await AuthService.signOut();
+                                  if (!mounted) return;
+                                  Navigator.of(context).pushAndRemoveUntil(
+                                    PageRouteBuilder(
+                                      pageBuilder: (_, anim, _) => const LoginScreen(),
+                                      transitionsBuilder: (_, anim, _, child) =>
+                                          FadeTransition(opacity: anim, child: child),
+                                      transitionDuration: const Duration(milliseconds: 400),
+                                    ),
+                                    (route) => false,
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.danger,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  elevation: 0,
+                                ),
+                                child: const Text('Keluar'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      tooltip: 'Keluar',
+                      icon: const Icon(Icons.logout_rounded, color: Colors.white, size: 19),
+                      padding: const EdgeInsets.all(7),
+                      constraints: const BoxConstraints(),
+                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 4),
-            // Logout Button
-            IconButton(
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    title: const Text('Keluar', style: TextStyle(fontWeight: FontWeight.bold)),
-                    content: const Text('Yakin ingin keluar dari akun Admin?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Batal'),
-                      ),
-                      ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          Navigator.of(context).pushAndRemoveUntil(
-                            PageRouteBuilder(
-                              pageBuilder: (_, anim, _) => const LoginScreen(),
-                              transitionsBuilder: (_, anim, _, child) =>
-                                  FadeTransition(opacity: anim, child: child),
-                              transitionDuration: const Duration(milliseconds: 400),
-                            ),
-                            (route) => false,
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.danger,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          elevation: 0,
-                        ),
-                        child: const Text('Keluar'),
-                      ),
-                    ],
-                  ),
-                );
-              },
-              tooltip: 'Keluar',
-              icon: const Icon(Icons.logout_rounded, color: AppColors.danger, size: 22),
-              padding: const EdgeInsets.all(4),
-              constraints: const BoxConstraints(),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -1104,13 +1141,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
         if (width >= 1100) {
           crossAxisCount = 4;
-          childAspectRatio = 0.74;
+          childAspectRatio = 0.76;
         } else if (width >= 720) {
           crossAxisCount = 3;
-          childAspectRatio = 0.72;
+          childAspectRatio = 0.74;
         } else {
           crossAxisCount = 2;
-          childAspectRatio = 0.68;
+          childAspectRatio = 0.70;
         }
 
         return GridView.builder(
@@ -2549,38 +2586,129 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildBottomNavigationBar() {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: AppColors.cardBorder, width: 1)),
+        border: const Border(top: BorderSide(color: AppColors.cardBorder, width: 1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 16,
+            offset: const Offset(0, -4),
+          ),
+        ],
       ),
       child: SafeArea(
-        top: false,
-        child: BottomNavigationBar(
-          currentIndex: _currentNavIndex,
-          onTap: (index) => setState(() => _currentNavIndex = index),
-          backgroundColor: Colors.white,
-          selectedItemColor: AppColors.primary,
-          unselectedItemColor: AppColors.textMuted,
-          selectedFontSize: 11,
-          unselectedFontSize: 11,
-          type: BottomNavigationBarType.fixed,
-          elevation: 0,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.dashboard_rounded),
-              label: 'Beranda',
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1040),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _navItem(0, Icons.dashboard_rounded, Icons.dashboard_outlined, 'Beranda'),
+                  _navItem(1, Icons.inventory_2_rounded, Icons.inventory_2_outlined, 'Katalog'),
+                  _navItemBadge(2, Icons.receipt_long_rounded, Icons.receipt_long_outlined, 'Transaksi', _todayPendingCount),
+                  _navItem(3, Icons.storefront_rounded, Icons.storefront_outlined, 'Toko Admin'),
+                ],
+              ),
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.inventory_2_rounded),
-              label: 'Katalog',
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _navItem(int index, IconData activeIcon, IconData inactiveIcon, String label) {
+    final isActive = _currentNavIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _currentNavIndex = index),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? AppColors.primaryLight : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isActive ? activeIcon : inactiveIcon,
+              color: isActive ? AppColors.primary : AppColors.textMuted,
+              size: 22,
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.receipt_long_rounded),
-              label: 'Transaksi',
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                color: isActive ? AppColors.primary : AppColors.textMuted,
+              ),
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.storefront_rounded),
-              label: 'Toko Admin',
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _navItemBadge(int index, IconData activeIcon, IconData inactiveIcon, String label, int count) {
+    final isActive = _currentNavIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _currentNavIndex = index),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? AppColors.primaryLight : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  isActive ? activeIcon : inactiveIcon,
+                  color: isActive ? AppColors.primary : AppColors.textMuted,
+                  size: 22,
+                ),
+                if (count > 0)
+                  Positioned(
+                    top: -4,
+                    right: -8,
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: const BoxDecoration(
+                        color: AppColors.warning,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      child: Text(
+                        count > 99 ? '99+' : '$count',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                color: isActive ? AppColors.primary : AppColors.textMuted,
+              ),
             ),
           ],
         ),
