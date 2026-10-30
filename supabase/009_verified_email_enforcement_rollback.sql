@@ -13,6 +13,8 @@ DROP TABLE IF EXISTS public.blocked_email_domains CASCADE;
 
 -- 2. Kembalikan RPC create_purchase_transaction ke definisi PERSIS LIVE (002)
 --    (Tanpa blokir is_email_verified)
+DROP FUNCTION IF EXISTS public.create_purchase_transaction(UUID, TEXT);
+
 CREATE OR REPLACE FUNCTION public.create_purchase_transaction(
   p_product_id    UUID,
   p_target_number TEXT DEFAULT ''

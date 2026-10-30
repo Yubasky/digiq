@@ -49,6 +49,8 @@ COMMENT ON FUNCTION public.is_email_verified() IS
 -- 2. RPC: create_purchase_transaction
 --    (Basis PERSIS definisi LIVE dengan HANYA penambahan pengecekan is_email_verified)
 -- ------------------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.create_purchase_transaction(UUID, TEXT);
+
 CREATE OR REPLACE FUNCTION public.create_purchase_transaction(
   p_product_id    UUID,
   p_target_number TEXT DEFAULT ''
