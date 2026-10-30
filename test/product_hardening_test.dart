@@ -160,9 +160,9 @@ void main() {
       expect(m.outOfStock, isFalse);
     });
 
-    test('ProductModel.toInsertMap tidak menyertakan id (mengandalkan UUID database)', () {
+    test('ProductModel.toInsertMap menyertakan id untuk sinkronisasi folder storage gambar', () {
       final m = ProductModel(
-        id: 'klien-id-harus-diabaikan',
+        id: 'uuid-klien-resmi-123',
         name: 'Spotify Premium',
         category: 'Streaming',
         description: '3 Bulan',
@@ -175,7 +175,7 @@ void main() {
       );
 
       final insertMap = m.toInsertMap();
-      expect(insertMap.containsKey('id'), isFalse, reason: 'ID harus digenerate DB via gen_random_uuid()');
+      expect(insertMap['id'], 'uuid-klien-resmi-123', reason: 'ID harus identik dengan path storage produk');
       expect(insertMap['name'], 'Spotify Premium');
       expect(insertMap['category'], 'Streaming');
       expect(insertMap['price'], 40000.0);
@@ -211,9 +211,9 @@ void main() {
       expect(RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$').hasMatch(uuid1), isTrue);
     });
 
-    test('ProductModel.toInsertMap tidak menyertakan id (mengandalkan UUID database gen_random_uuid)', () {
+    test('ProductModel.toInsertMap menghilangkan id jika kosong (fallback ke UUID database gen_random_uuid)', () {
       final model = ProductModel(
-        id: 'prod-uuid-123',
+        id: '',
         name: 'Test Product',
         category: 'Games',
         description: 'Deskripsi test produk',
@@ -224,7 +224,7 @@ void main() {
         createdAt: DateTime.now(),
       );
       final map = model.toInsertMap();
-      expect(map.containsKey('id'), isFalse);
+      expect(map.containsKey('id'), isFalse, reason: 'Jika id kosong, DB men-generate UUID otomatis');
       expect(map['name'], 'Test Product');
     });
   });

@@ -83,9 +83,13 @@ class ProductService {
   }
 
   /// Hapus produk. Bila gagal karena transaksi terkait (FK 23503), otomatis fallback ke soft-delete.
-  static Future<bool> deleteProduct(String productId) async {
+  /// Jika berhasil hard-delete dari tabel, bersihkan juga file gambar terkait dari storage.
+  static Future<bool> deleteProduct(String productId, {String? imageUrl}) async {
     try {
       await _sb.from(_table).delete().eq('id', productId);
+      if (imageUrl != null && imageUrl.isNotEmpty) {
+        await deleteStorageFile(imageUrl);
+      }
       return true;
     } catch (_) {
       await setProductActive(productId, active: false);

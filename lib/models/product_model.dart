@@ -58,6 +58,7 @@ class ProductModel {
   }
 
   Map<String, dynamic> toInsertMap() => {
+        if (id.isNotEmpty) 'id': id,
         'name': name,
         'category': category,
         'description': description,

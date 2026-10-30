@@ -329,7 +329,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             onPressed: () async {
               Navigator.of(ctx).pop();
               try {
-                final hardDeleted = await ProductService.deleteProduct(id);
+                final hardDeleted = await ProductService.deleteProduct(id, imageUrl: item.imageUrl);
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
