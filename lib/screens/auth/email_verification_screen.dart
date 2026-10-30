@@ -1,5 +1,4 @@
 // lib/screens/auth/email_verification_screen.dart
-//
 // Halaman konfirmasi verifikasi email DigiQ 100% murni Flutter Dart Widgets.
 // Menangani 3 status verifikasi:
 // 1. VerificationStatus.waiting: Menunggu konfirmasi user di Gmail (ikon amplop Cyan #06ACDC, cooldown 60s)
@@ -684,14 +683,18 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  AppLanguage.isId
-                      ? 'Mengalihkan ke Beranda dalam $_redirectCountdown detik...'
-                      : 'Redirecting to Home in $_redirectCountdown seconds...',
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.success,
+                Flexible(
+                  child: Text(
+                    AppLanguage.isId
+                        ? 'Mengalihkan ke Beranda dalam $_redirectCountdown detik...'
+                        : 'Redirecting to Home in $_redirectCountdown seconds...',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.success,
+                    ),
                   ),
                 ),
               ],
