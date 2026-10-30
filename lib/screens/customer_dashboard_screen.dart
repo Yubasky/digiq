@@ -609,23 +609,10 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             : SliverLayoutBuilder(
                 builder: (context, constraints) {
                   final width = constraints.crossAxisExtent;
-                  final int crossAxisCount;
-                  final double childAspectRatio;
-                  final double imageHeight;
-
-                  if (width >= 1100) {
-                    crossAxisCount = 4;
-                    childAspectRatio = 0.82;
-                    imageHeight = 130;
-                  } else if (width >= 720) {
-                    crossAxisCount = 3;
-                    childAspectRatio = 0.80;
-                    imageHeight = 120;
-                  } else {
-                    crossAxisCount = 2;
-                    childAspectRatio = 0.76;
-                    imageHeight = 110;
-                  }
+                  final int crossAxisCount = width >= 1100 ? 4 : (width >= 720 ? 3 : 2);
+                  final double itemWidth = (width - 32 - (crossAxisCount - 1) * 12) / crossAxisCount;
+                  final double itemHeight = (itemWidth * 9 / 16) + 120;
+                  final double childAspectRatio = itemWidth / itemHeight;
 
                   return SliverPadding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
@@ -637,7 +624,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                         childAspectRatio: childAspectRatio,
                       ),
                       delegate: SliverChildBuilderDelegate(
-                        (ctx, i) => _buildProductCard(_filteredProducts[i], imageHeight: imageHeight),
+                        (ctx, i) => _buildProductCard(_filteredProducts[i]),
                         childCount: _filteredProducts.length,
                       ),
                     ),
@@ -761,7 +748,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
     );
   }
 
-  Widget _buildProductCard(ProductItem product, {double imageHeight = 110}) {
+  Widget _buildProductCard(ProductItem product) {
     final color = Color(product.colorHex);
     return GestureDetector(
       onTap: () => _showProductDetail(product),
@@ -782,8 +769,12 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
           borderRadius: BorderRadius.circular(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
               // 16:9 Banner Image Header with Overlaid Provider Badge and Stock Badge
               AspectRatio(
                 aspectRatio: 16 / 9,
@@ -869,9 +860,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                 ),
               ),
 
-              // Product Info & Quick Buy Button
+              // Product Info
               Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
@@ -900,34 +891,13 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     Text(
                       formatCurrency(product.price),
                       style: const TextStyle(
-                        fontSize: 13.5,
+                        fontSize: 13,
                         fontWeight: FontWeight.bold,
                         color: AppColors.primaryDark,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 32,
-                      child: ElevatedButton.icon(
-                        onPressed: () => _openDirectQrisPayment(product),
-                        icon: const Icon(Icons.qr_code_2_rounded, size: 15),
-                        label: Text(AppLanguage.t('buy_action_btn'),
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 6),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8)),
-                          elevation: 0,
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
                       ),
                     ),
                   ],
@@ -935,9 +905,36 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               ),
             ],
           ),
-        ),
+
+          // Quick Buy Button at Bottom
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+            child: SizedBox(
+              width: double.infinity,
+              height: 32,
+              child: ElevatedButton.icon(
+                onPressed: () => _openDirectQrisPayment(product),
+                icon: const Icon(Icons.qr_code_2_rounded, size: 15),
+                label: Text(AppLanguage.t('buy_action_btn'),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                  elevation: 0,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
-    );
+    ),
+  ),
+);
   }
 
   void _showProductDetail(ProductItem product) {

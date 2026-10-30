@@ -722,7 +722,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildDashboardTab() {
-    return Center(
+    return Align(
+      alignment: Alignment.topCenter,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 1040),
         child: RefreshIndicator(
@@ -1177,19 +1178,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final int crossAxisCount;
-        final double childAspectRatio;
-
-        if (width >= 1100) {
-          crossAxisCount = 4;
-          childAspectRatio = 0.94;
-        } else if (width >= 720) {
-          crossAxisCount = 3;
-          childAspectRatio = 0.92;
-        } else {
-          crossAxisCount = 2;
-          childAspectRatio = 0.88;
-        }
+        final int crossAxisCount = width >= 1100 ? 4 : (width >= 720 ? 3 : 2);
+        final double itemWidth = (width - (crossAxisCount - 1) * 12) / crossAxisCount;
+        final double itemHeight = (itemWidth * 9 / 16) + 112;
+        final double childAspectRatio = itemWidth / itemHeight;
 
         return GridView.builder(
           shrinkWrap: true,
@@ -1230,8 +1222,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         borderRadius: BorderRadius.circular(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
             // 16:9 Banner Image Header with Overlaid Badge and Switch
             AspectRatio(
               aspectRatio: 16 / 9,
@@ -1378,7 +1374,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ),
 
-            // Card Footer: Actions (Status, Edit & Delete) - No Spacer!
+            ],
+            ),
+
+            // Card Footer: Actions (Status, Edit & Delete) - Snug & Bottom Aligned
             Container(
               margin: const EdgeInsets.only(top: 4),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -1438,7 +1437,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildProductsTab() {
-    return Center(
+    return Align(
+      alignment: Alignment.topCenter,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 1040),
         child: SingleChildScrollView(
@@ -1494,7 +1494,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget _buildTransactionsTab() {
     final pendingList = _pendingTrxModels;
 
-    return Center(
+    return Align(
+      alignment: Alignment.topCenter,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 1040),
         child: SingleChildScrollView(
@@ -2054,7 +2055,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
 
   Widget _buildStoreSettingsTab() {
-    return Center(
+    return Align(
+      alignment: Alignment.topCenter,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 1040),
         child: SingleChildScrollView(
@@ -2680,16 +2682,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ],
       ),
       child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _navItem(0, Icons.dashboard_rounded, Icons.dashboard_outlined, AppLanguage.t('nav_admin_home')),
-              _navItem(1, Icons.inventory_2_rounded, Icons.inventory_2_outlined, AppLanguage.t('nav_admin_catalog')),
-              _navItemBadge(2, Icons.receipt_long_rounded, Icons.receipt_long_outlined, AppLanguage.t('nav_admin_trx'), _todayPendingCount),
-              _navItem(3, Icons.storefront_rounded, Icons.storefront_outlined, AppLanguage.t('nav_admin_store')),
-            ],
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _navItem(0, Icons.dashboard_rounded, Icons.dashboard_outlined, AppLanguage.t('nav_admin_home')),
+                  _navItem(1, Icons.inventory_2_rounded, Icons.inventory_2_outlined, AppLanguage.t('nav_admin_catalog')),
+                  _navItemBadge(2, Icons.receipt_long_rounded, Icons.receipt_long_outlined, AppLanguage.t('nav_admin_trx'), _todayPendingCount),
+                  _navItem(3, Icons.storefront_rounded, Icons.storefront_outlined, AppLanguage.t('nav_admin_store')),
+                ],
+              ),
+            ),
           ),
         ),
       ),
