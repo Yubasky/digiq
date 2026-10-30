@@ -75,10 +75,18 @@ BEGIN
 
   v_base_amount := v_product.price;
 
-  SELECT payload_string INTO v_static_payload
-  FROM public.qris_static
-  WHERE is_active = true
-  LIMIT 1;
+  -- 6. Baca konfigurasi QRIS dinamis dari app_settings
+  SELECT COALESCE(NULLIF(value, '')::int, 1) INTO v_min
+  FROM public.app_settings WHERE key = 'unique_code_min';
+
+  SELECT COALESCE(NULLIF(value, '')::int, 300) INTO v_max
+  FROM public.app_settings WHERE key = 'unique_code_max';
+
+  SELECT COALESCE(NULLIF(value, '')::int, 15) INTO v_ttl_minutes
+  FROM public.app_settings WHERE key = 'pending_ttl_minutes';
+
+  SELECT COALESCE(value, '') INTO v_static_payload
+  FROM public.app_settings WHERE key = 'qris_static_payload';
 
   IF v_static_payload IS NULL OR v_static_payload = '' THEN
     RAISE EXCEPTION 'Sistem QRIS belum dikonfigurasi oleh admin' USING ERRCODE = 'P0001';
