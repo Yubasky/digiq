@@ -60,12 +60,16 @@ class ProductService {
         .eq('id', productId);
   }
 
-  /// Soft-delete: set is_active=false. Tidak benar-benar menghapus.
-  static Future<void> setProductActive(String productId, {required bool active}) async {
-    await _sb
+  /// Soft-delete atau aktifkan kembali: update is_active di database.
+  /// Memanggil .select().single() untuk menjamin validasi RLS dan mengembalikan data terbaru.
+  static Future<ProductModel> setProductActive(String productId, {required bool active}) async {
+    final data = await _sb
         .from(_table)
         .update({'is_active': active})
-        .eq('id', productId);
+        .eq('id', productId)
+        .select()
+        .single();
+    return ProductModel.fromMap(data);
   }
 
   /// Ambil satu produk by ID (one-shot, bukan stream).

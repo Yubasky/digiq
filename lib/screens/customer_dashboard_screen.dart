@@ -252,14 +252,19 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       builder: (context, lang, child) {
         return Scaffold(
           backgroundColor: AppColors.background,
-          body: IndexedStack(
-            index: _currentTab,
-            children: [
-              _buildBerandaTab(),
-              _buildKeranjangTab(),
-              _buildRiwayatTab(),
-              _buildProfilTab(),
-            ],
+          body: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1140),
+              child: IndexedStack(
+                index: _currentTab,
+                children: [
+                  _buildBerandaTab(),
+                  _buildKeranjangTab(),
+                  _buildRiwayatTab(),
+                  _buildProfilTab(),
+                ],
+              ),
+            ),
           ),
           bottomNavigationBar: _buildBottomNav(),
         );
@@ -280,18 +285,23 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
         ],
       ),
       child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _navItem(0, Icons.home_rounded, Icons.home_outlined, AppLanguage.t('nav_home')),
-              _navItemBadge(1, Icons.shopping_cart_rounded,
-                  Icons.shopping_cart_outlined, AppLanguage.t('nav_cart'), _cartCount),
-              _navItem(2, Icons.receipt_long_rounded,
-                  Icons.receipt_long_outlined, AppLanguage.t('nav_history')),
-              _navItem(3, Icons.person_rounded, Icons.person_outlined, AppLanguage.t('nav_profile')),
-            ],
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _navItem(0, Icons.home_rounded, Icons.home_outlined, AppLanguage.t('nav_home')),
+                  _navItemBadge(1, Icons.shopping_cart_rounded,
+                      Icons.shopping_cart_outlined, AppLanguage.t('nav_cart'), _cartCount),
+                  _navItem(2, Icons.receipt_long_rounded,
+                      Icons.receipt_long_outlined, AppLanguage.t('nav_history')),
+                  _navItem(3, Icons.person_rounded, Icons.person_outlined, AppLanguage.t('nav_profile')),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -605,15 +615,15 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
 
                   if (width >= 1100) {
                     crossAxisCount = 4;
-                    childAspectRatio = 0.74;
+                    childAspectRatio = 0.82;
                     imageHeight = 130;
                   } else if (width >= 720) {
                     crossAxisCount = 3;
-                    childAspectRatio = 0.72;
+                    childAspectRatio = 0.80;
                     imageHeight = 120;
                   } else {
                     crossAxisCount = 2;
-                    childAspectRatio = 0.69;
+                    childAspectRatio = 0.76;
                     imageHeight = 110;
                   }
 
@@ -758,61 +768,113 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.cardBorder.withValues(alpha: 0.6)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
               offset: const Offset(0, 3),
             ),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Image or Icon area
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              child: Container(
-                width: double.infinity,
-                height: imageHeight,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.08),
-                ),
-                child: product.imageUrl != null && product.imageUrl!.isNotEmpty
-                    ? Image.network(
-                        product.imageUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => Center(
-                          child: Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: color.withValues(alpha: 0.16),
-                              shape: BoxShape.circle,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 16:9 Banner Image Header with Overlaid Provider Badge and Stock Badge
+              AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    product.imageUrl != null && product.imageUrl!.isNotEmpty
+                        ? Image.network(
+                            product.imageUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => Container(
+                              color: color.withValues(alpha: 0.12),
+                              child: Center(
+                                child: Icon(product.icon, color: color, size: 30),
+                              ),
                             ),
-                            child: Icon(product.icon, color: color, size: 24),
+                          )
+                        : Container(
+                            color: color.withValues(alpha: 0.12),
+                            child: Center(
+                              child: Icon(product.icon, color: color, size: 30),
+                            ),
                           ),
-                        ),
-                      )
-                    : Center(
-                        child: Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.16),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(product.icon, color: color, size: 24),
+                    // Scrim gradient
+                    const DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black54,
+                            Colors.transparent,
+                            Colors.black38,
+                          ],
+                          stops: [0.0, 0.45, 1.0],
                         ),
                       ),
+                    ),
+                    // Provider Badge Overlay (Top Left)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.65),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.25), width: 0.5),
+                        ),
+                        child: Text(
+                          product.provider,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                    // Stock Badge Overlay (Top Right)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+                        decoration: BoxDecoration(
+                          color: (product.stock > 0 ? AppColors.success : AppColors.danger).withValues(alpha: 0.9),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'Stok: ${product.stock}',
+                          style: const TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Expanded(
-              child: Padding(
+
+              // Product Info & Quick Buy Button
+              Padding(
                 padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       product.name,
@@ -825,34 +887,26 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                         height: 1.25,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            product.provider,
-                            style: const TextStyle(fontSize: 10.5, color: AppColors.textMuted),
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                    if (product.description.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        product.description,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: AppColors.textMuted,
+                          height: 1.2,
                         ),
-                        Text(
-                          'Stok: ${product.stock}',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: product.stock > 0 ? AppColors.success : AppColors.danger,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
+                      ),
+                    ],
+                    const SizedBox(height: 6),
                     Text(
                       formatCurrency(product.price),
                       style: const TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
+                        color: AppColors.primaryDark,
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -879,8 +933,8 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                   ],
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
