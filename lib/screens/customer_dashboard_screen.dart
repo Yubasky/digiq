@@ -310,6 +310,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
 
   Widget _buildBottomNav() {
     return Container(
+      key: const Key('customer_bottom_nav'),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -321,49 +322,51 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
         ],
       ),
       child: SafeArea(
-        child: Align(
-          alignment: Alignment.center,
-          heightFactor: 1.0,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 800),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _navItem(
-                      0,
-                      Icons.home_rounded,
-                      Icons.home_outlined,
-                      AppLanguage.t('nav_home'),
+        top: false,
+        child: SizedBox(
+          height: 66,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _navItem(
+                        0,
+                        Icons.home_rounded,
+                        Icons.home_outlined,
+                        AppLanguage.t('nav_home'),
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: _navItemBadge(
-                      1,
-                      Icons.shopping_cart_rounded,
-                      Icons.shopping_cart_outlined,
-                      AppLanguage.t('nav_cart'),
-                      _cartCount,
+                    Expanded(
+                      child: _navItemBadge(
+                        1,
+                        Icons.shopping_cart_rounded,
+                        Icons.shopping_cart_outlined,
+                        AppLanguage.t('nav_cart'),
+                        _cartCount,
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: _navItem(
-                      2,
-                      Icons.receipt_long_rounded,
-                      Icons.receipt_long_outlined,
-                      AppLanguage.t('nav_history'),
+                    Expanded(
+                      child: _navItem(
+                        2,
+                        Icons.receipt_long_rounded,
+                        Icons.receipt_long_outlined,
+                        AppLanguage.t('nav_history'),
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: _navItem(
-                      3,
-                      Icons.person_rounded,
-                      Icons.person_outlined,
-                      AppLanguage.t('nav_profile'),
+                    Expanded(
+                      child: _navItem(
+                        3,
+                        Icons.person_rounded,
+                        Icons.person_outlined,
+                        AppLanguage.t('nav_profile'),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -384,7 +387,6 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
         decoration: BoxDecoration(
           color: isActive ? AppColors.primaryLight : Colors.transparent,
@@ -565,29 +567,34 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               ),
               child: SafeArea(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 72, 20, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Text(
-                        '${AppLanguage.t('greeting_prefix')}${_profile.fullName.split(' ').first} 👋',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.3,
+                  padding: const EdgeInsets.fromLTRB(20, 48, 20, 12),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.bottomLeft,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${AppLanguage.t('greeting_prefix')}${_profile.fullName.split(' ').first} 👋',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.3,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        AppLanguage.t('greeting_subtitle'),
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.88),
-                          fontSize: 13,
+                        const SizedBox(height: 4),
+                        Text(
+                          AppLanguage.t('greeting_subtitle'),
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.88),
+                            fontSize: 13,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -664,24 +671,31 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.workspace_premium_rounded,
-                      size: 20,
-                      color: AppColors.primary,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      AppLanguage.t('premium_catalog'),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
+                Expanded(
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.workspace_premium_rounded,
+                        size: 20,
+                        color: AppColors.primary,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          AppLanguage.t('premium_catalog'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -752,7 +766,6 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   Widget _buildPromoBanner() {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-      height: 110,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [Color(0xFF0093E9), Color(0xFF80D0C7)],
@@ -768,100 +781,107 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
           ),
         ],
       ),
-      child: Stack(
-        children: [
-          Positioned(
-            right: -20,
-            top: -20,
-            child: Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
+          children: [
+            Positioned(
+              right: -20,
+              top: -20,
+              child: Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
               ),
             ),
-          ),
-          Positioned(
-            right: 20,
-            bottom: -30,
-            child: Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.08),
-                shape: BoxShape.circle,
+            Positioned(
+              right: 20,
+              bottom: -30,
+              child: Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
+                ),
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(18),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.25),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          AppLanguage.t('today_promo_badge'),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            AppLanguage.t('today_promo_badge'),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        AppLanguage.t('today_promo_title'),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          height: 1.3,
+                        const SizedBox(height: 6),
+                        Text(
+                          AppLanguage.t('today_promo_title'),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            height: 1.25,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  GestureDetector(
+                    onTap: () {
+                      if (_products.isNotEmpty) {
+                        _openDirectQrisPayment(
+                          ProductItem.fromProductModel(_products.first),
+                        );
+                      } else {
+                        setState(() => _currentTab = 1);
+                      }
+                    },
+                    child: Container(
+                      width: 58,
+                      height: 58,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                    ],
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () {
-                    if (_products.isNotEmpty) {
-                      _openDirectQrisPayment(
-                        ProductItem.fromProductModel(_products.first),
-                      );
-                    } else {
-                      setState(() => _currentTab = 1);
-                    }
-                  },
-                  child: Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Icon(
-                      Icons.qr_code_2_rounded,
-                      color: Colors.white,
-                      size: 38,
+                      child: const Icon(
+                        Icons.qr_code_2_rounded,
+                        color: Colors.white,
+                        size: 34,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
