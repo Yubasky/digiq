@@ -79,28 +79,43 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   void _startStreams() {
-    _trxSub = TransactionService.watchAllTransactionsForAdmin().listen((list) {
-      if (mounted) {
-        setState(() {
-          _trxModels = list;
-          _transactions = list
-              .map((m) => QrisTransaction.fromTransactionModel(m, m.userId))
-              .toList();
-          _pendingTrxModels = list.where((t) => t.isPending && !t.isExpired).toList();
-        });
-      }
-      _refreshStats();
-    });
-    _productSub = ProductService.watchProducts(activeOnly: false).listen((list) {
-      if (mounted) {
-        setState(() {
-          _products = list.map((m) => ProductItem.fromProductModel(m)).toList();
-        });
-      }
-    });
-    _mutationSub = TransactionService.watchPaymentMutations().listen((list) {
-      if (mounted) setState(() => _mutations = list);
-    });
+    _trxSub = TransactionService.watchAllTransactionsForAdmin().listen(
+      (list) {
+        if (mounted) {
+          setState(() {
+            _trxModels = list;
+            _transactions = list
+                .map((m) => QrisTransaction.fromTransactionModel(m, m.userId))
+                .toList();
+            _pendingTrxModels = list.where((t) => t.isPending && !t.isExpired).toList();
+          });
+        }
+        _refreshStats();
+      },
+      onError: (err) {
+        debugPrint('[AdminDashboard] _trxSub stream error: ');
+      },
+    );
+    _productSub = ProductService.watchProducts(activeOnly: false).listen(
+      (list) {
+        if (mounted) {
+          setState(() {
+            _products = list.map((m) => ProductItem.fromProductModel(m)).toList();
+          });
+        }
+      },
+      onError: (err) {
+        debugPrint('[AdminDashboard] _productSub stream error: ');
+      },
+    );
+    _mutationSub = TransactionService.watchPaymentMutations().listen(
+      (list) {
+        if (mounted) setState(() => _mutations = list);
+      },
+      onError: (err) {
+        debugPrint('[AdminDashboard] _mutationSub stream error: ');
+      },
+    );
     TransactionService.expirePendingTransactions();
   }
 
@@ -403,7 +418,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
               // Body content based on selected bottom navigation index
               Expanded(
-                child: Center(
+                child: Align(
+                  alignment: Alignment.topCenter,
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 1040),
                     child: IndexedStack(
@@ -1423,7 +1439,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final pendingList = _pendingTrxModels;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 90),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1978,7 +1994,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildStoreSettingsTab() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 90),
       child: Column(
         children: [
           // Store Profile Card
