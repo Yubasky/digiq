@@ -407,33 +407,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       builder: (context, lang, _) {
         return Scaffold(
           backgroundColor: AppColors.background,
-          body: Column(
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(62),
+            child: _buildTopAppBar(),
+          ),
+          body: IndexedStack(
+            index: _currentNavIndex,
             children: [
-              // Real-time Payment Notification Banner (DANA Bisnis Style)
-              if (_showNotificationBanner && _latestNotification != null)
-                _buildRealtimePaymentBanner(),
-
-              // Top App Bar
-              _buildTopAppBar(),
-
-              // Body content based on selected bottom navigation index
-              Expanded(
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1040),
-                    child: IndexedStack(
-                      index: _currentNavIndex,
-                      children: [
-                        _buildDashboardTab(),
-                        _buildProductsTab(),
-                        _buildTransactionsTab(),
-                        _buildStoreSettingsTab(),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+              _buildDashboardTab(),
+              _buildProductsTab(),
+              _buildTransactionsTab(),
+              _buildStoreSettingsTab(),
             ],
           ),
           bottomNavigationBar: _buildBottomNavigationBar(),
@@ -717,18 +701,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildDashboardTab() {
-    return RefreshIndicator(
-      onRefresh: () async {
-        await Future.delayed(const Duration(milliseconds: 500));
-        setState(() {});
-      },
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 90),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // DANA Bisnis Inspired Revenue & Wallet Card
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1040),
+        child: RefreshIndicator(
+          onRefresh: () async {
+            await Future.delayed(const Duration(milliseconds: 500));
+            setState(() {});
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 90),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_showNotificationBanner && _latestNotification != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildRealtimePaymentBanner(),
+                  ),
+                // DANA Bisnis Inspired Revenue & Wallet Card
             _buildWalletCard(),
 
             const SizedBox(height: 16),
@@ -782,6 +774,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ],
         ),
       ),
+    ),
+    ),
     );
   }
 
@@ -1387,7 +1381,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildProductsTab() {
-    return SingleChildScrollView(
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1040),
+        child: SingleChildScrollView(
       padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 90),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1432,13 +1429,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           _buildProductsGrid(),
         ],
       ),
+    ),
+    ),
     );
   }
 
   Widget _buildTransactionsTab() {
     final pendingList = _pendingTrxModels;
 
-    return SingleChildScrollView(
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1040),
+        child: SingleChildScrollView(
       padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 90),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1659,6 +1661,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
         ],
       ),
+    ),
+    ),
     );
   }
 
@@ -1993,7 +1997,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
 
   Widget _buildStoreSettingsTab() {
-    return SingleChildScrollView(
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1040),
+        child: SingleChildScrollView(
       padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 90),
       child: Column(
         children: [
@@ -2064,6 +2071,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
         ],
       ),
+    ),
+    ),
     );
   }
 
@@ -2614,21 +2623,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ],
       ),
       child: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1040),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _navItem(0, Icons.dashboard_rounded, Icons.dashboard_outlined, AppLanguage.t('nav_admin_home')),
-                  _navItem(1, Icons.inventory_2_rounded, Icons.inventory_2_outlined, AppLanguage.t('nav_admin_catalog')),
-                  _navItemBadge(2, Icons.receipt_long_rounded, Icons.receipt_long_outlined, AppLanguage.t('nav_admin_trx'), _todayPendingCount),
-                  _navItem(3, Icons.storefront_rounded, Icons.storefront_outlined, AppLanguage.t('nav_admin_store')),
-                ],
-              ),
-            ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _navItem(0, Icons.dashboard_rounded, Icons.dashboard_outlined, AppLanguage.t('nav_admin_home')),
+              _navItem(1, Icons.inventory_2_rounded, Icons.inventory_2_outlined, AppLanguage.t('nav_admin_catalog')),
+              _navItemBadge(2, Icons.receipt_long_rounded, Icons.receipt_long_outlined, AppLanguage.t('nav_admin_trx'), _todayPendingCount),
+              _navItem(3, Icons.storefront_rounded, Icons.storefront_outlined, AppLanguage.t('nav_admin_store')),
+            ],
           ),
         ),
       ),
