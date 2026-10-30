@@ -5,6 +5,8 @@ import '../services/auth_service.dart';
 import '../services/app_language.dart';
 import '../theme/app_theme.dart';
 import 'auth/email_verification_screen.dart';
+import 'admin_dashboard_screen.dart';
+import 'customer_dashboard_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -267,7 +269,29 @@ class _RegisterScreenState extends State<RegisterScreen>
       return;
     }
 
-    // Arahkan langsung ke layar verifikasi email (status waiting)
+    if (result.isConfirmed) {
+      _showSnack(
+        AppLanguage.isId
+            ? 'Pendaftaran berhasil! Akun Anda langsung aktif.'
+            : 'Registration successful! Your account is active.',
+        isError: false,
+      );
+      final profile = result.profile ?? await AuthService.getCurrentProfile();
+      if (!mounted) return;
+      if (profile != null) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => profile.isAdmin
+                ? const AdminDashboardScreen()
+                : CustomerDashboardScreen(profile: profile),
+          ),
+          (route) => false,
+        );
+        return;
+      }
+    }
+
+    // Arahkan ke layar verifikasi email (status waiting)
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => EmailVerificationScreen(

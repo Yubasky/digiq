@@ -38,8 +38,14 @@ class AuthResult {
   final bool success;
   final String? message;
   final ProfileModel? profile;
+  final bool isConfirmed;
 
-  const AuthResult({required this.success, this.message, this.profile});
+  const AuthResult({
+    required this.success,
+    this.message,
+    this.profile,
+    this.isConfirmed = false,
+  });
 }
 
 class AuthService {
@@ -383,9 +389,19 @@ class AuthService {
       // Beri jeda agar trigger handle_new_user di DB selesai dieksekusi
       await Future<void>.delayed(const Duration(milliseconds: 500));
 
-      return const AuthResult(
+      final isAlreadyConfirmed = res.session != null || res.user?.emailConfirmedAt != null;
+      ProfileModel? profile;
+      if (isAlreadyConfirmed) {
+        profile = await getCurrentProfile();
+      }
+
+      return AuthResult(
         success: true,
-        message: 'Akun berhasil dibuat! Silakan verifikasi email Anda.',
+        message: isAlreadyConfirmed
+            ? 'Akun berhasil dibuat dan langsung aktif!'
+            : 'Akun berhasil dibuat! Silakan verifikasi email Anda.',
+        profile: profile,
+        isConfirmed: isAlreadyConfirmed,
       );
     } on TimeoutException catch (e) {
       return AuthResult(
@@ -554,6 +570,15 @@ class AuthService {
 
   /// Dapatkan email user yang sedang login atau sesi aktif
   static String? get currentUserEmail => _sb.auth.currentUser?.email;
+
+  /// Refresh session Supabase aktif (jika ada).
+  static Future<AuthResponse?> refreshSession() async {
+    try {
+      return await _sb.auth.refreshSession();
+    } catch (_) {
+      return null;
+    }
+  }
 
   // ─── Sign In (Email & Password Langsung) ────────────────────────────────────
 

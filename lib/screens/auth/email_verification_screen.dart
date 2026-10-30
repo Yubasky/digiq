@@ -61,6 +61,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   int _redirectCountdown = 3;
   bool _isResending = false;
   bool _isNavigating = false;
+  bool _isCheckingStatus = false;
 
   @override
   void initState() {
@@ -172,6 +173,45 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
         isError: true,
       );
     }
+  }
+
+  Future<void> _checkStatusManually() async {
+    if (_isCheckingStatus || !mounted) return;
+    setState(() => _isCheckingStatus = true);
+
+    try {
+      final sessionRes = await AuthService.refreshSession();
+      if (sessionRes != null && sessionRes.user?.emailConfirmedAt != null) {
+        if (!mounted) return;
+        setState(() {
+          _isCheckingStatus = false;
+          _status = VerificationStatus.verified;
+          _errorMessage = null;
+        });
+        _startRedirectCountdown();
+        return;
+      }
+    } catch (_) {}
+
+    if (AuthService.isCurrentUserEmailVerified) {
+      if (!mounted) return;
+      setState(() {
+        _isCheckingStatus = false;
+        _status = VerificationStatus.verified;
+        _errorMessage = null;
+      });
+      _startRedirectCountdown();
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() => _isCheckingStatus = false);
+    _showSnack(
+      AppLanguage.isId
+          ? 'Email belum terkonfirmasi di server. Silakan periksa folder Spam/Promosi di Gmail Anda, atau klik "Kirim Ulang Email".'
+          : 'Email is not confirmed yet. Please check your Spam/Promotions folder or click "Resend Email".',
+      isError: true,
+    );
   }
 
   Future<void> _navigateToDashboard() async {
@@ -427,6 +467,38 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
             ),
           ),
           const SizedBox(height: 26),
+
+          // Tombol Cek Status Verifikasi / Masuk
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton.icon(
+              onPressed: _isCheckingStatus ? null : _checkStatusManually,
+              icon: _isCheckingStatus
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.verified_user_rounded, size: 18),
+              label: Text(
+                AppLanguage.isId ? 'Cek Status Verifikasi' : 'Check Verification Status',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
 
           // Tombol Kirim Ulang Email dengan Cooldown 60s
           SizedBox(
