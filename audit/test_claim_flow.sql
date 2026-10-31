@@ -18,6 +18,8 @@ DECLARE
   v_msg_count     INT;
   v_event_count   INT;
   v_err_caught    BOOLEAN;
+  v_msg_id        UUID;
+  i               INT;
 BEGIN
   RAISE NOTICE '=== MEMULAI TEST ALUR KLAIM PRODUK VIA CHAT ===';
 
@@ -118,23 +120,65 @@ BEGIN
   RAISE NOTICE '[PASS] U5: Direct PATCH ke claim_status diblokir oleh protect trigger';
 
   -- -------------------------------------------------------------------------
-  -- U6: Admin Marks Delivered
+  -- U6: Non-Admin Calling admin_mark_delivered Must Be Rejected
+  -- -------------------------------------------------------------------------
+  PERFORM set_config('request.jwt.claim.sub', v_customer_id::text, true);
+  v_err_caught := false;
+  BEGIN
+    PERFORM public.admin_mark_delivered(v_trx_paid_id);
+  EXCEPTION WHEN SQLSTATE '42501' THEN
+    v_err_caught := true;
+  END;
+  ASSERT v_err_caught = true, 'U6 FAILED: customer calling admin_mark_delivered must throw 42501';
+  RAISE NOTICE '[PASS] U6: Pelanggan memanggil admin_mark_delivered ditolak';
+
+  -- -------------------------------------------------------------------------
+  -- U7: Admin Marks Delivered
   -- -------------------------------------------------------------------------
   PERFORM set_config('request.jwt.claim.sub', v_admin_id::text, true);
 
   PERFORM public.admin_mark_delivered(v_trx_paid_id);
 
   SELECT COUNT(*) INTO v_event_count FROM public.claim_events WHERE trx_id = v_trx_paid_id AND to_status = 'delivered';
-  ASSERT v_event_count = 1, 'U6 FAILED: audit event for delivered must be logged';
+  ASSERT v_event_count = 1, 'U7 FAILED: audit event for delivered must be logged';
 
   SELECT COUNT(*) INTO v_msg_count FROM public.chat_messages WHERE trx_id = v_trx_paid_id AND kind = 'system';
-  ASSERT v_msg_count = 1, 'U6 FAILED: system message for delivered must be created';
+  ASSERT v_msg_count = 1, 'U7 FAILED: system message for delivered must be created';
 
-  RAISE NOTICE '[PASS] U6: Admin berhasil tandai terkirim via RPC admin_mark_delivered';
+  RAISE NOTICE '[PASS] U7: Admin berhasil tandai terkirim via RPC admin_mark_delivered';
+
+  -- -------------------------------------------------------------------------
+  -- U8: Direct Message Tampering Blocked by Trigger
+  -- -------------------------------------------------------------------------
+  SELECT id INTO v_msg_id FROM public.chat_messages WHERE trx_id = v_trx_paid_id LIMIT 1;
+  v_err_caught := false;
+  BEGIN
+    UPDATE public.chat_messages SET message = 'pesan dipalsukan' WHERE id = v_msg_id;
+  EXCEPTION WHEN SQLSTATE '42501' THEN
+    v_err_caught := true;
+  END;
+  ASSERT v_err_caught = true, 'U8 FAILED: modifying chat message content must be blocked by trigger';
+  RAISE NOTICE '[PASS] U8: Modifikasi konten pesan chat diblokir oleh protect trigger';
+
+  -- -------------------------------------------------------------------------
+  -- U9: Rate Limiting Blocks > 10 Requests in 1 Minute
+  -- -------------------------------------------------------------------------
+  -- Reset rate limit for customer
+  UPDATE public.claim_rate_limits
+  SET request_count = 10, window_start = now()
+  WHERE user_id = v_customer_id;
+
+  v_err_caught := false;
+  BEGIN
+    PERFORM public.request_claim(v_trx_paid_id);
+  EXCEPTION WHEN SQLSTATE '42901' THEN
+    v_err_caught := true;
+  END;
+  ASSERT v_err_caught = true, 'U9 FAILED: 11th request must throw 42901';
+  RAISE NOTICE '[PASS] U9: Pembatasan frekuensi klaim (rate limiting 42901) berfungsi';
 
   RAISE NOTICE '=== SEMUA TEST SQL KLAIM BERHASIL ===';
 END;
 $$;
 
 ROLLBACK;
-

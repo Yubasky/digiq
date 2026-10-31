@@ -20,7 +20,7 @@ CREATE INDEX IF NOT EXISTS idx_transactions_claim_status
   ON public.transactions (claim_status) WHERE status = 'success';
 
 -- ┌────────────────────────────────────────────────────────┐
--- │  2. KOLOM ADITIF PADA CHAT_MESSAGES                     │
+-- │  2. KOLOM ADITIF & PROTEKSI PADA CHAT_MESSAGES          │
 -- └────────────────────────────────────────────────────────┘
 ALTER TABLE public.chat_messages
   ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'text'
@@ -43,6 +43,37 @@ CREATE POLICY "chat_insert_customer"
     AND sender_id = auth.uid()
     AND kind = 'text'
   );
+
+-- Hapus izin DELETE dari client authenticated (pesan chat bersifat permanen)
+REVOKE DELETE ON public.chat_messages FROM authenticated;
+
+-- Proteksi integritas pesan chat: hanya kolom is_read yang boleh di-update oleh lawan bicara
+CREATE OR REPLACE FUNCTION public.protect_chat_messages_content()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, pg_temp
+AS $$
+BEGIN
+  IF (NEW.message IS DISTINCT FROM OLD.message) OR
+     (NEW.kind IS DISTINCT FROM OLD.kind) OR
+     (NEW.trx_id IS DISTINCT FROM OLD.trx_id) OR
+     (NEW.sender_id IS DISTINCT FROM OLD.sender_id) OR
+     (NEW.receiver_id IS DISTINCT FROM OLD.receiver_id) OR
+     (NEW.room_user_id IS DISTINCT FROM OLD.room_user_id) OR
+     (NEW.created_at IS DISTINCT FROM OLD.created_at) THEN
+    RAISE EXCEPTION 'Akses ditolak: isi dan metadata pesan chat bersifat permanen'
+      USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_protect_chat_messages ON public.chat_messages;
+CREATE TRIGGER trg_protect_chat_messages
+  BEFORE UPDATE ON public.chat_messages
+  FOR EACH ROW
+  EXECUTE FUNCTION public.protect_chat_messages_content();
 
 -- ┌────────────────────────────────────────────────────────┐
 -- │  3. TABEL AUDIT: claim_events                          │
@@ -72,6 +103,20 @@ CREATE POLICY "claim_events_select_own"
   USING (trx_id IN (SELECT id FROM public.transactions WHERE user_id = auth.uid()));
 
 REVOKE INSERT, UPDATE, DELETE ON public.claim_events FROM authenticated;
+
+-- Publikasikan claim_events ke realtime jika publikasi tersedia
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'claim_events'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.claim_events;
+  END IF;
+EXCEPTION WHEN OTHERS THEN
+  -- Abaikan jika publication supabase_realtime belum didefinisikan di lingkungan tertentu
+END;
+$$;
 
 -- ┌────────────────────────────────────────────────────────┐
 -- │  4. TABEL RATE LIMIT KLAIM                             │
@@ -380,4 +425,3 @@ REVOKE ALL ON FUNCTION public.get_admin_pending_claims() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_admin_pending_claims() TO authenticated, service_role;
 
 COMMIT;
-

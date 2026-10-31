@@ -10,9 +10,12 @@ DROP FUNCTION IF EXISTS public.get_admin_pending_claims();
 DROP FUNCTION IF EXISTS public.admin_mark_delivered(UUID);
 DROP FUNCTION IF EXISTS public.request_claim(UUID);
 
--- 2. Drop Trigger & Protect Function
+-- 2. Drop Triggers & Protect Functions
 DROP TRIGGER IF EXISTS trg_protect_transactions_claim ON public.transactions;
 DROP FUNCTION IF EXISTS public.protect_transactions_claim_columns();
+
+DROP TRIGGER IF EXISTS trg_protect_chat_messages ON public.chat_messages;
+DROP FUNCTION IF EXISTS public.protect_chat_messages_content();
 
 -- 3. Drop Rate Limits & Audit Tables
 DROP TABLE IF EXISTS public.claim_rate_limits CASCADE;
@@ -33,7 +36,7 @@ DROP INDEX IF EXISTS public.idx_transactions_claim_status;
 DROP INDEX IF EXISTS public.idx_chat_messages_kind;
 DROP INDEX IF EXISTS public.idx_chat_messages_trx_id;
 
--- 6. Drop Columns (Catatan: Pesan chat yang sudah dibuat tetap ada sebelum kolom di-drop)
+-- 6. Drop Columns (Catatan: Pesan chat yang sudah dibuat tetap tersimpan sebagai teks biasa sebelum kolom di-drop)
 ALTER TABLE public.chat_messages
   DROP COLUMN IF EXISTS kind,
   DROP COLUMN IF EXISTS trx_id;
@@ -46,4 +49,3 @@ ALTER TABLE public.transactions
   DROP COLUMN IF EXISTS claim_conversation_id;
 
 COMMIT;
-
