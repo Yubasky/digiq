@@ -58,6 +58,8 @@ audit/*
 !audit/verify_csp_edge.py
 !audit/check_i18n.py
 !audit/build_release.ps1
+!audit/compare_hashes.py
+!audit/test_hash_normalization.py
 edge_audit_profile/
 edge_temp_profile/
 edge_temp_profile_log/

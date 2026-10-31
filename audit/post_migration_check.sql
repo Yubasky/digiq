@@ -43,18 +43,30 @@ WHERE schemaname = 'public'
   AND tablename IN ('claim_events', 'claim_rate_limits')
 ORDER BY tablename;
 
--- 4. Verifikasi RPC: prosecdef (SECURITY DEFINER) & Hak Akses Anon/Authenticated
+-- 4. Verifikasi Hak Akses Seluruh Fungsi SECURITY DEFINER di Schema public
+-- Menampilkan status has_function_privilege untuk role anon dan authenticated
+-- Kolom compliance_status menandai secara tegas apakah hak akses anon sesuai aturan keamanan.
 SELECT
-  p.proname AS function_name,
+  p.oid::regprocedure AS function_signature,
   p.prosecdef AS is_security_definer,
-  p.provolatile AS volatility,
   has_function_privilege('anon', p.oid, 'EXECUTE') AS anon_can_execute,
-  has_function_privilege('authenticated', p.oid, 'EXECUTE') AS authenticated_can_execute
+  has_function_privilege('authenticated', p.oid, 'EXECUTE') AS authenticated_can_execute,
+  CASE
+    WHEN p.proname IN ('check_email_available', 'check_username_available', 'resolve_login_email', 'validate_signup_email')
+      THEN 'PUBLIC/PRE-LOGIN (OK IF TRUE)'
+    ELSE 'SENSITIVE (MUST BE FALSE)'
+  END AS security_rule,
+  CASE
+    WHEN p.proname IN ('check_email_available', 'check_username_available', 'resolve_login_email', 'validate_signup_email')
+      THEN CASE WHEN has_function_privilege('anon', p.oid, 'EXECUTE') THEN 'COMPLIANT (PASS)' ELSE 'UNEXPECTED (FAIL: pre-login blocked)' END
+    ELSE
+      CASE WHEN NOT has_function_privilege('anon', p.oid, 'EXECUTE') THEN 'COMPLIANT (PASS)' ELSE 'VULNERABLE (FAIL: anon can execute)' END
+  END AS compliance_status
 FROM pg_proc p
 JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname = 'public'
-  AND p.proname IN ('request_claim', 'admin_mark_delivered', 'get_admin_pending_claims')
-ORDER BY p.proname;
+  AND p.prosecdef = true
+ORDER BY compliance_status DESC, p.proname ASC;
 
 -- 5. Verifikasi Triggers Proteksi Aktif
 SELECT
