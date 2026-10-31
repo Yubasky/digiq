@@ -663,8 +663,18 @@ class AuthService {
         );
         if (res != null && res is String && res.contains('@')) {
           loginEmail = res.trim();
+        } else {
+          return const AuthResult(
+            success: false,
+            message: 'Username tidak ditemukan. Silakan periksa kembali username atau gunakan email akun Anda.',
+          );
         }
-      } catch (_) {}
+      } catch (_) {
+        return const AuthResult(
+          success: false,
+          message: 'Gagal menghubungi server untuk memeriksa username. Silakan gunakan email Anda.',
+        );
+      }
     }
 
     try {
@@ -1034,6 +1044,11 @@ class AuthService {
     if (lower.contains('invalid login credentials') ||
         lower.contains('invalid credentials')) {
       return 'Email atau password salah.';
+    }
+    if (lower.contains('invalid email') ||
+        lower.contains('validation_failed') ||
+        lower.contains('email address is invalid')) {
+      return 'Format email tidak valid atau username tidak ditemukan.';
     }
     if (lower.contains('email not confirmed')) {
       return 'Email belum diverifikasi. Cek kotak masuk atau spam di Gmail Anda.';

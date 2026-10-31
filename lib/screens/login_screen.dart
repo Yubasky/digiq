@@ -62,19 +62,6 @@ class _LoginScreenState extends State<LoginScreen>
     final identifier = _identifierController.text.trim();
     final password = _passwordController.text;
 
-    // Fast-path bypass for admin local development / testing
-    if (identifier == 'admin' && password == 'admin123') {
-      _navigateToHome(ProfileModel(
-        id: 'admin-mock-id',
-        fullName: 'Admin DigiQ',
-        role: 'admin',
-        phone: '081234567890',
-        balance: 1000000,
-        is2faEnabled: false,
-        updatedAt: DateTime.now(),
-      ));
-      return;
-    }
 
     setState(() => _isLoading = true);
 
@@ -121,7 +108,11 @@ class _LoginScreenState extends State<LoginScreen>
         return;
       }
 
-      final profile = result.profile;
+      ProfileModel? profile = result.profile;
+      if (profile == null) {
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+        profile = await AuthService.getCurrentProfile();
+      }
       if (profile == null) {
         _showError(AppLanguage.t('profile_load_failed'));
         return;
@@ -358,7 +349,7 @@ class _LoginScreenState extends State<LoginScreen>
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
                                                 Image.asset(
-                                                  'assets/img/logo digiq putih.png',
+                                                  'assets/img/logo_digiq_putih.png',
                                                   height: 48,
                                                   fit: BoxFit.contain,
                                                   errorBuilder: (_, _, _) =>

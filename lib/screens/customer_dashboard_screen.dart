@@ -504,7 +504,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
           elevation: 0,
           backgroundColor: const Color(0xFF0077B6),
           title: Image.asset(
-            'assets/img/logo digiq putih.png',
+            'assets/img/logo_digiq_putih.png',
             height: 32,
             fit: BoxFit.contain,
             errorBuilder: (_, _, _) => const Text(
@@ -1908,7 +1908,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             elevation: 0,
             backgroundColor: const Color(0xFF0077B6),
             title: Image.asset(
-              'assets/img/logo digiq putih.png',
+              'assets/img/logo_digiq_putih.png',
               height: 32,
               fit: BoxFit.contain,
               errorBuilder: (_, _, _) => const Text(
@@ -2386,7 +2386,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                 ),
                 child: Center(
                   child: Image.asset(
-                    'assets/img/logo digiq putih.png',
+                    'assets/img/logo_digiq_putih.png',
                     height: 24,
                     fit: BoxFit.contain,
                     errorBuilder: (_, _, _) => const Icon(

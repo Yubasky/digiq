@@ -673,7 +673,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Image.asset(
-                      'assets/img/logo digiq putih.png',
+                      'assets/img/logo_digiq_putih.png',
                       height: 30,
                       fit: BoxFit.contain,
                       errorBuilder: (context, error, stackTrace) {
