@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+// ignore: depend_on_referenced_packages
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -25,10 +26,9 @@ class _FakeRpcFilterBuilder<T> extends Fake
 
   _FakeRpcFilterBuilder(
     this._result, {
-    bool shouldThrow = false,
-    String errorMessage = '',
-  })  : _shouldThrow = shouldThrow,
-        _errorMessage = errorMessage;
+    this._shouldThrow = false,
+    this._errorMessage = '',
+  });
 
   @override
   Future<R> then<R>(
@@ -66,9 +66,10 @@ class _FakeRpcFilterBuilder<T> extends Fake
 class _FakeSupabaseStreamFilterBuilder
     extends StreamView<List<Map<String, dynamic>>>
     implements SupabaseStreamFilterBuilder, SupabaseStreamBuilder {
-  final StreamController<List<Map<String, dynamic>>> _ctrl;
 
-  _FakeSupabaseStreamFilterBuilder._(this._ctrl) : super(_ctrl.stream);
+  _FakeSupabaseStreamFilterBuilder._(
+      StreamController<List<Map<String, dynamic>>> ctrl)
+      : super(ctrl.stream);
 
   factory _FakeSupabaseStreamFilterBuilder() {
     final ctrl = StreamController<List<Map<String, dynamic>>>.broadcast();
