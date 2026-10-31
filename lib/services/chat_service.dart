@@ -9,6 +9,7 @@ class ChatService {
   static SupabaseClient get _sb => SupabaseConfig.supabase;
 
   static const _table = 'chat_messages';
+  static DateTime? _lastSendTime;
 
   // ─── Stream room chat customer/admin ────────────────────────────────────────
 
@@ -89,11 +90,23 @@ class ChatService {
     final cleanText = message.trim();
     if (cleanText.isEmpty) return;
 
+    // Rate limiting sederhana di sisi client: max 1 pesan per 500ms
+    final now = DateTime.now();
+    if (_lastSendTime != null &&
+        now.difference(_lastSendTime!) < const Duration(milliseconds: 500)) {
+      throw Exception('Mohon tunggu sejenak sebelum mengirim pesan lagi');
+    }
+    _lastSendTime = now;
+
+    // Batasi panjang pesan maksimal 1000 karakter
+    final boundedMessage =
+        cleanText.length > 1000 ? cleanText.substring(0, 1000) : cleanText;
+
     await _sb.from(_table).insert({
       'sender_id': senderId,
       'receiver_id': receiverId,
       'room_user_id': roomUserId,
-      'message': cleanText,
+      'message': boundedMessage,
       'kind': 'text',
     });
   }
@@ -117,4 +130,3 @@ class ChatService {
     }
   }
 }
-

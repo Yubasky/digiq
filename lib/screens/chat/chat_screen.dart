@@ -1,7 +1,6 @@
 // lib/screens/chat/chat_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../models/chat_message_model.dart';
 import '../../services/app_language.dart';
 import '../../services/chat_service.dart';
@@ -194,6 +193,15 @@ class _ChatScreenState extends State<ChatScreen> {
                       return const Center(child: CircularProgressIndicator());
                     }
 
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Text(
+                          'Gagal memuat pesan: ${snapshot.error}',
+                          style: const TextStyle(color: AppColors.error),
+                        ),
+                      );
+                    }
+
                     final messages = snapshot.data ?? [];
                     if (messages.isEmpty) {
                       return Center(
@@ -203,7 +211,7 @@ class _ChatScreenState extends State<ChatScreen> {
                             Icon(
                               Icons.chat_bubble_outline_rounded,
                               size: 48,
-                              color: AppColors.textMuted.withOpacity(0.5),
+                              color: AppColors.textMuted.withValues(alpha: 0.5),
                             ),
                             const SizedBox(height: 12),
                             Text(
@@ -254,7 +262,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildMessageItem(ChatMessageModel msg) {
     final isMe = msg.isFromUser(_currentUserId);
-    final timeStr = DateFormat('HH:mm').format(msg.createdAt.toLocal());
+    final local = msg.createdAt.toLocal();
+    final timeStr =
+        '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
 
     // 1. Pesan Sistem
     if (msg.isSystem) {
@@ -264,9 +274,9 @@ class _ChatScreenState extends State<ChatScreen> {
           margin: const EdgeInsets.symmetric(vertical: 8),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
-            color: AppColors.successLight.withOpacity(0.6),
+            color: AppColors.successLight.withValues(alpha: 0.6),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.success.withOpacity(0.3)),
+            border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -304,7 +314,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
     // 2. Pesan Klaim Pesanan
     if (msg.isClaim) {
-      final isDelivering = msg.trxId != null && _markingDelivered.contains(msg.trxId);
+      final isDelivering =
+          msg.trxId != null && _markingDelivered.contains(msg.trxId);
 
       return Align(
         alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
@@ -315,10 +326,13 @@ class _ChatScreenState extends State<ChatScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.primary.withOpacity(0.4), width: 1.5),
+            border: Border.all(
+              color: AppColors.primary.withValues(alpha: 0.4),
+              width: 1.5,
+            ),
             boxShadow: [
               BoxShadow(
-                color: AppColors.primary.withOpacity(0.08),
+                color: AppColors.primary.withValues(alpha: 0.08),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -441,7 +455,7 @@ class _ChatScreenState extends State<ChatScreen> {
           border: isMe ? null : Border.all(color: AppColors.cardBorder),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.black.withValues(alpha: 0.04),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -468,7 +482,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   style: TextStyle(
                     fontSize: 10,
                     color: isMe
-                        ? Colors.white.withOpacity(0.7)
+                        ? Colors.white.withValues(alpha: 0.7)
                         : AppColors.textMuted,
                   ),
                 ),
@@ -477,7 +491,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   Icon(
                     msg.isRead ? Icons.done_all : Icons.done,
                     size: 13,
-                    color: Colors.white.withOpacity(0.7),
+                    color: Colors.white.withValues(alpha: 0.7),
                   ),
                 ],
               ],
@@ -556,4 +570,3 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 }
-
