@@ -1838,86 +1838,106 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
               // Summary bar
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: AppColors.cardBorder),
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    Column(
-                      children: [
-                        Text(
-                          AppLanguage.t('admin_total_omset'),
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textSecondary,
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Text(
+                            AppLanguage.t('admin_total_omset'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          formatCurrency(_todayOmset),
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 16,
-                            color: AppColors.primaryDark,
+                          const SizedBox(height: 4),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              formatCurrency(_todayOmset),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15,
+                                color: AppColors.primaryDark,
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                     Container(
                       height: 30,
                       width: 1,
                       color: AppColors.cardBorder,
                     ),
-                    Column(
-                      children: [
-                        Text(
-                          AppLanguage.isId ? 'Pending' : 'Pending',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textSecondary,
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Text(
+                            AppLanguage.isId ? 'Pending' : 'Pending',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '$_todayPendingCount TRX',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 16,
-                            color: _todayPendingCount > 0
-                                ? AppColors.warning
-                                : AppColors.textPrimary,
+                          const SizedBox(height: 4),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              '$_todayPendingCount TRX',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15,
+                                color: _todayPendingCount > 0
+                                    ? AppColors.warning
+                                    : AppColors.textPrimary,
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                     Container(
                       height: 30,
                       width: 1,
                       color: AppColors.cardBorder,
                     ),
-                    Column(
-                      children: [
-                        Text(
-                          AppLanguage.isId ? 'Total' : 'Total',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textSecondary,
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Text(
+                            AppLanguage.isId ? 'Total' : 'Total',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '$_todayTotalCount TRX',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 16,
-                            color: AppColors.textPrimary,
+                          const SizedBox(height: 4),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              '$_todayTotalCount TRX',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -1953,13 +1973,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                         ),
                         const SizedBox(width: 10),
-                        Text(
-                          AppLanguage.isId
-                              ? 'Verifikasi Pembayaran QRIS'
-                              : 'QRIS Payment Verification',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14,
+                        Flexible(
+                          child: Text(
+                            AppLanguage.isId
+                                ? 'Verifikasi Pembayaran QRIS'
+                                : 'QRIS Payment Verification',
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
+                            ),
                           ),
                         ),
                       ],
@@ -2085,10 +2108,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    AppLanguage.t('history_title'),
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                  Flexible(
+                    child: Text(
+                      AppLanguage.t('history_title'),
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
@@ -4144,12 +4171,15 @@ END;
                 ),
               ),
               const SizedBox(width: 10),
-              Text(
-                AppLanguage.t('admin_pending_claims_tab'),
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 15,
-                  color: AppColors.textPrimary,
+              Flexible(
+                child: Text(
+                  AppLanguage.t('admin_pending_claims_tab'),
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -4243,14 +4273,18 @@ END;
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            '#${claim.trxCode}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primaryDark,
+                          Flexible(
+                            child: Text(
+                              '#${claim.trxCode}',
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primaryDark,
+                              ),
                             ),
                           ),
+                          const SizedBox(width: 8),
                           Text(
                             formatCurrency(claim.totalAmount),
                             style: const TextStyle(
@@ -4279,8 +4313,10 @@ END;
                         ),
                       ),
                       const Divider(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
+                      Wrap(
+                        alignment: WrapAlignment.end,
+                        spacing: 8,
+                        runSpacing: 8,
                         children: [
                           OutlinedButton.icon(
                             key: Key('btn_open_chat_claim_${claim.trxId}'),
@@ -4310,7 +4346,6 @@ END;
                               style: const TextStyle(fontSize: 11.5),
                             ),
                           ),
-                          const SizedBox(width: 8),
                           ElevatedButton.icon(
                             key: Key('btn_admin_deliver_${claim.trxId}'),
                             style: ElevatedButton.styleFrom(

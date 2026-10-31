@@ -1973,9 +1973,13 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                         );
                       } catch (e) {
                         if (!mounted) return;
+                        final errStr = e.toString();
+                        final friendlyMsg = (errStr.contains('PGRST202') || errStr.contains('42883') || errStr.contains('not found'))
+                            ? 'Layanan klaim sedang disiapkan server. Coba beberapa saat lagi.'
+                            : 'Gagal mengajukan klaim: $e. Coba lagi.';
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Gagal mengajukan klaim: $e'),
+                            content: Text(friendlyMsg),
                             backgroundColor: AppColors.error,
                           ),
                         );

@@ -117,7 +117,24 @@ BEGIN
     v_err_caught := true;
   END;
   ASSERT v_err_caught = true, 'U5 FAILED: direct UPDATE on claim_status must be blocked by trigger';
-  RAISE NOTICE '[PASS] U5: Direct PATCH ke claim_status diblokir oleh protect trigger';
+  RAISE NOTICE '[PASS] U5: Direct PATCH ke claim_status diblokir oleh protect trigger';
+
+  -- -------------------------------------------------------------------------
+  -- U5b: Customer attempts direct UPDATE on claim_* AFTER request_claim
+  --      (Proves digiq.in_claim_rpc was reset to 'false' and does not leak)
+  -- -------------------------------------------------------------------------
+  PERFORM set_config('request.jwt.claim.sub', v_customer_id::text, true);
+  v_err_caught := false;
+  BEGIN
+    UPDATE public.transactions
+    SET claim_status = 'delivered',
+        delivered_at = now()
+    WHERE id = v_trx_paid_id;
+  EXCEPTION WHEN SQLSTATE '42501' THEN
+    v_err_caught := true;
+  END;
+  ASSERT v_err_caught = true, 'U5b FAILED: customer UPDATE after request_claim must be blocked with 42501';
+  RAISE NOTICE '[PASS] U5b: Customer dilarang UPDATE claim_* sesudah request_claim (flag in_claim_rpc ter-reset)';
 
   -- -------------------------------------------------------------------------
   -- U6: Non-Admin Calling admin_mark_delivered Must Be Rejected
