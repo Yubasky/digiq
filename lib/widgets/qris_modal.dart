@@ -395,12 +395,16 @@ class _QrisModalState extends State<QrisModal>
                                   color: _useDynamicQr ? AppColors.primary : AppColors.textSecondary,
                                 ),
                                 const SizedBox(width: 4),
-                                Text(
-                                  'QR Otomatis (Nominal)',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: _useDynamicQr ? FontWeight.bold : FontWeight.normal,
-                                    color: _useDynamicQr ? AppColors.primaryDark : AppColors.textSecondary,
+                                Flexible(
+                                  child: Text(
+                                    'QR Otomatis',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: _useDynamicQr ? FontWeight.bold : FontWeight.normal,
+                                      color: _useDynamicQr ? AppColors.primaryDark : AppColors.textSecondary,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -438,12 +442,16 @@ class _QrisModalState extends State<QrisModal>
                                   color: !_useDynamicQr ? AppColors.error : AppColors.textSecondary,
                                 ),
                                 const SizedBox(width: 4),
-                                Text(
-                                  'QR Statis Asli (Manual)',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: !_useDynamicQr ? FontWeight.bold : FontWeight.normal,
-                                    color: !_useDynamicQr ? AppColors.error : AppColors.textSecondary,
+                                Flexible(
+                                  child: Text(
+                                    'QR Statis',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: !_useDynamicQr ? FontWeight.bold : FontWeight.normal,
+                                      color: !_useDynamicQr ? AppColors.error : AppColors.textSecondary,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -586,24 +594,32 @@ class _QrisModalState extends State<QrisModal>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            const Text('Kode Unik Pembayaran',
-                                style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
-                            const SizedBox(width: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary,
-                                borderRadius: BorderRadius.circular(4),
+                        Expanded(
+                          child: Row(
+                            children: [
+                              const Flexible(
+                                child: Text(
+                                  'Kode Unik Pembayaran',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                                ),
                               ),
-                              child: const Text(
-                                'Auto',
-                                style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  'Auto',
+                                  style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         Text(
                           '+Rp${_trx.uniqueCode}',
                           style: const TextStyle(
@@ -618,14 +634,18 @@ class _QrisModalState extends State<QrisModal>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'TOTAL HARUS DIBAYAR',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 13,
-                            color: AppColors.textPrimary,
+                        const Flexible(
+                          child: Text(
+                            'TOTAL HARUS DIBAYAR',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 13,
+                              color: AppColors.textPrimary,
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 8),
                         Text(
                           QrisService.formatRupiah(_trx.totalAmount),
                           style: const TextStyle(
@@ -788,12 +808,18 @@ class _QrisModalState extends State<QrisModal>
                         const Text('Produk',
                             style: TextStyle(
                                 fontSize: 13, color: AppColors.textSecondary)),
-                        Text(
-                          _trx.productName ?? 'Produk Digital',
-                          style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _trx.productName ?? 'Produk Digital',
+                            textAlign: TextAlign.right,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary),
+                          ),
                         ),
                       ],
                     ),
@@ -804,6 +830,7 @@ class _QrisModalState extends State<QrisModal>
                         const Text('Total Bayar',
                             style: TextStyle(
                                 fontSize: 13, color: AppColors.textSecondary)),
+                        const SizedBox(width: 8),
                         Text(
                           QrisService.formatRupiah(_trx.totalAmount),
                           style: const TextStyle(
@@ -817,9 +844,12 @@ class _QrisModalState extends State<QrisModal>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Status Klaim',
-                            style: TextStyle(
-                                fontSize: 13, color: AppColors.textSecondary)),
+                        const Flexible(
+                          child: Text('Status Klaim',
+                              style: TextStyle(
+                                  fontSize: 13, color: AppColors.textSecondary)),
+                        ),
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 3),
