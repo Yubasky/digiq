@@ -51,8 +51,13 @@ app.*.map.json
 .widget_preview/
 
 # Audit scratch files and artifacts
-audit/
+audit/*
+!audit/test_claim_flow.sql
+!audit/post_migration_check.sql
+!audit/probe_claim_anon.py
+!audit/verify_csp_edge.py
+!audit/check_i18n.py
+!audit/build_release.ps1
 edge_audit_profile/
 edge_temp_profile/
-
 edge_temp_profile_log/

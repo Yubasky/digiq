@@ -19,10 +19,11 @@ if ([string]::IsNullOrEmpty($site)) {
 Write-Host "Kompilasi Flutter Web Release..." -ForegroundColor Cyan
 Write-Host "SUPABASE_URL: $supa"
 
-& flutter build web --release --no-web-resources-cdn "--dart-define=SUPABASE_URL=$supa" "--dart-define=SUPABASE_ANON_KEY=$anon" "--dart-define=PUBLIC_SITE_URL=$site"
+& flutter build web --release --no-web-resources-cdn --no-wasm-dry-run "--dart-define=SUPABASE_URL=$supa" "--dart-define=SUPABASE_ANON_KEY=$anon" "--dart-define=PUBLIC_SITE_URL=$site"
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Build gagal dengan exit code $LASTEXITCODE"
     exit $LASTEXITCODE
 }
 Write-Host "Build Flutter Web Release SUKSES!" -ForegroundColor Green
+exit 0
 
