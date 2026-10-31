@@ -21,6 +21,13 @@ class TransactionModel {
   final String? matchedMutationId; // UUID payment_mutations
   final DateTime createdAt;
 
+  // Claim fields (Migrasi 019)
+  final String claimStatus; // 'none' | 'requested' | 'delivered'
+  final DateTime? claimRequestedAt;
+  final DateTime? deliveredAt;
+  final String? deliveredBy;
+  final String? claimConversationId;
+
   // Join fields (nullable — dari query with join)
   final String? productName;
   final String? productCategory;
@@ -42,6 +49,11 @@ class TransactionModel {
     this.verifiedBy,
     this.matchedMutationId,
     required this.createdAt,
+    this.claimStatus = 'none',
+    this.claimRequestedAt,
+    this.deliveredAt,
+    this.deliveredBy,
+    this.claimConversationId,
     this.productName,
     this.productCategory,
   })  : baseAmount  = baseAmount  ?? amount,
@@ -51,6 +63,10 @@ class TransactionModel {
   bool get isPending => status == 'pending';
   bool get isSuccess => status == 'success';
   bool get isFailed  => status == 'failed';
+
+  bool get isClaimNone => claimStatus == 'none';
+  bool get isClaimRequested => claimStatus == 'requested';
+  bool get isClaimDelivered => claimStatus == 'delivered';
 
   /// Apakah sudah kedaluwarsa berdasarkan waktu lokal.
   bool get isExpired =>
@@ -91,8 +107,75 @@ class TransactionModel {
       matchedMutationId: m['matched_mutation_id'] as String?,
       createdAt: DateTime.parse(
           (m['created_at'] as String?) ?? DateTime.now().toIso8601String()),
+      claimStatus:       (m['claim_status'] as String?) ?? 'none',
+      claimRequestedAt:  m['claim_requested_at'] == null
+          ? null
+          : DateTime.parse(m['claim_requested_at'] as String),
+      deliveredAt:       m['delivered_at'] == null
+          ? null
+          : DateTime.parse(m['delivered_at'] as String),
+      deliveredBy:        m['delivered_by'] as String?,
+      claimConversationId: m['claim_conversation_id'] as String?,
       productName:     prodMap?['name'] as String?,
       productCategory: prodMap?['category'] as String?,
+    );
+  }
+}
+
+/// Model antrean klaim digital pending untuk admin.
+class PendingClaimModel {
+  final String trxId;
+  final String trxCode;
+  final String userId;
+  final String customerName;
+  final String productId;
+  final String productName;
+  final double baseAmount;
+  final int uniqueCode;
+  final double totalAmount;
+  final String targetNumber;
+  final DateTime? paidAt;
+  final DateTime? claimRequestedAt;
+  final String claimStatus;
+  final String conversationId;
+
+  const PendingClaimModel({
+    required this.trxId,
+    required this.trxCode,
+    required this.userId,
+    required this.customerName,
+    required this.productId,
+    required this.productName,
+    required this.baseAmount,
+    required this.uniqueCode,
+    required this.totalAmount,
+    required this.targetNumber,
+    this.paidAt,
+    this.claimRequestedAt,
+    required this.claimStatus,
+    required this.conversationId,
+  });
+
+  factory PendingClaimModel.fromMap(Map<String, dynamic> m) {
+    return PendingClaimModel(
+      trxId: m['trx_id'] as String,
+      trxCode: (m['trx_code'] as String?) ?? '',
+      userId: m['user_id'] as String,
+      customerName: (m['customer_name'] as String?) ?? 'Pelanggan',
+      productId: m['product_id'] as String,
+      productName: (m['product_name'] as String?) ?? 'Produk',
+      baseAmount: ((m['base_amount'] as num?) ?? 0).toDouble(),
+      uniqueCode: ((m['unique_code'] as num?) ?? 0).toInt(),
+      totalAmount: ((m['total_amount'] as num?) ?? 0).toDouble(),
+      targetNumber: (m['target_number'] as String?) ?? '',
+      paidAt: m['paid_at'] == null
+          ? null
+          : DateTime.parse(m['paid_at'] as String),
+      claimRequestedAt: m['claim_requested_at'] == null
+          ? null
+          : DateTime.parse(m['claim_requested_at'] as String),
+      claimStatus: (m['claim_status'] as String?) ?? 'requested',
+      conversationId: (m['conversation_id'] as String?) ?? (m['user_id'] as String),
     );
   }
 }
@@ -109,6 +192,9 @@ class QrisTransaction {
   final DateTime timestamp;
   final String status; // 'SUCCESS', 'PENDING', 'FAILED'
   final String paymentMethod;
+  final String claimStatus;
+  final String rawTrxId;
+  final String userId;
 
   const QrisTransaction({
     required this.id,
@@ -120,6 +206,9 @@ class QrisTransaction {
     required this.timestamp,
     this.status = 'SUCCESS',
     this.paymentMethod = 'QRIS Instant',
+    this.claimStatus = 'none',
+    this.rawTrxId = '',
+    this.userId = '',
   });
 
   /// Konversi dari Supabase TransactionModel ke legacy QrisTransaction.
@@ -134,6 +223,9 @@ class QrisTransaction {
       totalAmount:  m.totalAmount,
       timestamp:    m.createdAt,
       status:       m.status.toUpperCase(),
+      claimStatus:  m.claimStatus,
+      rawTrxId:     m.id,
+      userId:       m.userId,
     );
   }
 }

@@ -747,6 +747,83 @@ class AppLanguage {
       AppLang.id: 'Hubungkan Mutasi',
       AppLang.en: 'Match Mutation',
     },
+    // Chat & Claim (Migrasi 019)
+    'chat_title': {
+      AppLang.id: 'Chat Admin',
+      AppLang.en: 'Admin Chat',
+    },
+    'chat_admin_title': {
+      AppLang.id: 'Chat Pelanggan',
+      AppLang.en: 'Customer Chat',
+    },
+    'chat_hint_customer': {
+      AppLang.id: 'Ketik pesan untuk admin...',
+      AppLang.en: 'Type a message to admin...',
+    },
+    'chat_hint_admin': {
+      AppLang.id: 'Ketik balasan untuk pelanggan...',
+      AppLang.en: 'Type a reply to customer...',
+    },
+    'chat_send': {
+      AppLang.id: 'Kirim',
+      AppLang.en: 'Send',
+    },
+    'chat_claim_badge': {
+      AppLang.id: 'KLAIM PESANAN',
+      AppLang.en: 'ORDER CLAIM',
+    },
+    'chat_mark_delivered': {
+      AppLang.id: 'Tandai Terkirim',
+      AppLang.en: 'Mark Delivered',
+    },
+    'chat_confirm_delivered_title': {
+      AppLang.id: 'Konfirmasi Pengiriman',
+      AppLang.en: 'Confirm Delivery',
+    },
+    'chat_confirm_delivered_desc': {
+      AppLang.id: 'Pastikan produk digital sudah dikirim ke pelanggan melalui chat sebelum menandai terkirim.',
+      AppLang.en: 'Ensure digital products have been sent to customer via chat before marking delivered.',
+    },
+    'claim_status_none': {
+      AppLang.id: 'Belum klaim',
+      AppLang.en: 'Not claimed',
+    },
+    'claim_status_requested': {
+      AppLang.id: 'Menunggu admin',
+      AppLang.en: 'Awaiting admin',
+    },
+    'claim_status_delivered': {
+      AppLang.id: 'Selesai',
+      AppLang.en: 'Delivered',
+    },
+    'claim_product_btn': {
+      AppLang.id: 'Klaim Produk',
+      AppLang.en: 'Claim Product',
+    },
+    'open_chat_btn': {
+      AppLang.id: 'Buka Chat Admin',
+      AppLang.en: 'Open Admin Chat',
+    },
+    'admin_pending_claims_tab': {
+      AppLang.id: 'Menunggu Klaim',
+      AppLang.en: 'Pending Claims',
+    },
+    'admin_verify_mutation_hint': {
+      AppLang.id: 'Verifikasi pembayaran di data mutasi sebelum mengirim produk.',
+      AppLang.en: 'Verify payment in mutation records before sending product.',
+    },
+    'claim_success_snack': {
+      AppLang.id: 'Klaim berhasil diajukan. Silakan lanjutkan komunikasi di chat.',
+      AppLang.en: 'Claim submitted successfully. Please continue communication in chat.',
+    },
+    'delivered_success_snack': {
+      AppLang.id: 'Pesanan berhasil ditandai terkirim!',
+      AppLang.en: 'Order successfully marked as delivered!',
+    },
+    'admin_no_pending_claims': {
+      AppLang.id: 'Tidak ada pesanan menunggu klaim saat ini.',
+      AppLang.en: 'No pending claims waiting right now.',
+    },
   };
 
   static String t(String key) {
