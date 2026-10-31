@@ -9,6 +9,8 @@ import '../models/transaction_model.dart';
 import '../services/qris_service.dart';
 import '../services/transaction_service.dart';
 import '../theme/app_theme.dart';
+import '../screens/chat/chat_screen.dart';
+import '../services/app_language.dart';
 
 class QrisModal extends StatefulWidget {
   /// Transaksi awal — akan di-update via realtime stream.
@@ -37,6 +39,7 @@ class _QrisModalState extends State<QrisModal>
   Timer? _countdownTimer;
   Duration _remaining = Duration.zero;
   bool _cancelling = false;
+  bool _isClaiming = false;
   bool _useDynamicQr = true; // Toggle: true = QR Dinamis, false = QR Statis Asli
   String? _dynamicPayload;
   QrisSettings? _settings;
@@ -104,7 +107,6 @@ class _QrisModalState extends State<QrisModal>
           setState(() => _trx = latest);
           if (latest.isSuccess) {
             _countdownTimer?.cancel();
-            _showSuccessAndClose();
           } else if (latest.isFailed) {
             _countdownTimer?.cancel();
             _showFailedAndClose();
@@ -140,24 +142,7 @@ class _QrisModalState extends State<QrisModal>
     );
   }
 
-  void _showSuccessAndClose() {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Row(
-          children: [
-            Icon(Icons.check_circle_rounded, color: Colors.white),
-            SizedBox(width: 8),
-            Text('Pembayaran berhasil diverifikasi secara otomatis!'),
-          ],
-        ),
-        backgroundColor: AppColors.success,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-    Navigator.of(context).pop();
-    widget.onSuccess?.call();
-  }
+
 
   void _showFailedAndClose() {
     if (!mounted) return;
@@ -235,6 +220,9 @@ class _QrisModalState extends State<QrisModal>
 
   @override
   Widget build(BuildContext context) {
+    if (_trx.isSuccess) {
+      return _buildSuccessView();
+    }
     final expired = _remaining == Duration.zero;
     final minutes = _remaining.inMinutes.remainder(60).toString().padLeft(2, '0');
     final seconds = _remaining.inSeconds.remainder(60).toString().padLeft(2, '0');
@@ -407,12 +395,16 @@ class _QrisModalState extends State<QrisModal>
                                   color: _useDynamicQr ? AppColors.primary : AppColors.textSecondary,
                                 ),
                                 const SizedBox(width: 4),
-                                Text(
-                                  'QR Otomatis (Nominal)',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: _useDynamicQr ? FontWeight.bold : FontWeight.normal,
-                                    color: _useDynamicQr ? AppColors.primaryDark : AppColors.textSecondary,
+                                Flexible(
+                                  child: Text(
+                                    'QR Otomatis',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: _useDynamicQr ? FontWeight.bold : FontWeight.normal,
+                                      color: _useDynamicQr ? AppColors.primaryDark : AppColors.textSecondary,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -450,12 +442,16 @@ class _QrisModalState extends State<QrisModal>
                                   color: !_useDynamicQr ? AppColors.error : AppColors.textSecondary,
                                 ),
                                 const SizedBox(width: 4),
-                                Text(
-                                  'QR Statis Asli (Manual)',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: !_useDynamicQr ? FontWeight.bold : FontWeight.normal,
-                                    color: !_useDynamicQr ? AppColors.error : AppColors.textSecondary,
+                                Flexible(
+                                  child: Text(
+                                    'QR Statis',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: !_useDynamicQr ? FontWeight.bold : FontWeight.normal,
+                                      color: !_useDynamicQr ? AppColors.error : AppColors.textSecondary,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -598,24 +594,32 @@ class _QrisModalState extends State<QrisModal>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            const Text('Kode Unik Pembayaran',
-                                style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
-                            const SizedBox(width: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary,
-                                borderRadius: BorderRadius.circular(4),
+                        Expanded(
+                          child: Row(
+                            children: [
+                              const Flexible(
+                                child: Text(
+                                  'Kode Unik Pembayaran',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                                ),
                               ),
-                              child: const Text(
-                                'Auto',
-                                style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  'Auto',
+                                  style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         Text(
                           '+Rp${_trx.uniqueCode}',
                           style: const TextStyle(
@@ -630,14 +634,18 @@ class _QrisModalState extends State<QrisModal>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'TOTAL HARUS DIBAYAR',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 13,
-                            color: AppColors.textPrimary,
+                        const Flexible(
+                          child: Text(
+                            'TOTAL HARUS DIBAYAR',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 13,
+                              color: AppColors.textPrimary,
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 8),
                         Text(
                           QrisService.formatRupiah(_trx.totalAmount),
                           style: const TextStyle(
@@ -730,6 +738,244 @@ class _QrisModalState extends State<QrisModal>
                     ),
                   ),
                 ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSuccessView() {
+    final hasClaimed =
+        _trx.claimStatus == 'requested' || _trx.claimStatus == 'delivered';
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      backgroundColor: Colors.white,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: const BoxDecoration(
+                  color: AppColors.successLight,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check_circle_rounded,
+                  color: AppColors.success,
+                  size: 48,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Pembayaran Berhasil!',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Pesanan #${_trx.trxCode} telah lunas.',
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.cardBorder),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Produk',
+                            style: TextStyle(
+                                fontSize: 13, color: AppColors.textSecondary)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _trx.productName ?? 'Produk Digital',
+                            textAlign: TextAlign.right,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Total Bayar',
+                            style: TextStyle(
+                                fontSize: 13, color: AppColors.textSecondary)),
+                        const SizedBox(width: 8),
+                        Text(
+                          QrisService.formatRupiah(_trx.totalAmount),
+                          style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primaryDark),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Flexible(
+                          child: Text('Status Klaim',
+                              style: TextStyle(
+                                  fontSize: 13, color: AppColors.textSecondary)),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: _trx.isClaimDelivered
+                                ? AppColors.successLight
+                                : _trx.isClaimRequested
+                                    ? AppColors.warningLight
+                                    : AppColors.primaryLight,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            _trx.isClaimDelivered
+                                ? AppLanguage.t('claim_status_delivered')
+                                : _trx.isClaimRequested
+                                    ? AppLanguage.t('claim_status_requested')
+                                    : AppLanguage.t('claim_status_none'),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: _trx.isClaimDelivered
+                                  ? AppColors.success
+                                  : _trx.isClaimRequested
+                                      ? AppColors.warning
+                                      : AppColors.primaryDark,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                hasClaimed
+                    ? 'Klaim pesanan telah dikirim ke admin. Silakan buka chat untuk berkomunikasi dengan admin.'
+                    : 'Klaim sekarang agar admin langsung memproses produk digital Anda melalui chat resmi DigiQ.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.textSecondary, height: 1.4),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  key: hasClaimed
+                      ? const Key('btn_open_chat')
+                      : const Key('btn_claim_product'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: _isClaiming
+                      ? null
+                      : () async {
+                          if (!hasClaimed) {
+                            setState(() => _isClaiming = true);
+                            try {
+                              await TransactionService.requestClaim(_trx.id);
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                      AppLanguage.t('claim_success_snack')),
+                                  backgroundColor: AppColors.success,
+                                ),
+                              );
+                            } catch (e) {
+                              if (!mounted) return;
+                              setState(() => _isClaiming = false);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Gagal mengajukan klaim: $e. Coba lagi.'),
+                                  backgroundColor: AppColors.error,
+                                ),
+                              );
+                              return;
+                            }
+                          }
+                          if (!mounted) return;
+                          Navigator.of(context).pop();
+                          widget.onSuccess?.call();
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  ChatScreen(roomUserId: _trx.userId),
+                            ),
+                          );
+                        },
+                  icon: _isClaiming
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : Icon(
+                          hasClaimed
+                              ? Icons.chat_rounded
+                              : Icons.inventory_2_rounded,
+                          size: 18),
+                  label: Text(
+                    hasClaimed
+                        ? AppLanguage.t('open_chat_btn')
+                        : AppLanguage.t('claim_product_btn'),
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  key: const Key('btn_close_success'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    widget.onSuccess?.call();
+                  },
+                  child: const Text('Tutup',
+                      style: TextStyle(color: AppColors.textSecondary)),
+                ),
               ),
             ],
           ),

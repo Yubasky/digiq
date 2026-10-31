@@ -379,6 +379,74 @@ class TransactionService {
     }
   }
 
+  // ─── Fitur Klaim Produk Digital via Chat (Migrasi 019) ──────────────────────
+
+  /// Ajukan klaim produk oleh customer yang telah lunas.
+  /// Server memverifikasi kepemilikan dan status success, lalu membuat
+  /// pesan klaim terverifikasi di room chat customer-admin.
+  static Future<Map<String, dynamic>> requestClaim(String trxId) async {
+    final res = await _sb.rpc(
+      'request_claim',
+      params: {'p_trx_id': trxId},
+    );
+    return res is Map<String, dynamic> ? res : Map<String, dynamic>.from(res as Map);
+  }
+
+  /// Admin menandai produk telah terkirim via chat.
+  static Future<TransactionModel> adminMarkDelivered(String trxId) async {
+    final res = await _sb.rpc(
+      'admin_mark_delivered',
+      params: {'p_trx_id': trxId},
+    );
+    return TransactionModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  /// Ambil antrean transaksi menunggu klaim untuk admin.
+  static Future<List<PendingClaimModel>> getAdminPendingClaims() async {
+    try {
+      final res = await _sb.rpc('get_admin_pending_claims') as List<dynamic>;
+      return res
+          .map((e) => PendingClaimModel.fromMap(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Stream antrean klaim admin realtime.
+  static Stream<List<PendingClaimModel>> watchAdminPendingClaims() {
+    return _sb
+        .from(_table)
+        .stream(primaryKey: ['id'])
+        .eq('status', 'success')
+        .order('claim_requested_at', ascending: true)
+        .asyncMap((rows) async {
+          final pendingRows = rows.where((r) => r['claim_status'] == 'requested').toList();
+          if (pendingRows.isEmpty) return <PendingClaimModel>[];
+
+          try {
+            return await getAdminPendingClaims();
+          } catch (_) {
+            return pendingRows.map((r) => PendingClaimModel(
+              trxId: r['id'] as String,
+              trxCode: (r['trx_code'] as String?) ?? '',
+              userId: r['user_id'] as String,
+              customerName: 'Pelanggan',
+              productId: r['product_id'] as String,
+              productName: 'Produk',
+              baseAmount: ((r['base_amount'] as num?) ?? 0).toDouble(),
+              uniqueCode: ((r['unique_code'] as num?) ?? 0).toInt(),
+              totalAmount: ((r['total_amount'] as num?) ?? 0).toDouble(),
+              targetNumber: (r['target_number'] as String?) ?? '',
+              paidAt: r['paid_at'] == null ? null : DateTime.parse(r['paid_at'] as String),
+              claimRequestedAt: r['claim_requested_at'] == null ? null : DateTime.parse(r['claim_requested_at'] as String),
+              claimStatus: (r['claim_status'] as String?) ?? 'requested',
+              conversationId: (r['claim_conversation_id'] as String?) ?? (r['user_id'] as String),
+            )).toList();
+          }
+        });
+  }
+
   // ─── Helper analitik ─────────────────────────────────────────────────────────
 
   /// Hitung omset hari ini dari list transaksi (status success saja).
