@@ -924,9 +924,13 @@ class _QrisModalState extends State<QrisModal>
                             } catch (e) {
                               if (!mounted) return;
                               setState(() => _isClaiming = false);
+                              final errStr = e.toString();
+                              final friendlyMsg = (errStr.contains('PGRST202') || errStr.contains('42883') || errStr.contains('not found'))
+                                  ? 'Layanan klaim sedang disiapkan server. Coba beberapa saat lagi.'
+                                  : 'Gagal mengajukan klaim: $e. Coba lagi.';
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text('Gagal mengajukan klaim: $e. Coba lagi.'),
+                                  content: Text(friendlyMsg),
                                   backgroundColor: AppColors.error,
                                 ),
                               );

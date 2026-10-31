@@ -419,7 +419,7 @@ class TransactionService {
         .from(_table)
         .stream(primaryKey: ['id'])
         .eq('status', 'success')
-        .order('claim_requested_at', ascending: true)
+        .order('created_at', ascending: true)
         .asyncMap((rows) async {
           final pendingRows = rows.where((r) => r['claim_status'] == 'requested').toList();
           if (pendingRows.isEmpty) return <PendingClaimModel>[];
