@@ -22,6 +22,7 @@ import 'package:digiq/screens/chat/chat_screen.dart';
 import 'package:digiq/screens/customer_dashboard_screen.dart';
 import 'package:digiq/services/app_language.dart';
 import 'package:digiq/services/supabase_config.dart';
+import 'package:digiq/services/transaction_service.dart';
 import 'package:digiq/widgets/qris_modal.dart';
 
 // ─── Mocks & Fakes ───────────────────────────────────────────────────────────
@@ -140,8 +141,11 @@ class _FakeSupabaseQueryBuilder extends Fake implements SupabaseQueryBuilder {
     required List<String> primaryKey,
     bool private = false,
   }) {
-    final sb = _FakeSupabaseStreamFilterBuilder();
-    client.streamBuildersByTable[table] = sb;
+    var sb = client.streamBuildersByTable[table];
+    if (sb == null) {
+      sb = _FakeSupabaseStreamFilterBuilder();
+      client.streamBuildersByTable[table] = sb;
+    }
     return sb;
   }
 }
@@ -360,7 +364,65 @@ void main() {
     });
 
     testWidgets(
-        'T2.3 & T2.4: Tombol Tandai Terkirim menampilkan konfirmasi; batal tidak memanggil RPC; konfirmasi memanggil 1x',
+        'T2.2: Klik tombol Buka Chat di antrean admin membuka ChatScreen dengan roomUserId pelanggan yang tepat',
+        (tester) async {
+      fakeClient.pendingClaimsMock = [
+        {
+          'trx_id': 'trx-chat-admin-01',
+          'trx_code': 'TRX-CHAT-001',
+          'user_id': 'cust-room-123',
+          'customer_name': 'Pelanggan Chat',
+          'product_id': 'prod-1',
+          'product_name': 'Spotify 1 Bulan',
+          'base_amount': 25000,
+          'unique_code': 10,
+          'total_amount': 25010,
+          'target_number': '0812345678',
+          'paid_at': DateTime.now().toIso8601String(),
+          'claim_requested_at': DateTime.now().toIso8601String(),
+          'claim_status': 'requested',
+          'conversation_id': 'cust-room-123',
+        },
+      ];
+
+      await tester.pumpWidget(MaterialApp(
+        home: AdminDashboardScreen(),
+      ));
+      await tester.pump();
+
+      fakeClient.streamBuildersByTable['transactions']?.emit([
+        {'id': 'trx-chat-admin-01', 'status': 'success', 'claim_status': 'requested'},
+      ]);
+      await tester.pump();
+
+      final trxTab = find.byIcon(Icons.receipt_long_outlined);
+      if (trxTab.evaluate().isNotEmpty) {
+        await tester.tap(trxTab);
+        await tester.pump();
+      }
+
+      final chatBtn = find.byKey(const Key('btn_open_chat_claim_trx-chat-admin-01'));
+      expect(chatBtn, findsOneWidget);
+
+      await tester.ensureVisible(chatBtn);
+      await tester.tap(chatBtn);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final chatScreenFinder = find.byType(ChatScreen);
+      expect(chatScreenFinder, findsOneWidget);
+
+      final chatScreenWidget = tester.widget<ChatScreen>(chatScreenFinder);
+      expect(chatScreenWidget.roomUserId, equals('cust-room-123'));
+      expect(chatScreenWidget.customerName, equals('Pelanggan Chat'));
+      expect(chatScreenWidget.isAdmin, isTrue);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 1));
+    });
+
+    testWidgets(
+        'T2.3, T2.4, & T2.5: Tombol Tandai Terkirim menampilkan konfirmasi; batal tidak memanggil RPC; konfirmasi memanggil RPC admin_mark_delivered tepat 1x',
         (tester) async {
       fakeClient.pendingClaimsMock = [
         {
@@ -569,6 +631,135 @@ void main() {
 
       final qrisTx = QrisTransaction.fromTransactionModel(model, 'Pelanggan');
       expect(qrisTx.claimStatus, equals('none'));
+    });
+
+    testWidgets(
+        'T2.10: Transaksi skema lama tanpa kolom claim_* tidak crash saat dirender di antrean admin atau riwayat pelanggan',
+        (tester) async {
+      final oldDbMap = {
+        'id': 'trx-legacy-002',
+        'trx_code': 'TRX-LEGACY-002',
+        'user_id': testCustomerId,
+        'product_id': 'prod-legacy-2',
+        'target_number': '0899999999',
+        'amount': 75000,
+        'status': 'success',
+        'created_at': DateTime.now().toIso8601String(),
+      };
+
+      final model = TransactionModel.fromMap(oldDbMap);
+      final qrisTx = QrisTransaction.fromTransactionModel(model, 'Pelanggan Skema Lama');
+
+      // 1. Render di riwayat pelanggan
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: _buildTestTxCard(qrisTx),
+        ),
+      ));
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text(AppLanguage.t('claim_status_none')), findsOneWidget);
+      expect(find.byKey(Key('btn_claim_history_${qrisTx.id}')), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 1));
+
+      // 2. Render di dashboard admin dengan pendingClaims skema lama
+      fakeClient.pendingClaimsMock = [
+        {
+          'trx_id': 'trx-legacy-002',
+          'trx_code': 'TRX-LEGACY-002',
+          'user_id': testCustomerId,
+          'customer_name': 'Pelanggan Skema Lama',
+          'product_id': 'prod-legacy-2',
+          'product_name': 'Produk Lama',
+          'base_amount': 75000,
+          'unique_code': 0,
+          'total_amount': 75000,
+          'target_number': '0899999999',
+          'paid_at': DateTime.now().toIso8601String(),
+        }
+      ];
+
+      await tester.pumpWidget(MaterialApp(
+        home: AdminDashboardScreen(),
+      ));
+      await tester.pump();
+
+      fakeClient.streamBuildersByTable['transactions']?.emit([
+        {'id': 'trx-legacy-002', 'status': 'success'},
+      ]);
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 1));
+    });
+
+    test(
+        'Stream watchAdminPendingClaims menerima map skema lama dan memfilter di sisi klien dengan aman',
+        () async {
+      fakeClient.pendingClaimsMock = [];
+      final streamBuilder = _FakeSupabaseStreamFilterBuilder();
+      fakeClient.streamBuildersByTable['transactions'] = streamBuilder;
+
+      final stream = TransactionService.watchAdminPendingClaims();
+      final streamIter = StreamIterator(stream);
+
+      // Kasus 1: Baris transaksi skema lama tanpa claim_status -> filter mengabaikan dengan aman
+      final future1 = streamIter.moveNext();
+      streamBuilder.emit([
+        {
+          'id': 'legacy-tx-1',
+          'status': 'success',
+          'user_id': 'user-1',
+          'product_id': 'prod-1',
+        },
+        {
+          'id': 'legacy-tx-2',
+          'status': 'success',
+          'user_id': 'user-2',
+          'product_id': 'prod-2',
+        },
+      ]);
+      expect(await future1, isTrue);
+      expect(streamIter.current, isEmpty);
+
+      // Kasus 2: Ada baris dengan claim_status = requested
+      fakeClient.pendingClaimsMock = [
+        {
+          'trx_id': 'req-tx-1',
+          'trx_code': 'TRX-REQ-1',
+          'user_id': 'user-1',
+          'customer_name': 'Customer 1',
+          'product_id': 'prod-1',
+          'product_name': 'Product 1',
+          'base_amount': 10000,
+          'unique_code': 1,
+          'total_amount': 10001,
+          'target_number': '081111',
+          'claim_status': 'requested',
+          'conversation_id': 'user-1',
+        }
+      ];
+
+      final future2 = streamIter.moveNext();
+      streamBuilder.emit([
+        {
+          'id': 'req-tx-1',
+          'status': 'success',
+          'claim_status': 'requested',
+          'user_id': 'user-1',
+          'product_id': 'prod-1',
+        },
+      ]);
+      expect(await future2, isTrue);
+      expect(streamIter.current.length, equals(1));
+      expect(streamIter.current.first.trxId, equals('req-tx-1'));
+
+      await streamIter.cancel();
     });
 
     testWidgets(

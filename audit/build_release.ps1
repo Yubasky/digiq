@@ -12,6 +12,10 @@ Get-Content -Path ".env" -Encoding UTF8 | ForEach-Object {
 $supa = $envMap['SUPABASE_URL']
 $anon = $envMap['SUPABASE_ANON_KEY']
 $site = $envMap['PUBLIC_SITE_URL']
+if ([string]::IsNullOrEmpty($supa) -or [string]::IsNullOrEmpty($anon)) {
+    Write-Error "SUPABASE_URL atau SUPABASE_ANON_KEY tidak ditemukan di .env"
+    exit 1
+}
 if ([string]::IsNullOrEmpty($site)) {
     $site = "https://enikzrad.web.id"
 }
