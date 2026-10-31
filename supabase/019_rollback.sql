@@ -21,7 +21,7 @@ DROP FUNCTION IF EXISTS public.protect_chat_messages_content();
 DROP TABLE IF EXISTS public.claim_rate_limits CASCADE;
 DROP TABLE IF EXISTS public.claim_events CASCADE;
 
--- 4. Restore original chat_insert_customer policy
+-- 4. Restore original chat_insert_customer policy & table privileges
 DROP POLICY IF EXISTS "chat_insert_customer" ON public.chat_messages;
 CREATE POLICY "chat_insert_customer"
   ON public.chat_messages FOR INSERT TO authenticated
@@ -30,6 +30,8 @@ CREATE POLICY "chat_insert_customer"
     AND room_user_id = auth.uid()
     AND sender_id = auth.uid()
   );
+
+GRANT DELETE ON public.chat_messages TO authenticated;
 
 -- 5. Drop Indexes
 DROP INDEX IF EXISTS public.idx_transactions_claim_status;
