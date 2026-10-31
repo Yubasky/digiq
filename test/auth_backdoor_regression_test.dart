@@ -157,6 +157,9 @@ class _FakeSupabaseClient extends Fake implements SupabaseClient {
     rpcCallCount++;
     lastRpcFn = fn;
     lastRpcParams = params;
+    if (fn == 'check_username_available' || fn == 'check_email_available') {
+      return _FakeRpcFilterBuilder<T>(true);
+    }
     // resolve_login_email for "admin" returns null to simulate unmapped username
     return _FakeRpcFilterBuilder<T>(null);
   }
@@ -278,7 +281,7 @@ void main() {
     });
 
     testWidgets('RegisterScreen navigates exclusively to EmailVerificationScreen and never to CustomerDashboardScreen', (tester) async {
-      await tester.binding.setSurfaceSize(const Size(1280, 800));
+      await tester.binding.setSurfaceSize(const Size(1280, 1200));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       await tester.pumpWidget(
@@ -293,14 +296,21 @@ void main() {
       expect(find.byType(EmailVerificationScreen), findsNothing);
 
       final textFields = find.byType(TextField);
-      expect(textFields, findsNWidgets(5));
+      expect(textFields, findsNWidgets(6));
 
-      // Fill registration form: name, email, phone, password, confirmPassword
+      // Fill registration form: name, username, email, phone, password, confirmPassword
       await tester.enterText(textFields.at(0), 'Pelanggan Baru');
-      await tester.enterText(textFields.at(1), 'newuser@digiq.com');
-      await tester.enterText(textFields.at(2), '081234567890');
-      await tester.enterText(textFields.at(3), 'SecurePass123!');
+      await tester.enterText(textFields.at(1), 'pelangganbaru');
+      await tester.enterText(textFields.at(2), 'newuser@digiq.com');
+      await tester.enterText(textFields.at(3), '081234567890');
       await tester.enterText(textFields.at(4), 'SecurePass123!');
+      await tester.enterText(textFields.at(5), 'SecurePass123!');
+      await tester.pumpAndSettle();
+
+      // Tap terms and conditions checkbox
+      final agreeFinder = find.byWidgetPredicate((w) => w is GestureDetector && w.child is Row);
+      expect(agreeFinder, findsOneWidget);
+      await tester.tap(agreeFinder);
       await tester.pumpAndSettle();
 
       final registerButton = find.byType(ElevatedButton);

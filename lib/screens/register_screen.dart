@@ -5,8 +5,6 @@ import '../services/auth_service.dart';
 import '../services/app_language.dart';
 import '../theme/app_theme.dart';
 import 'auth/email_verification_screen.dart';
-import 'admin_dashboard_screen.dart';
-import 'customer_dashboard_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
