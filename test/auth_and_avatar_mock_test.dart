@@ -39,8 +39,13 @@ class FakeUser extends Fake implements User {
   final String id;
   @override
   final String? email;
+  final String? mockEmailConfirmedAt;
 
-  FakeUser({required this.id, this.email});
+  FakeUser({required this.id, this.email, String? emailConfirmedAt})
+      : mockEmailConfirmedAt = emailConfirmedAt ?? '2026-01-01T00:00:00Z';
+
+  @override
+  String? get emailConfirmedAt => mockEmailConfirmedAt;
 }
 
 class FakeUserResponse extends Fake implements UserResponse {

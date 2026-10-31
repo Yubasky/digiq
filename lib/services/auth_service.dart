@@ -92,6 +92,11 @@ class AuthService {
     _usernameCache.clear();
   }
 
+  /// Invalidate cache ketersediaan untuk username spesifik saat input berubah
+  static void invalidateUsernameCache(String username) {
+    _usernameCache.remove(normalizeUsername(username));
+  }
+
   /// Normalisasi username: hapus spasi ujung dan konversi ke huruf kecil
   static String normalizeUsername(String input) => input.trim().toLowerCase();
 
@@ -456,7 +461,7 @@ class AuthService {
       // Beri jeda agar trigger handle_new_user di DB selesai dieksekusi
       await Future<void>.delayed(const Duration(milliseconds: 500));
 
-      final isAlreadyConfirmed = res.session != null || res.user?.emailConfirmedAt != null;
+      final isAlreadyConfirmed = res.user?.emailConfirmedAt != null;
       ProfileModel? profile;
       if (isAlreadyConfirmed) {
         profile = await getCurrentProfile();
@@ -664,9 +669,10 @@ class AuthService {
         if (res != null && res is String && res.contains('@')) {
           loginEmail = res.trim();
         } else {
+          // Pesan generik anti account enumeration (sama dengan password salah)
           return const AuthResult(
             success: false,
-            message: 'Username tidak ditemukan. Silakan periksa kembali username atau gunakan email akun Anda.',
+            message: 'Email atau password salah.',
           );
         }
       } catch (_) {
@@ -683,10 +689,22 @@ class AuthService {
         password: password,
       );
 
-      if (res.user == null) {
+      final authUser = res.user;
+      if (authUser == null) {
         return const AuthResult(
           success: false,
           message: 'Login gagal. Periksa kembali email dan password.',
+        );
+      }
+
+      if (authUser.emailConfirmedAt == null) {
+        try {
+          await _sb.auth.signOut();
+        } catch (_) {}
+        return const AuthResult(
+          success: false,
+          isConfirmed: false,
+          message: 'Email akun Anda belum diverifikasi. Silakan periksa email Anda untuk verifikasi.',
         );
       }
 
@@ -741,7 +759,17 @@ class AuthService {
         }
       }
     }
-    return null;
+    // Self-healing: jika akun auth.users belum punya baris profiles, panggil ensure_my_profile
+    try {
+      final res = await _sb.rpc('ensure_my_profile').timeout(const Duration(seconds: 4));
+      if (res != null && res is Map<String, dynamic>) {
+        return ProfileModel.fromMap(res);
+      }
+      final data = await _sb.from('profiles').select().eq('id', uid).single();
+      return ProfileModel.fromMap(data);
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Ambil role dari profil (untuk routing di main.dart).

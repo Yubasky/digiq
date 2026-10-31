@@ -86,6 +86,9 @@ class _RegisterScreenState extends State<RegisterScreen>
   void _onUsernameChanged({bool force = false}) {
     final currentInput = _usernameController.text.trim().toLowerCase();
     _debounceUsernameTimer?.cancel();
+    if (force) {
+      AuthService.invalidateUsernameCache(currentInput);
+    }
 
     if (currentInput.isEmpty) {
       setState(() {
@@ -119,6 +122,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     final seq = ++_usernameSeq;
     setState(() {
       _isCheckingUsername = true;
+      _usernameStatus = null;
       _usernameErrorText = null;
     });
 
@@ -301,36 +305,19 @@ class _RegisterScreenState extends State<RegisterScreen>
       return;
     }
 
-    // Coba langsung masuk (sign in) agar pengguna langsung diarahkan ke katalog toko
-    final signInRes = await AuthService.signIn(
-      email: registeredEmail,
-      password: _passwordController.text,
+    // Bersihkan sesi unverified dan arahkan HANYA ke layar verifikasi email
+    try {
+      await AuthService.signOut();
+    } catch (_) {}
+
+    if (!mounted) return;
+    _showSnack(
+      AppLanguage.isId
+          ? 'Pendaftaran berhasil! Silakan periksa email Anda untuk verifikasi.'
+          : 'Registration successful! Please check your email for verification.',
+      isError: false,
     );
 
-    if (signInRes.success) {
-      final profile = signInRes.profile ?? await AuthService.getCurrentProfile();
-      if (!mounted) return;
-      if (profile != null) {
-        _showSnack(
-          AppLanguage.isId
-              ? 'Pendaftaran berhasil! Selamat datang di DigiQ.'
-              : 'Registration successful! Welcome to DigiQ.',
-          isError: false,
-        );
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => profile.isAdmin
-                ? const AdminDashboardScreen()
-                : CustomerDashboardScreen(profile: profile),
-          ),
-          (route) => false,
-        );
-        return;
-      }
-    }
-
-    // Jika email masih belum terkonfirmasi oleh Supabase, arahkan ke layar verifikasi
-    if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => EmailVerificationScreen(

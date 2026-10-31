@@ -78,30 +78,18 @@ class _LoginScreenState extends State<LoginScreen>
         final msg = result.message ?? AppLanguage.t('login_failed');
         if (msg.toLowerCase().contains('belum diverifikasi') ||
             msg.toLowerCase().contains('unverified') ||
-            msg.toLowerCase().contains('not confirmed')) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(msg),
-              backgroundColor: AppColors.error,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              margin: const EdgeInsets.all(16),
-              action: SnackBarAction(
-                label: AppLanguage.t('verify_email_btn'),
-                textColor: Colors.white,
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => EmailVerificationScreen(
-                        email: identifier.contains('@') ? identifier : null,
-                        initialStatus: VerificationStatus.waiting,
-                      ),
-                    ),
-                  );
-                },
+            msg.toLowerCase().contains('not confirmed') ||
+            msg.toLowerCase().contains('email_not_confirmed')) {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => EmailVerificationScreen(
+                email: identifier.contains('@') ? identifier : null,
+                initialStatus: VerificationStatus.waiting,
+                errorMessage: msg,
               ),
             ),
           );
+          return;
         } else {
           _showError(msg);
         }

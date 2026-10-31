@@ -23,6 +23,7 @@ import '../services/supabase_config.dart';
 import '../services/web_url_cleaner.dart';
 import '../models/profile_model.dart';
 import '../services/app_language.dart';
+import '../theme/app_theme.dart';
 import 'auth/email_verification_screen.dart';
 import 'auth/set_new_password_screen.dart';
 import 'login_screen.dart';
@@ -281,7 +282,7 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
 
         final profile = profileSnap.data;
         if (profile == null) {
-          return const LoginScreen();
+          return const _ProfileMissingPage();
         }
 
         if (profile.isAdmin) {
@@ -301,6 +302,61 @@ class _LoadingPage extends StatelessWidget {
     return const Scaffold(
       body: Center(
         child: CircularProgressIndicator(),
+      ),
+    );
+  }
+}
+
+
+class _ProfileMissingPage extends StatelessWidget {
+  const _ProfileMissingPage();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.person_off_rounded, size: 64, color: AppColors.error),
+              const SizedBox(height: 16),
+              Text(
+                AppLanguage.isId ? 'Profil Belum Ditemukan' : 'Profile Not Found',
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                AppLanguage.isId
+                    ? 'Data profil akun Anda belum tersedia di database. Silakan keluar dan masuk kembali.'
+                    : 'Your account profile data is not available yet. Please sign out and sign in again.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  await AuthService.signOut();
+                  if (context.mounted) {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      (route) => false,
+                    );
+                  }
+                },
+                icon: const Icon(Icons.logout_rounded, size: 18),
+                label: Text(AppLanguage.isId ? 'Keluar & Masuk Ulang' : 'Sign Out & Retry'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
