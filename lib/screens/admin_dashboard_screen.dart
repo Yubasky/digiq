@@ -15,6 +15,7 @@ import '../theme/app_theme.dart';
 import '../widgets/add_product_dialog.dart';
 import '../services/app_language.dart';
 import 'login_screen.dart';
+import 'chat/chat_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -60,6 +61,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   bool _verifying = false;
   Map<String, dynamic>? _verifyResult;
 
+  // Antrean Menunggu Klaim Realtime (Migrasi 019)
+  List<PendingClaimModel> _pendingClaims = [];
+  StreamSubscription<List<PendingClaimModel>>? _claimsSub;
+  Timer? _claimsRetryTimer;
+  final Set<String> _markingDeliveredIds = {};
+
   // Mutasi Pembayaran Realtime
   List<PaymentMutationModel> _mutations = [];
   StreamSubscription<List<PaymentMutationModel>>? _mutationSub;
@@ -87,9 +94,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _subscribeTransactions();
     _subscribeProducts();
     _subscribeMutations();
+    _subscribePendingClaims();
     TransactionService.expirePendingTransactions();
   }
 
+
+  void _subscribePendingClaims() {
+    _claimsRetryTimer?.cancel();
+    _claimsSub?.cancel();
+    _claimsSub = TransactionService.watchAdminPendingClaims().listen(
+      (list) {
+        if (!mounted) return;
+        setState(() => _pendingClaims = list);
+      },
+      onError: (err) {
+        debugPrint('[AdminDashboard] _claimsSub stream error: $err');
+        if (!mounted) return;
+        _claimsRetryTimer?.cancel();
+        _claimsRetryTimer = Timer(const Duration(seconds: 5), () {
+          if (mounted) _subscribePendingClaims();
+        });
+      },
+    );
+  }
   void _subscribeTransactions() {
     _trxRetryTimer?.cancel();
     _trxSub?.cancel();
@@ -141,6 +168,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   void _subscribeMutations() {
     _mutationRetryTimer?.cancel();
+    _claimsRetryTimer?.cancel();
+    _claimsSub?.cancel();
     _mutationSub?.cancel();
     _mutationSub = TransactionService.watchPaymentMutations().listen(
       (list) {
@@ -2029,6 +2058,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ],
                 ),
               ),
+
+              const SizedBox(height: 18),
+
+              // ── Antrean Menunggu Klaim (Migrasi 019) ────────────────────────────
+              _buildPendingClaimsSection(),
 
               const SizedBox(height: 18),
 
@@ -4069,5 +4103,305 @@ END;
         ],
       ),
     );
+  }
+
+  Widget _buildPendingClaimsSection() {
+    return Container(
+      key: const Key('admin_pending_claims_section'),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _pendingClaims.isNotEmpty
+              ? AppColors.primary
+              : AppColors.cardBorder,
+          width: _pendingClaims.isNotEmpty ? 1.5 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.mark_chat_unread_rounded,
+                  color: AppColors.primaryDark,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                AppLanguage.t('admin_pending_claims_tab'),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                key: const Key('badge_pending_claims_count'),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _pendingClaims.isNotEmpty
+                      ? AppColors.warning
+                      : AppColors.textMuted,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${_pendingClaims.length}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.warningLight.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(8),
+              border:
+                  Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline,
+                    size: 14, color: AppColors.warning),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    AppLanguage.t('admin_verify_mutation_hint'),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.amber.shade900,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (_pendingClaims.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: Text(
+                  AppLanguage.t('admin_no_pending_claims'),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _pendingClaims.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              itemBuilder: (_, i) {
+                final claim = _pendingClaims[i];
+                final isDelivering =
+                    _markingDeliveredIds.contains(claim.trxId);
+                final paidAtStr = claim.paidAt != null
+                    ? '${claim.paidAt!.toLocal().day}/${claim.paidAt!.toLocal().month}/${claim.paidAt!.toLocal().year} ${claim.paidAt!.toLocal().hour.toString().padLeft(2, '0')}:${claim.paidAt!.toLocal().minute.toString().padLeft(2, '0')}'
+                    : '-';
+
+                return Container(
+                  key: Key('pending_claim_card_${claim.trxId}'),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.background,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.cardBorder),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '#${claim.trxCode}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primaryDark,
+                            ),
+                          ),
+                          Text(
+                            formatCurrency(claim.totalAmount),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        claim.productName,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Pelanggan: ${claim.customerName} • Lunas: $paidAtStr',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const Divider(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          OutlinedButton.icon(
+                            key: Key('btn_open_chat_claim_${claim.trxId}'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.primaryDark,
+                              side: const BorderSide(color: AppColors.primary),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 6),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => ChatScreen(
+                                    roomUserId: claim.userId,
+                                    customerName: claim.customerName,
+                                    isAdmin: true,
+                                  ),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.chat_outlined, size: 14),
+                            label: Text(
+                              AppLanguage.t('open_chat_btn'),
+                              style: const TextStyle(fontSize: 11.5),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            key: Key('btn_admin_deliver_${claim.trxId}'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.success,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 6),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            onPressed: isDelivering
+                                ? null
+                                : () => _confirmAdminMarkDelivered(claim.trxId),
+                            icon: isDelivering
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.check_circle_outline,
+                                    size: 14),
+                            label: Text(
+                              AppLanguage.t('chat_mark_delivered'),
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmAdminMarkDelivered(String trxId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(AppLanguage.t('chat_confirm_delivered_title')),
+        content: Text(AppLanguage.t('chat_confirm_delivered_desc')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(AppLanguage.t('cancel')),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.success,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(AppLanguage.t('chat_mark_delivered')),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _markingDeliveredIds.add(trxId));
+    try {
+      await TransactionService.adminMarkDelivered(trxId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLanguage.t('delivered_success_snack')),
+          backgroundColor: AppColors.success,
+        ),
+      );
+      _refreshStats();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal menandai terkirim: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _markingDeliveredIds.remove(trxId));
+    }
   }
 }

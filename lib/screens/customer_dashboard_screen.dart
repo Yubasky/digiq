@@ -14,6 +14,7 @@ import '../services/app_language.dart';
 import '../theme/app_theme.dart';
 import '../widgets/qris_modal.dart';
 import 'login_screen.dart';
+import 'chat/chat_screen.dart';
 
 // Shared in-memory CartItem model
 
@@ -1792,6 +1793,10 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   }
 
   Widget _buildTxCard(QrisTransaction tx) {
+    final isSuccess = tx.status == 'SUCCESS';
+    final canClaimOrChat = isSuccess && tx.claimStatus != 'delivered';
+    final isClaimNone = tx.claimStatus == 'none';
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1805,95 +1810,212 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: AppColors.successLight,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.check_circle_rounded,
-              color: AppColors.success,
-              size: 26,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  tx.productName,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
+          Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: AppColors.successLight,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  '${tx.timestamp.day}/${tx.timestamp.month}/${tx.timestamp.year} '
-                  '${tx.timestamp.hour.toString().padLeft(2, '0')}:'
-                  '${tx.timestamp.minute.toString().padLeft(2, '0')}',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textMuted,
-                  ),
+                child: const Icon(
+                  Icons.check_circle_rounded,
+                  color: AppColors.success,
+                  size: 26,
                 ),
-                const SizedBox(height: 2),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 2,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tx.productName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${tx.timestamp.day}/${tx.timestamp.month}/${tx.timestamp.year} '
+                      '${tx.timestamp.hour.toString().padLeft(2, '0')}:'
+                      '${tx.timestamp.minute.toString().padLeft(2, '0')}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.successLight,
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          child: Text(
+                            AppLanguage.t('status_success'),
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              color: AppColors.success,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        // Chip status klaim
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: tx.claimStatus == 'delivered'
+                                ? AppColors.successLight
+                                : tx.claimStatus == 'requested'
+                                    ? AppColors.warningLight
+                                    : AppColors.primaryLight,
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          child: Text(
+                            tx.claimStatus == 'delivered'
+                                ? AppLanguage.t('claim_status_delivered')
+                                : tx.claimStatus == 'requested'
+                                    ? AppLanguage.t('claim_status_requested')
+                                    : AppLanguage.t('claim_status_none'),
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              color: tx.claimStatus == 'delivered'
+                                  ? AppColors.success
+                                  : tx.claimStatus == 'requested'
+                                      ? AppColors.warning
+                                      : AppColors.primaryDark,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    formatCurrency(tx.totalAmount),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
-                  decoration: BoxDecoration(
-                    color: AppColors.successLight,
-                    borderRadius: BorderRadius.circular(5),
-                  ),
-                  child: Text(
-                    AppLanguage.t('status_success'),
+                  const SizedBox(height: 3),
+                  const Text(
+                    'via QRIS',
                     style: TextStyle(
-                      fontSize: 10.5,
-                      color: AppColors.success,
+                      fontSize: 11,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          if (canClaimOrChat) ...[
+            const Divider(height: 18),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton.icon(
+                  key: Key(isClaimNone
+                      ? 'btn_claim_history_${tx.id}'
+                      : 'btn_open_chat_history_${tx.id}'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: isClaimNone
+                        ? AppColors.primaryDark
+                        : AppColors.textPrimary,
+                    side: BorderSide(
+                      color: isClaimNone
+                          ? AppColors.primary
+                          : AppColors.cardBorder,
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 6),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onPressed: () async {
+                    if (isClaimNone && tx.rawTrxId.isNotEmpty) {
+                      try {
+                        await TransactionService.requestClaim(tx.rawTrxId);
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content:
+                                Text(AppLanguage.t('claim_success_snack')),
+                            backgroundColor: AppColors.success,
+                          ),
+                        );
+                      } catch (e) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Gagal mengajukan klaim: $e'),
+                            backgroundColor: AppColors.error,
+                          ),
+                        );
+                        return;
+                      }
+                    }
+                    if (!mounted) return;
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ChatScreen(
+                          roomUserId: tx.userId.isNotEmpty
+                              ? tx.userId
+                              : _profile.id,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: Icon(
+                    isClaimNone
+                        ? Icons.inventory_2_outlined
+                        : Icons.chat_outlined,
+                    size: 15,
+                  ),
+                  label: Text(
+                    isClaimNone
+                        ? AppLanguage.t('claim_product_btn')
+                        : AppLanguage.t('open_chat_btn'),
+                    style: const TextStyle(
+                      fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
               ],
             ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                formatCurrency(tx.totalAmount),
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                'via QRIS',
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textMuted,
-                ),
-              ),
-            ],
-          ),
+          ],
         ],
       ),
     );
   }
-
-  // ΓöÇΓöÇΓöÇ PROFIL TAB ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
   Widget _buildProfilTab() {
     return Scaffold(
